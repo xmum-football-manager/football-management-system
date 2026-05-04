@@ -30,5 +30,11 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+  const { error: roleError } = await service
+    .from('user_roles')
+    .insert({ user_id: created.user.id, role, tournament_id: null })
+
+  if (roleError) return NextResponse.json({ error: roleError.message }, { status: 500 })
+
   return NextResponse.json({ success: true, userId: created.user.id })
 }
