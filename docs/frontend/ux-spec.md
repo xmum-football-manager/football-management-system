@@ -24,14 +24,36 @@ The "How" — interaction logic, state machines, and behavior rules for every su
 
 ### Match Status Lifecycle
 ```
-Scheduled → Live → Finished
-                ↑
-            (Admin only revert)
+scheduled → live → halftime → live → finished
+                                   ↑
+                           (Admin only revert)
 ```
-- **Scheduled → Live**: Organizer only. Locks team roster and fixture details for that match.
-- **Live → Finished**: Organizer only.
+- **Scheduled → Live** ("Start Match"): Organizer only. Locks team roster and fixture details for that match.
+- **Live → Halftime** ("Half Time"): Organizer only.
+- **Halftime → Live** ("Start 2nd Half"): Organizer only.
+- **Live → Finished** ("Full Time"): Organizer only.
 - **Finished → Live**: Admin only. Action is written to `admin_audit_log`.
-- Scorekeeper can only enter scores while the match is `live`. Controls are disabled otherwise.
+- Scorekeeper can only enter scores while match status is `live`. During `halftime`, goal buttons are hidden and a "Half Time — waiting for 2nd half" message is shown. Controls are disabled for `scheduled` and `finished` as before.
+
+### Tournament Edit Lock Rules
+
+The following operations are allowed (✓) or locked (✗) based on tournament status:
+
+| Operation | setup | active | finished / archived |
+|---|---|---|---|
+| Edit `start_date` / `end_date` | ✓ | ✗ LOCKED | ✗ LOCKED |
+| Add / remove teams | ✓ | ✗ LOCKED | ✗ LOCKED |
+| Add new scheduled fixtures | ✓ | ✓ | ✗ LOCKED |
+| Delete a scheduled fixture | ✓ | ✓ | ✗ LOCKED |
+| Edit `match_time` (match is `scheduled`) | ✓ | ✓ | ✗ LOCKED |
+| Edit `match_time` (match is `live` / `halftime` / `finished`) | ✗ LOCKED | ✗ LOCKED | ✗ LOCKED |
+
+Tournament status transitions:
+- `setup` → `active`: when the first match transitions to `live`.
+- `active` → `finished`: manually by Organizer or Admin when the tournament concludes.
+- Any status → `archived`: Admin only.
+
+Lock enforcement applies at both the UI layer (controls disabled) and the DB layer (RLS policies reject the write).
 
 ---
 
@@ -138,7 +160,8 @@ No interactivity beyond navigation.
 
 ### Match Status Controls (inline per match row)
 - **Scheduled** → shows "Start Match" button (Organizer only).
-- **Live** → shows "End Match" button (Organizer only) + score display.
+- **Live** → shows "Half Time" button + "Full Time" button (Organizer only) + score display.
+- **Halftime** → shows "Start 2nd Half" button (Organizer only) + score display.
 - **Finished** → shows "Revert to Live" button (Admin only). Clicking logs to `admin_audit_log`.
 - All transitions are optimistic — the row updates immediately, then confirms from server.
 
@@ -173,6 +196,8 @@ No interactivity beyond navigation.
 ### Fixture List
 - Sorted by scheduled time.
 - Delete disabled once match status is not `scheduled`.
+- `match_time` is editable inline while the match status is `scheduled`. Once a match is `live`, `halftime`, or `finished`, `match_time` is locked.
+- Note: `match_time` is a public display estimate for the audience. It does not auto-start the match. The Organizer starts the match manually via "Start Match" on the tournament detail page.
 
 ---
 
@@ -226,6 +251,7 @@ No interactivity beyond navigation.
 - Two steppers (home / away): − button · number · + button.
 - Score saves on every button press — no explicit "Submit". Uses optimistic update.
 - Stepper buttons are disabled if match status is not `live`.
+- During `halftime`: goal buttons are hidden entirely. A message "Half Time — waiting for 2nd half" is displayed in place of the controls.
 - Minimum value: 0 (− is disabled at 0).
 
 ### Empty State

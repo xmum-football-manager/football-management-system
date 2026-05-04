@@ -27,9 +27,13 @@ The standings view is pure SQL — no app-layer aggregation. The points system v
 - `first_match_scheduled_at`: set on the first match creation; locks `format` and points system values after this point
 
 **`matches`**
-- `status`: `'scheduled'` | `'live'` | `'finished'`
+- `status`: `'scheduled'` | `'live'` | `'halftime'` | `'finished'`
+
+  Lifecycle: `scheduled → live → halftime → live → finished`. `halftime` is a pause state entered from `live`, Organizer-only. No `current_half` column — half context is inferred from transition sequence. Admin-only revert from `finished → live` is unchanged.
 - `home_score` / `away_score`: actual goals entered by scorekeeper or organizer
 - `match_started_at` / `match_finished_at`: timestamps set on status transitions
+- `match_time`: Display-only scheduled estimate shown to the audience. Editable while match status is `scheduled`. Locked once status is `live` or beyond. Does not auto-start the match — the Organizer always controls start via "Start Match".
+- `match_started_at`: Set to current timestamp when Organizer presses "Start Match". This is the authoritative actual start time.
 
 **`user_roles`**
 - `admin`: `tournament_id = NULL`, `match_id = NULL`
