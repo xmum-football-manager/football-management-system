@@ -5,13 +5,15 @@ import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from '@/components/Toast'
 import Link from 'next/link'
-import type { Team, Player } from '@/lib/supabase/types'
+import { canManageTeams } from '@/lib/lock-rules'
+import type { Team, Player, TournamentStatus } from '@/lib/supabase/types'
 
 type TeamWithPlayers = Team & { players: Player[] }
 
 export default function TeamsPage() {
   const { id: tournamentId } = useParams() as { id: string }
   const [teams, setTeams] = useState<TeamWithPlayers[]>([])
+  const [tournamentStatus, setTournamentStatus] = useState<TournamentStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [newTeamName, setNewTeamName] = useState('')
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null)
@@ -19,7 +21,11 @@ export default function TeamsPage() {
 
   async function loadTeams() {
     const supabase = createClient()
-    const { data } = await supabase.from('teams').select('*, players(*)').eq('tournament_id', tournamentId).order('name')
+    const [{ data: tournament }, { data }] = await Promise.all([
+      supabase.from('tournaments').select('status').eq('id', tournamentId).single(),
+      supabase.from('teams').select('*, players(*)').eq('tournament_id', tournamentId).order('name'),
+    ])
+    setTournamentStatus(tournament?.status ?? null)
     setTeams((data as TeamWithPlayers[]) ?? [])
     setLoading(false)
   }
@@ -42,16 +48,20 @@ export default function TeamsPage() {
   if (loading) return <PageShell tournamentId={tournamentId}><div className="text-center py-16 text-slate-400">Loading…</div></PageShell>
 
   const activeTeam = teams.find(t => t.id === selectedTeam)
+  const teamsLocked = tournamentStatus !== null && !canManageTeams(tournamentStatus)
 
   return (
     <PageShell tournamentId={tournamentId}>
       <div className="grid md:grid-cols-2 gap-6">
         <div>
           <h2 className="text-base font-bold mb-3">Teams ({teams.length})</h2>
+          {teamsLocked && (
+            <p className="text-xs text-amber-600 mb-3">Team and roster changes are locked once the tournament is active.</p>
+          )}
           <form onSubmit={addTeam} className="flex gap-2 mb-4">
             <input type="text" value={newTeamName} onChange={e => setNewTeamName(e.target.value)} placeholder="Team name"
               className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
-            <button type="submit" disabled={isPending || !newTeamName.trim()}
+            <button type="submit" disabled={isPending || !newTeamName.trim() || teamsLocked}
               className="bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg">
               Add
             </button>
@@ -75,7 +85,7 @@ export default function TeamsPage() {
         </div>
         <div>
           {activeTeam ? (
-            <RosterEditor team={activeTeam} onUpdate={loadTeams} />
+            <RosterEditor team={activeTeam} onUpdate={loadTeams} locked={teamsLocked} />
           ) : (
             <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-400">
               <p>Select a team to edit its roster.</p>
@@ -87,7 +97,7 @@ export default function TeamsPage() {
   )
 }
 
-function RosterEditor({ team, onUpdate }: { team: TeamWithPlayers; onUpdate: () => void }) {
+function RosterEditor({ team, onUpdate, locked }: { team: TeamWithPlayers; onUpdate: () => void; locked: boolean }) {
   const [form, setForm] = useState({ name: '', jersey_number: '', position: '' })
   const [isPending, startTransition] = useTransition()
   const sorted = [...team.players].sort((a, b) => (a.jersey_number ?? 999) - (b.jersey_number ?? 999))
@@ -129,7 +139,7 @@ function RosterEditor({ team, onUpdate }: { team: TeamWithPlayers; onUpdate: () 
         </div>
         <input type="text" value={form.position} onChange={e => setForm(f => ({ ...f, position: e.target.value }))}
           placeholder="Position (e.g. GK, DEF)" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
-        <button type="submit" disabled={isPending || !form.name.trim()}
+        <button type="submit" disabled={isPending || !form.name.trim() || locked}
           className="w-full bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white text-sm font-semibold py-2 rounded-lg">
           Add Player
         </button>
@@ -154,7 +164,7 @@ function RosterEditor({ team, onUpdate }: { team: TeamWithPlayers; onUpdate: () 
                   <td className="px-4 py-2 font-medium">{p.name}</td>
                   <td className="px-4 py-2 text-slate-500">{p.position ?? '—'}</td>
                   <td className="px-4 py-2">
-                    <button onClick={() => removePlayer(p.id)} disabled={isPending} className="text-red-400 hover:text-red-600 text-lg leading-none">×</button>
+                    <button onClick={() => removePlayer(p.id)} disabled={isPending || locked} className="text-red-400 hover:text-red-600 disabled:opacity-30 text-lg leading-none">×</button>
                   </td>
                 </tr>
               ))}

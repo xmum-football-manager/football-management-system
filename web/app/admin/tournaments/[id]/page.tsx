@@ -99,6 +99,7 @@ function MatchRow({ match: m, tournamentId, isOrganizer, isAdmin }:
   const statusColors: Record<string, string> = {
     scheduled: 'bg-slate-100 text-slate-500',
     live: 'bg-green-100 text-green-700',
+    halftime: 'bg-amber-100 text-amber-700',
     finished: 'bg-blue-50 text-blue-600',
   }
   return (

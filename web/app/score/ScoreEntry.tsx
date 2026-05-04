@@ -4,6 +4,7 @@ import { useState, useTransition, useOptimistic } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from '@/components/Toast'
 import { LiveBadge } from '@/components/LiveBadge'
+import { canScorekeeper } from '@/lib/match-lifecycle'
 import type { MatchWithTeams } from '@/lib/supabase/types'
 
 interface ScoreEntryProps {
@@ -34,6 +35,7 @@ export function ScoreEntry({ matches, userEmail }: ScoreEntryProps) {
                 }`}>
                 {m.home_team.name} vs {m.away_team.name}
                 {m.status === 'live' && <span className="ml-2 text-green-400">● Live</span>}
+                {m.status === 'halftime' && <span className="ml-2 text-amber-400">⏸ Half Time</span>}
               </button>
             ))}
           </div>
@@ -67,6 +69,17 @@ function MatchScorer({ match: initialMatch }: { match: MatchWithTeams }) {
     )
   }
 
+  if (match.status === 'halftime') {
+    return (
+      <div className="text-center">
+        <p className="text-4xl mb-4">⏸</p>
+        <p className="text-white text-xl font-bold">Half Time</p>
+        <p className="text-slate-400 mt-2 text-base">{match.home_team.name} {match.home_score} – {match.away_score} {match.away_team.name}</p>
+        <p className="text-slate-500 text-sm mt-3">Waiting for 2nd half to start.</p>
+      </div>
+    )
+  }
+
   if (match.status === 'finished') {
     return (
       <div className="text-center">
@@ -76,6 +89,10 @@ function MatchScorer({ match: initialMatch }: { match: MatchWithTeams }) {
         <p className="text-slate-500 text-sm mt-3">Contact organizer if a correction is needed.</p>
       </div>
     )
+  }
+
+  if (!canScorekeeper(match.status)) {
+    return null
   }
 
   function adjustScore(team: 'home' | 'away', delta: number) {

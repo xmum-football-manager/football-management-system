@@ -5,24 +5,28 @@ import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from '@/components/Toast'
 import Link from 'next/link'
-import type { Team, MatchWithTeams } from '@/lib/supabase/types'
+import { canAddFixture, canDeleteFixture } from '@/lib/lock-rules'
+import type { Team, MatchWithTeams, TournamentStatus } from '@/lib/supabase/types'
 
 export default function FixturesPage() {
   const { id: tournamentId } = useParams() as { id: string }
   const [teams, setTeams] = useState<Team[]>([])
   const [matches, setMatches] = useState<MatchWithTeams[]>([])
+  const [tournamentStatus, setTournamentStatus] = useState<TournamentStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState({ home_team_id: '', away_team_id: '', match_time: '' })
   const [isPending, startTransition] = useTransition()
 
   async function load() {
     const supabase = createClient()
-    const [{ data: t }, { data: m }] = await Promise.all([
+    const [{ data: tournament }, { data: t }, { data: m }] = await Promise.all([
+      supabase.from('tournaments').select('status').eq('id', tournamentId).single(),
       supabase.from('teams').select('*').eq('tournament_id', tournamentId).order('name'),
       supabase.from('matches')
         .select('*, home_team:teams!matches_home_team_id_fkey(*), away_team:teams!matches_away_team_id_fkey(*)')
         .eq('tournament_id', tournamentId).order('match_time', { ascending: true }),
     ])
+    setTournamentStatus(tournament?.status ?? null)
     setTeams(t ?? [])
     setMatches((m ?? []) as MatchWithTeams[])
     setLoading(false)
@@ -61,19 +65,23 @@ export default function FixturesPage() {
   if (loading) return <PageShell tournamentId={tournamentId}><div className="text-center py-16 text-slate-400">Loading…</div></PageShell>
 
   const sel = 'w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500'
+  const fixturesLocked = tournamentStatus !== null && !canAddFixture(tournamentStatus)
 
   return (
     <PageShell tournamentId={tournamentId}>
       <div className="space-y-6">
         <div className="bg-white rounded-xl border border-slate-200 p-5">
           <h2 className="text-base font-bold mb-4">Add Fixture</h2>
+          {fixturesLocked && (
+            <p className="text-xs text-amber-600 mb-3">Fixture changes are locked once the tournament is finished.</p>
+          )}
           {teams.length < 2 ? (
             <p className="text-slate-500 text-sm">
               Add at least 2 teams first.{' '}
               <Link href={`/admin/tournaments/${tournamentId}/teams`} className="text-green-600 font-medium">Manage teams →</Link>
             </p>
           ) : (
-            <form onSubmit={addFixture} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+            <form onSubmit={addFixture} className={`grid grid-cols-1 md:grid-cols-4 gap-3 items-end ${fixturesLocked ? 'opacity-50' : ''}`}>
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">Home Team</label>
                 <select value={form.home_team_id} onChange={e => setForm(f => ({ ...f, home_team_id: e.target.value }))} required className={sel}>
@@ -92,7 +100,7 @@ export default function FixturesPage() {
                 <label className="block text-xs font-medium text-slate-600 mb-1">Date & Time</label>
                 <input type="datetime-local" value={form.match_time} onChange={e => setForm(f => ({ ...f, match_time: e.target.value }))} required className={sel} />
               </div>
-              <button type="submit" disabled={isPending} className="bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-semibold py-2.5 px-4 rounded-lg text-sm">Add</button>
+              <button type="submit" disabled={isPending || fixturesLocked} className="bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-semibold py-2.5 px-4 rounded-lg text-sm">Add</button>
             </form>
           )}
         </div>
@@ -112,7 +120,7 @@ export default function FixturesPage() {
                   <div className="flex items-center gap-3">
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded-full capitalize ${m.status === 'live' ? 'bg-green-100 text-green-700' : m.status === 'finished' ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-500'}`}>{m.status}</span>
                     {m.status === 'scheduled' && (
-                      <button onClick={() => deleteFixture(m.id, m.status)} disabled={isPending} className="text-red-400 hover:text-red-600 text-lg leading-none">×</button>
+                      <button onClick={() => deleteFixture(m.id, m.status)} disabled={isPending || !canDeleteFixture(tournamentStatus ?? 'setup')} className="text-red-400 hover:text-red-600 disabled:opacity-30 text-lg leading-none">×</button>
                     )}
                   </div>
                 </div>
