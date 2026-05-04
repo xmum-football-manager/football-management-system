@@ -26,3 +26,14 @@ export function canEditMatchTime(
   if (FULLY_LOCKED.includes(tournamentStatus)) return false
   return matchStatus === 'scheduled'
 }
+
+export function canEditTournamentMeta(tournamentStatus: TournamentStatus): boolean {
+  return !FULLY_LOCKED.includes(tournamentStatus)
+}
+
+export function canEditFormat(
+  tournamentStatus: TournamentStatus,
+  firstMatchScheduledAt: string | null,
+): boolean {
+  return tournamentStatus === 'setup' && firstMatchScheduledAt === null
+}

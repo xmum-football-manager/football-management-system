@@ -62,6 +62,7 @@ export default async function TournamentDetailPage({ params }: Props) {
             { href: `/admin/tournaments/${id}/teams`, label: 'Teams & Rosters' },
             { href: `/admin/tournaments/${id}/fixtures`, label: 'Fixtures' },
             { href: `/admin/tournaments/${id}/scorekeepers`, label: 'Scorekeepers' },
+            { href: `/admin/tournaments/${id}/edit`, label: 'Edit Tournament' },
           ].map(({ href, label }) => (
             <Link key={href} href={href}
               className="bg-white border border-slate-200 hover:border-green-500 text-sm font-medium px-4 py-2 rounded-lg transition-colors">
