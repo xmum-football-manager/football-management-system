@@ -2,6 +2,7 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { MatchStatusControls } from './MatchStatusControls'
+import { OrganizerAssignment } from './OrganizerAssignment'
 import type { Tournament, MatchWithTeams } from '@/lib/supabase/types'
 
 interface Props {
@@ -67,6 +68,8 @@ export default async function TournamentDetailPage({ params }: Props) {
             </Link>
           ))}
         </div>
+
+        {isAdmin && <OrganizerAssignment tournamentId={id} />}
 
         <section>
           <h2 className="text-lg font-bold text-slate-900 mb-3">Matches</h2>
