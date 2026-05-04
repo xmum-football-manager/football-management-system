@@ -19,9 +19,11 @@ function LoginForm() {
     setError('')
     startTransition(async () => {
       const supabase = createClient()
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) {
         setError(error.message)
+      } else if (data.user?.user_metadata?.must_change_password) {
+        router.push(`/change-password?redirectTo=${encodeURIComponent(redirectTo)}`)
       } else {
         router.push(redirectTo)
         router.refresh()

@@ -38,11 +38,11 @@ export default async function UsersPage() {
       </header>
       <main className="max-w-5xl mx-auto px-4 py-8 space-y-6">
         <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <h2 className="text-base font-bold text-slate-900 mb-2">Invite Users</h2>
-          <p className="text-sm text-slate-500 mb-4">Send an invite link so they can set their own password.</p>
+          <h2 className="text-base font-bold text-slate-900 mb-2">Add User</h2>
+          <p className="text-sm text-slate-500 mb-4">Create an account with the default password. Share credentials with the user directly.</p>
           <Link href="/admin/users/invite"
             className="inline-block bg-green-600 hover:bg-green-500 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors">
-            + Invite User
+            + Add User
           </Link>
         </div>
 

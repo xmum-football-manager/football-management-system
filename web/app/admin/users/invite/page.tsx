@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { toast, ToastContainer } from '@/components/Toast'
 
-export default function InvitePage() {
+export default function AddUserPage() {
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<'organizer' | 'scorekeeper'>('organizer')
   const [isPending, startTransition] = useTransition()
@@ -12,14 +12,14 @@ export default function InvitePage() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     startTransition(async () => {
-      const res = await fetch('/api/admin/invite', {
+      const res = await fetch('/api/admin/users/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim().toLowerCase(), role }),
       })
       const data = await res.json()
-      if (!res.ok) { toast.error(data.error ?? 'Failed to send invite.'); return }
-      toast.success(`Invite sent to ${email}!`)
+      if (!res.ok) { toast.error(data.error ?? 'Failed to create user.'); return }
+      toast.success(`Account created for ${email}. Default password: footballclub`)
       setEmail('')
     })
   }
@@ -29,7 +29,7 @@ export default function InvitePage() {
       <header className="bg-white border-b border-slate-200 px-4 py-3">
         <div className="max-w-2xl mx-auto flex items-center gap-4">
           <Link href="/admin/users" className="text-slate-500 hover:text-slate-700 text-sm">← Users</Link>
-          <span className="font-bold text-slate-900">Invite User</span>
+          <span className="font-bold text-slate-900">Add User</span>
         </div>
       </header>
       <main className="max-w-2xl mx-auto px-4 py-8">
@@ -56,12 +56,12 @@ export default function InvitePage() {
               ))}
             </div>
           </div>
-          <p className="text-xs text-slate-400 bg-slate-50 rounded-lg p-3">
-            The user will receive an email with a link to set their password. Invite links expire after 24 hours.
+          <p className="text-xs text-slate-500 bg-amber-50 border border-amber-200 rounded-lg p-3">
+            The account will be created with the default password <span className="font-mono font-semibold">footballclub</span>. Share this with the user — they will be required to change it on first login.
           </p>
           <button type="submit" disabled={isPending}
             className="w-full bg-green-600 hover:bg-green-500 disabled:opacity-60 text-white font-semibold py-3 rounded-lg transition-colors">
-            {isPending ? 'Sending invite…' : 'Send Invite'}
+            {isPending ? 'Creating account…' : 'Create Account'}
           </button>
         </form>
       </main>
