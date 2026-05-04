@@ -1,7 +1,7 @@
 export type Role = 'admin' | 'organizer' | 'scorekeeper'
 export type TournamentFormat = 'round_robin' | 'knockout'
 export type TournamentStatus = 'setup' | 'active' | 'finished' | 'archived'
-export type MatchStatus = 'scheduled' | 'live' | 'finished'
+export type MatchStatus = 'scheduled' | 'live' | 'halftime' | 'finished'
 
 export interface Tournament {
   id: string
