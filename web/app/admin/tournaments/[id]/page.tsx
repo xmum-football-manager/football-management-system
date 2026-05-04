@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { MatchStatusControls } from './MatchStatusControls'
 import { OrganizerAssignment } from './OrganizerAssignment'
+import { ScoreEditor } from './ScoreEditor'
 import type { Tournament, MatchWithTeams } from '@/lib/supabase/types'
 
 interface Props {
@@ -111,7 +112,15 @@ function MatchRow({ match: m, tournamentId, isOrganizer, isAdmin }:
         <p className="font-medium text-slate-900 text-sm">{m.home_team.name} vs {m.away_team.name}</p>
         <p className="text-xs text-slate-400 mt-0.5">{matchTime}</p>
       </div>
-      {m.status !== 'scheduled' && (
+      {m.status === 'live' && isOrganizer ? (
+        <ScoreEditor
+          matchId={m.id}
+          homeScore={m.home_score}
+          awayScore={m.away_score}
+          homeName={m.home_team.name}
+          awayName={m.away_team.name}
+        />
+      ) : m.status !== 'scheduled' && (
         <span className="text-base font-bold tabular-nums">{m.home_score} – {m.away_score}</span>
       )}
       <span className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${statusColors[m.status]}`}>
