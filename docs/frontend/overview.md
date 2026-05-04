@@ -1,6 +1,4 @@
-# Frontend Architecture
-
-## Overview
+# Overview
 
 The frontend is a Next.js (App Router) application. All UI is path-based — no subdomains. There are four distinct surfaces, each with its own visual style and access rules.
 
@@ -48,7 +46,7 @@ The scorekeeper sees only the matches they are assigned to. Live matches are sor
 - **Standings** — league table (MP, W, D, L, GS, GC, GD, Pts)
 - **Teams** — team list linking to individual team/roster pages
 
-**Real-time strategy:** Supabase Realtime subscription on the `matches` table. Falls back to polling every 30 seconds if the WebSocket connection drops. Refetches on tab visibility change (user returns to browser tab).
+**Real-time strategy:** Supabase Realtime (WebSocket) subscription on the `matches` table. Falls back to polling every 30 seconds if the connection drops. Refetches on tab visibility change.
 
 **Share:** WhatsApp share button on the tournament header using the public URL.
 
@@ -59,26 +57,3 @@ The scorekeeper sees only the matches they are assigned to. Live matches are sor
 - **UI style:** Custom Tailwind
 - **Rendering:** Server component
 - Lists all active tournaments, each linking to its `/t/[id]` page
-
----
-
-## Component Structure
-
-```
-components/
-  MatchCard.tsx       — match display card (participant view)
-  StandingsTable.tsx  — league standings table (participant view)
-  LiveBadge.tsx       — animated "LIVE" indicator
-  Toast.tsx           — toast notification system (admin/score views)
-```
-
-shadcn/ui components are used only within `/admin` — not in `/t/[id]`, `/score`, or `/`.
-
----
-
-## Auth Flow
-
-- Admin/Organizer/Scorekeeper authenticate via Supabase Auth (email + password)
-- `proxy.ts` middleware guards `/admin` and `/score` routes — unauthenticated requests are redirected to the relevant login page with a `redirectTo` param
-- The login page itself is excluded from the auth check to avoid redirect loops
-- Role checks happen at the database layer via RLS — frontend routing is a secondary guard only
