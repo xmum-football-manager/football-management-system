@@ -7,6 +7,7 @@ import { StandingsCard } from '@/components/StandingsCard'
 import { TeamCard } from '@/components/TeamCard'
 import { HeroLive } from '@/components/HeroLive'
 import { BracketView } from '@/components/BracketView'
+import { QrModal } from '@/components/QrModal'
 import Link from 'next/link'
 import type { Tournament, MatchWithTeams, Standing, Team, Player } from '@/lib/supabase/types'
 
@@ -169,6 +170,7 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
   const [standings, setStandings] = useState(initialStandings)
   const [connected, setConnected] = useState(true)
   const [fixtureFilter, setFixtureFilter] = useState<MatchFilter>('all')
+  const [showQr, setShowQr] = useState(false)
 
   const refetch = useCallback(async () => {
     const supabase = createClient()
@@ -244,6 +246,16 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button onClick={() => setShowQr(true)} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 14,
+              padding: '10px 16px', borderRadius: 999,
+              border: '1.5px solid var(--ink-700)',
+              background: 'var(--ink-800)', color: 'var(--ink-50)',
+              cursor: 'pointer',
+            }}>
+              QR
+            </button>
             <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" style={{
               display: 'inline-flex', alignItems: 'center', gap: 8,
               fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 14,
@@ -257,6 +269,10 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
           </div>
         </div>
       </header>
+
+      {showQr && typeof window !== 'undefined' && (
+        <QrModal url={window.location.href} onClose={() => setShowQr(false)} />
+      )}
 
       {/* ── Offline banner ── */}
       {!connected && (
