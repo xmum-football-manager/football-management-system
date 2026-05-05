@@ -1,20 +1,21 @@
 'use client'
 
-import { useState, useTransition, useEffect } from 'react'
+import { useState, useTransition, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from '@/components/Toast'
 import Link from 'next/link'
 import type { MatchWithTeams } from '@/lib/supabase/types'
 
-interface ScorekeeperRole {
+interface ScorekeeperRow {
   user_id: string
+  email: string
   match_id: string | null
 }
 
 export default function ScorekeepersPage() {
   const { id: tournamentId } = useParams() as { id: string }
-  const [scorekeepers, setScorekeepers] = useState<ScorekeeperRole[]>([])
+  const [scorekeepers, setScorekeepers] = useState<ScorekeeperRow[]>([])
   const [matches, setMatches] = useState<MatchWithTeams[]>([])
   const [loading, setLoading] = useState(true)
   const [assignEmail, setAssignEmail] = useState('')
@@ -22,20 +23,20 @@ export default function ScorekeepersPage() {
   const [assignMatchId, setAssignMatchId] = useState('')
   const [isPending, startTransition] = useTransition()
 
-  async function load() {
+  const load = useCallback(async () => {
     const supabase = createClient()
-    const [{ data: roles }, { data: m }] = await Promise.all([
-      supabase.from('user_roles').select('user_id, match_id').eq('tournament_id', tournamentId).eq('role', 'scorekeeper'),
+    const [skRes, { data: m }] = await Promise.all([
+      fetch(`/api/admin/scorekeepers?tournamentId=${tournamentId}`),
       supabase.from('matches')
         .select('*, home_team:teams!matches_home_team_id_fkey(*), away_team:teams!matches_away_team_id_fkey(*)')
         .eq('tournament_id', tournamentId).order('match_time', { ascending: true }),
     ])
-    setScorekeepers((roles ?? []) as ScorekeeperRole[])
+    if (skRes.ok) setScorekeepers(await skRes.json())
     setMatches((m ?? []) as MatchWithTeams[])
     setLoading(false)
-  }
+  }, [tournamentId])
 
-  useEffect(() => { load() }, [tournamentId])
+  useEffect(() => { load() }, [load])
 
   function assign(e: React.FormEvent) {
     e.preventDefault()
@@ -124,7 +125,7 @@ export default function ScorekeepersPage() {
                 return (
                   <div key={`${sk.user_id}-${sk.match_id}`} className="bg-white rounded-xl border border-slate-200 px-4 py-3 flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-sm font-mono text-slate-700">{sk.user_id.slice(0, 8)}…</p>
+                      <p className="text-sm text-slate-700">{sk.email}</p>
                       <p className="text-xs text-slate-400">
                         {sk.match_id && match ? `${match.home_team.name} vs ${match.away_team.name}` : 'Entire tournament'}
                       </p>
