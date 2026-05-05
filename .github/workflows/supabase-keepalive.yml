@@ -1,0 +1,16 @@
+name: Supabase keep-alive
+
+on:
+  schedule:
+    - cron: '0 0 */5 * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping health endpoint
+        run: |
+          curl -sf "${{ secrets.NEXT_PUBLIC_APP_URL }}/api/health" \
+            -o /dev/null \
+            --max-time 30
