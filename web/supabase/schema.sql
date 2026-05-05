@@ -19,7 +19,7 @@ create table if not exists public.tournaments (
   location text,
   start_date date not null,
   end_date date not null,
-  format text not null default 'round_robin' check (format in ('round_robin', 'knockout')),
+  format text not null default 'round_robin' check (format in ('round_robin', 'round_robin_knockout', 'knockout')),
   points_win numeric(4,1) not null default 3,
   points_draw numeric(4,1) not null default 1,
   points_loss numeric(4,1) not null default 0,

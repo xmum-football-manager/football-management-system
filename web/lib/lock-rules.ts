@@ -31,6 +31,22 @@ export function canEditTournamentMeta(tournamentStatus: TournamentStatus): boole
   return !FULLY_LOCKED.includes(tournamentStatus)
 }
 
+// Name is locked 14 days before the tournament start date
+export function canEditTournamentName(
+  tournamentStatus: TournamentStatus,
+  startDate: string,
+): boolean {
+  if (FULLY_LOCKED.includes(tournamentStatus)) return false
+  const deadline = new Date(startDate)
+  deadline.setDate(deadline.getDate() - 14)
+  return new Date() <= deadline
+}
+
+// Venue and description are only editable before the tournament goes live
+export function canEditVenueDescription(tournamentStatus: TournamentStatus): boolean {
+  return tournamentStatus === 'setup'
+}
+
 export function canEditFormat(
   tournamentStatus: TournamentStatus,
   firstMatchScheduledAt: string | null,
