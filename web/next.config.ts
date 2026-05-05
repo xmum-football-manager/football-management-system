@@ -1,5 +1,6 @@
 import type { NextConfig } from 'next'
 import { PHASE_DEVELOPMENT_SERVER } from 'next/constants'
+import { withSentryConfig } from '@sentry/nextjs'
 
 const withSerwist = async (config: NextConfig): Promise<NextConfig> => {
   const { default: serwistNext } = await import('@serwist/next')
@@ -16,8 +17,9 @@ const nextConfig: NextConfig = {
 }
 
 export default async (phase: string) => {
-  if (phase === PHASE_DEVELOPMENT_SERVER) {
-    return nextConfig
-  }
-  return withSerwist(nextConfig)
+  const base = phase === PHASE_DEVELOPMENT_SERVER ? nextConfig : await withSerwist(nextConfig)
+  return withSentryConfig(base, {
+    silent: true,
+    telemetry: false,
+  })
 }
