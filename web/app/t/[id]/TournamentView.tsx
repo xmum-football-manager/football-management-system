@@ -209,9 +209,10 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
   const upcomingMatches = matches.filter(m => m.status === 'scheduled')
   const finishedMatches = matches.filter(m => m.status === 'finished')
 
-  const whatsappUrl = typeof window !== 'undefined'
-    ? `https://wa.me/?text=${encodeURIComponent(`⚽ ${tournament.name} — live scores & standings: ${window.location.href}`)}`
-    : '#'
+  const [whatsappUrl, setWhatsappUrl] = useState('#')
+  useEffect(() => {
+    setWhatsappUrl(`https://wa.me/?text=${encodeURIComponent(`⚽ ${tournament.name} — live scores & standings: ${window.location.href}`)}`)
+  }, [tournament.name])
 
   const filteredFixtures = fixtureFilter === 'all' ? matches : matches.filter(m => m.status === fixtureFilter)
 
