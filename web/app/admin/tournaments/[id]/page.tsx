@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { MatchStatusControls } from './MatchStatusControls'
 import { OrganizerAssignment } from './OrganizerAssignment'
 import { ScoreEditor } from './ScoreEditor'
+import { TournamentSetupCard } from './TournamentSetupCard'
 import type { Tournament, MatchWithTeams } from '@/lib/supabase/types'
 
 interface Props {
@@ -76,6 +77,8 @@ export default async function TournamentDetailPage({ params }: Props) {
         </div>
 
         {isAdmin && <OrganizerAssignment tournamentId={id} />}
+
+        <TournamentSetupCard tournament={t} />
 
         <section>
           <h2 className="text-lg font-bold text-slate-900 mb-3">Matches</h2>
