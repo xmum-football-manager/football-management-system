@@ -8,6 +8,17 @@ import Link from 'next/link'
 
 const inputClass = 'w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent'
 
+const POINTS_PRESETS = [
+  { label: '3 / 2 / 1  (win / draw / loss)', win: 3, draw: 2, loss: 1 },
+  { label: '1 / 0.5 / 0  (win / draw / loss)', win: 1, draw: 0.5, loss: 0 },
+]
+
+const FORMAT_OPTIONS = [
+  { value: 'round_robin', label: 'Round Robin (League)' },
+  { value: 'round_robin_knockout', label: 'Round Robin + Knockout Rounds' },
+  { value: 'knockout', label: 'Knockout Only' },
+]
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
@@ -21,18 +32,27 @@ export default function NewTournamentPage() {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [form, setForm] = useState({
-    name: '', description: '', location: '',
-    start_date: '', end_date: '', format: 'round_robin',
-    points_win: '1', points_draw: '0.5', points_loss: '0',
+    name: '',
+    description: '',
+    location: 'Xiamen University Malaysia, Football Field',
+    start_date: '',
+    end_date: '',
+    format: 'round_robin',
+    pointsPreset: 0,
   })
 
-  function update(field: string, value: string) {
+  function update(field: string, value: string | number) {
     setForm(f => ({ ...f, [field]: value }))
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (form.end_date < form.start_date) {
+      toast.error('End date cannot be before start date')
+      return
+    }
     startTransition(async () => {
+      const preset = POINTS_PRESETS[form.pointsPreset]
       const supabase = createClient()
       const { data, error } = await supabase
         .from('tournaments')
@@ -43,9 +63,9 @@ export default function NewTournamentPage() {
           start_date: form.start_date,
           end_date: form.end_date,
           format: form.format,
-          points_win: parseFloat(form.points_win),
-          points_draw: parseFloat(form.points_draw),
-          points_loss: parseFloat(form.points_loss),
+          points_win: preset.win,
+          points_draw: preset.draw,
+          points_loss: preset.loss,
         })
         .select()
         .single()
@@ -74,28 +94,45 @@ export default function NewTournamentPage() {
             <textarea value={form.description} onChange={e => update('description', e.target.value)} rows={3} className={inputClass} placeholder="Optional description" />
           </Field>
           <Field label="Location">
-            <input type="text" value={form.location} onChange={e => update('location', e.target.value)} className={inputClass} placeholder="e.g. Stadium A, University Campus" />
+            <input type="text" value={form.location} onChange={e => update('location', e.target.value)} className={inputClass} />
           </Field>
           <div className="grid grid-cols-2 gap-4">
             <Field label="Start Date *">
               <input type="date" value={form.start_date} onChange={e => update('start_date', e.target.value)} required className={inputClass} />
             </Field>
             <Field label="End Date *">
-              <input type="date" value={form.end_date} onChange={e => update('end_date', e.target.value)} required className={inputClass} />
+              <input
+                type="date"
+                value={form.end_date}
+                onChange={e => update('end_date', e.target.value)}
+                required
+                min={form.start_date || undefined}
+                className={inputClass}
+              />
             </Field>
           </div>
           <Field label="Format">
             <select value={form.format} onChange={e => update('format', e.target.value)} className={inputClass}>
-              <option value="round_robin">Round Robin (League)</option>
-              <option value="knockout">Knockout (Phase 2)</option>
+              {FORMAT_OPTIONS.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
             </select>
           </Field>
           <div className="border-t border-slate-100 pt-4">
             <p className="text-sm font-semibold text-slate-700 mb-3">Points System</p>
-            <div className="grid grid-cols-3 gap-4">
-              <Field label="Win"><input type="number" value={form.points_win} onChange={e => update('points_win', e.target.value)} step="0.5" min="0" className={inputClass} /></Field>
-              <Field label="Draw"><input type="number" value={form.points_draw} onChange={e => update('points_draw', e.target.value)} step="0.5" min="0" className={inputClass} /></Field>
-              <Field label="Loss"><input type="number" value={form.points_loss} onChange={e => update('points_loss', e.target.value)} step="0.5" min="0" className={inputClass} /></Field>
+            <div className="space-y-2">
+              {POINTS_PRESETS.map((preset, i) => (
+                <label key={i} className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="pointsPreset"
+                    checked={form.pointsPreset === i}
+                    onChange={() => update('pointsPreset', i)}
+                    className="accent-green-600"
+                  />
+                  <span className="text-sm text-slate-700">{preset.label}</span>
+                </label>
+              ))}
             </div>
           </div>
           <button type="submit" disabled={isPending} className="w-full bg-green-600 hover:bg-green-500 disabled:opacity-60 text-white font-semibold py-3 rounded-lg transition-colors">

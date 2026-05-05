@@ -54,7 +54,11 @@ export default async function TournamentDetailPage({ params }: Props) {
           <StatCard label="Status" value={<span className="capitalize">{t.status}</span>} />
           <StatCard label="Matches" value={allMatches.length} />
           <StatCard label="Live Now" value={liveCount} highlight={liveCount > 0} />
-          <StatCard label="Format" value={t.format === 'round_robin' ? 'Round Robin' : 'Knockout'} />
+          <StatCard label="Format" value={
+            t.format === 'round_robin' ? 'Round Robin' :
+            t.format === 'round_robin_knockout' ? 'RR + Knockout' :
+            'Knockout'
+          } />
         </div>
 
         <div className="flex gap-2 flex-wrap">

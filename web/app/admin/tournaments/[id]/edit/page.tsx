@@ -5,10 +5,26 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from '@/components/Toast'
-import { canEditTournamentMeta, canEditFormat } from '@/lib/lock-rules'
+import {
+  canEditTournamentName,
+  canEditVenueDescription,
+  canEditDates,
+  canEditFormat,
+} from '@/lib/lock-rules'
 import type { Tournament } from '@/lib/supabase/types'
 
 const inputClass = 'w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-slate-50 disabled:text-slate-400'
+
+const POINTS_PRESETS = [
+  { label: '3 / 2 / 1  (win / draw / loss)', win: 3, draw: 2, loss: 1 },
+  { label: '1 / 0.5 / 0  (win / draw / loss)', win: 1, draw: 0.5, loss: 0 },
+]
+
+const FORMAT_OPTIONS = [
+  { value: 'round_robin', label: 'Round Robin (League)' },
+  { value: 'round_robin_knockout', label: 'Round Robin + Knockout Rounds' },
+  { value: 'knockout', label: 'Knockout Only' },
+]
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -19,14 +35,22 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
+function matchPreset(win: number, draw: number, loss: number): number {
+  return POINTS_PRESETS.findIndex(p => p.win === win && p.draw === draw && p.loss === loss)
+}
+
 export default function EditTournamentPage() {
   const { id } = useParams() as { id: string }
   const router = useRouter()
   const [tournament, setTournament] = useState<Tournament | null>(null)
   const [form, setForm] = useState({
-    name: '', description: '', location: '',
-    start_date: '', end_date: '', format: 'round_robin',
-    points_win: '1', points_draw: '0.5', points_loss: '0',
+    name: '',
+    description: '',
+    location: '',
+    start_date: '',
+    end_date: '',
+    format: 'round_robin',
+    pointsPreset: 0,
   })
   const [isPending, startTransition] = useTransition()
 
@@ -44,41 +68,52 @@ export default function EditTournamentPage() {
         start_date: t.start_date,
         end_date: t.end_date,
         format: t.format,
-        points_win: String(t.points_win),
-        points_draw: String(t.points_draw),
-        points_loss: String(t.points_loss),
+        pointsPreset: Math.max(0, matchPreset(t.points_win, t.points_draw, t.points_loss)),
       })
     }
     load()
   }, [id])
 
-  function update(field: string, value: string) {
+  function update(field: string, value: string | number) {
     setForm(f => ({ ...f, [field]: value }))
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!tournament) return
+    if (form.end_date < form.start_date) {
+      toast.error('End date cannot be before start date')
+      return
+    }
     startTransition(async () => {
       const supabase = createClient()
-      const metaLocked = !canEditTournamentMeta(tournament.status)
+      const nameLocked = !canEditTournamentName(tournament.status, tournament.start_date)
+      const venueLocked = !canEditVenueDescription(tournament.status)
+      const datesLocked = !canEditDates(tournament.status)
       const formatLocked = !canEditFormat(tournament.status, tournament.first_match_scheduled_at)
+      const preset = POINTS_PRESETS[form.pointsPreset]
 
-      const patch: Record<string, unknown> = {
-        name: form.name,
-        description: form.description || null,
-        location: form.location || null,
+      const patch: Record<string, unknown> = {}
+
+      if (!nameLocked) patch.name = form.name
+      if (!venueLocked) {
+        patch.description = form.description || null
+        patch.location = form.location || null
       }
-
-      if (!metaLocked) {
+      if (!datesLocked) {
         patch.start_date = form.start_date
         patch.end_date = form.end_date
       }
       if (!formatLocked) {
         patch.format = form.format
-        patch.points_win = parseFloat(form.points_win)
-        patch.points_draw = parseFloat(form.points_draw)
-        patch.points_loss = parseFloat(form.points_loss)
+        patch.points_win = preset.win
+        patch.points_draw = preset.draw
+        patch.points_loss = preset.loss
+      }
+
+      if (Object.keys(patch).length === 0) {
+        toast.error('All fields are locked — nothing to save.')
+        return
       }
 
       const { error } = await supabase.from('tournaments').update(patch).eq('id', id)
@@ -96,46 +131,98 @@ export default function EditTournamentPage() {
     )
   }
 
-  const metaLocked = !canEditTournamentMeta(tournament.status)
+  const nameLocked = !canEditTournamentName(tournament.status, tournament.start_date)
+  const venueLocked = !canEditVenueDescription(tournament.status)
+  const datesLocked = !canEditDates(tournament.status)
   const formatLocked = !canEditFormat(tournament.status, tournament.first_match_scheduled_at)
-  const allLocked = metaLocked
+  const everythingLocked = nameLocked && venueLocked && datesLocked && formatLocked
 
   return (
     <PageShell id={id}>
-      {allLocked && (
+      {everythingLocked && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-700 mb-4">
           This tournament is {tournament.status} — all fields are locked.
         </div>
       )}
+      {nameLocked && !everythingLocked && (
+        <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm text-slate-600 mb-4">
+          Tournament name is locked (within 14 days of start date).
+        </div>
+      )}
+      {venueLocked && !everythingLocked && (
+        <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm text-slate-600 mb-4">
+          Venue and description are locked once the tournament goes live.
+        </div>
+      )}
       <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-slate-200 p-6 space-y-5">
         <Field label="Tournament Name *">
-          <input type="text" value={form.name} onChange={e => update('name', e.target.value)} required disabled={allLocked} className={inputClass} />
+          <input
+            type="text"
+            value={form.name}
+            onChange={e => update('name', e.target.value)}
+            required
+            disabled={nameLocked}
+            className={inputClass}
+          />
         </Field>
         <Field label="Description">
-          <textarea value={form.description} onChange={e => update('description', e.target.value)} rows={3} disabled={allLocked} className={inputClass} />
+          <textarea
+            value={form.description}
+            onChange={e => update('description', e.target.value)}
+            rows={3}
+            disabled={venueLocked}
+            className={inputClass}
+          />
         </Field>
         <Field label="Location">
-          <input type="text" value={form.location} onChange={e => update('location', e.target.value)} disabled={allLocked} className={inputClass} />
+          <input
+            type="text"
+            value={form.location}
+            onChange={e => update('location', e.target.value)}
+            disabled={venueLocked}
+            className={inputClass}
+          />
         </Field>
         <div className="grid grid-cols-2 gap-4">
           <Field label="Start Date *">
-            <input type="date" value={form.start_date} onChange={e => update('start_date', e.target.value)} required disabled={allLocked} className={inputClass} />
+            <input
+              type="date"
+              value={form.start_date}
+              onChange={e => update('start_date', e.target.value)}
+              required
+              disabled={datesLocked}
+              className={inputClass}
+            />
           </Field>
           <Field label="End Date *">
-            <input type="date" value={form.end_date} onChange={e => update('end_date', e.target.value)} required disabled={allLocked} className={inputClass} />
+            <input
+              type="date"
+              value={form.end_date}
+              onChange={e => update('end_date', e.target.value)}
+              required
+              disabled={datesLocked}
+              min={form.start_date || undefined}
+              className={inputClass}
+            />
           </Field>
         </div>
 
         <Field label="Format">
           {formatLocked ? (
             <div>
-              <input type="text" value={form.format === 'round_robin' ? 'Round Robin (League)' : 'Knockout'} disabled className={inputClass} />
+              <input
+                type="text"
+                value={FORMAT_OPTIONS.find(o => o.value === form.format)?.label ?? form.format}
+                disabled
+                className={inputClass}
+              />
               <p className="text-xs text-slate-400 mt-1">Locked once the first match is scheduled.</p>
             </div>
           ) : (
             <select value={form.format} onChange={e => update('format', e.target.value)} className={inputClass}>
-              <option value="round_robin">Round Robin (League)</option>
-              <option value="knockout">Knockout (Phase 2)</option>
+              {FORMAT_OPTIONS.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
             </select>
           )}
         </Field>
@@ -145,22 +232,26 @@ export default function EditTournamentPage() {
           {formatLocked && (
             <p className="text-xs text-slate-400 mb-3">Locked once the first match is scheduled.</p>
           )}
-          <div className="grid grid-cols-3 gap-4">
-            <Field label="Win">
-              <input type="number" value={form.points_win} onChange={e => update('points_win', e.target.value)} step="0.5" min="0" disabled={formatLocked} className={inputClass} />
-            </Field>
-            <Field label="Draw">
-              <input type="number" value={form.points_draw} onChange={e => update('points_draw', e.target.value)} step="0.5" min="0" disabled={formatLocked} className={inputClass} />
-            </Field>
-            <Field label="Loss">
-              <input type="number" value={form.points_loss} onChange={e => update('points_loss', e.target.value)} step="0.5" min="0" disabled={formatLocked} className={inputClass} />
-            </Field>
+          <div className="space-y-2">
+            {POINTS_PRESETS.map((preset, i) => (
+              <label key={i} className={`flex items-center gap-3 ${formatLocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
+                <input
+                  type="radio"
+                  name="pointsPreset"
+                  checked={form.pointsPreset === i}
+                  onChange={() => update('pointsPreset', i)}
+                  disabled={formatLocked}
+                  className="accent-green-600"
+                />
+                <span className="text-sm text-slate-700">{preset.label}</span>
+              </label>
+            ))}
           </div>
         </div>
 
         <button
           type="submit"
-          disabled={isPending || allLocked}
+          disabled={isPending || everythingLocked}
           className="w-full bg-green-600 hover:bg-green-500 disabled:opacity-60 text-white font-semibold py-3 rounded-lg transition-colors"
         >
           {isPending ? 'Saving…' : 'Save Changes'}
