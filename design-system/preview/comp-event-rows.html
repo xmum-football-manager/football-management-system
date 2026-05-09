@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"/>
+<link rel="stylesheet" href="../colors_and_type.css"/>
+<style>
+  html, body { margin: 0; padding: 0; background: var(--ink-900); color: var(--ink-50); font-family: var(--font-sans); }
+  .wrap { padding: 18px 22px; display: flex; flex-direction: column; gap: 10px; }
+  .row { display: grid; grid-template-columns: 22px 44px 1fr auto; align-items: center; gap: 12px; padding: 12px 14px; background: var(--ink-800); border: 1px solid var(--ink-700); border-radius: 12px; }
+  .icon { width: 22px; height: 22px; }
+  .min { font-family: var(--font-mono); font-size: 11px; color: var(--brand-lime); font-weight: 700; letter-spacing: 0.04em; }
+  .who { font-size: 13px; color: var(--ink-100); }
+  .who strong { font-weight: 700; color: var(--ink-50); }
+  .score { font-family: var(--font-display); font-weight: 900; font-size: 20px; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; color: var(--ink-50); display: inline-flex; align-items: center; gap: 8px; }
+  .score .sep { color: var(--ink-600); font-size: 14px; }
+  .score .new { color: var(--brand-lime); }
+</style></head>
+<body><div class="wrap">
+  <div class="row">
+    <img class="icon" src="../assets/icon-ball.svg" alt="goal"/>
+    <span class="min">67'</span>
+    <span class="who"><strong>M. Owens</strong> · Thunderhawks</span>
+    <span class="score"><span class="new">2</span><span class="sep">–</span><span>1</span></span>
+  </div>
+  <div class="row">
+    <img class="icon" src="../assets/icon-ball.svg" alt="goal"/>
+    <span class="min">38'</span>
+    <span class="who"><strong>A. Mensah</strong> · Blazers FC</span>
+    <span class="score"><span>1</span><span class="sep">–</span><span class="new">1</span></span>
+  </div>
+  <div class="row">
+    <img class="icon" src="../assets/icon-ball.svg" alt="goal"/>
+    <span class="min">12'</span>
+    <span class="who"><strong>M. Owens</strong> · Thunderhawks</span>
+    <span class="score"><span class="new">1</span><span class="sep">–</span><span>0</span></span>
+  </div>
+</div></body></html>
