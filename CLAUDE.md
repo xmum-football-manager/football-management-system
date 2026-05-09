@@ -59,3 +59,25 @@ For multi-step tasks, state a brief plan:
 ```
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+
+### 5. Subagent Usage
+
+**Use subagents to protect context, not to "go faster."**
+
+Spawn a subagent (via the Agent tool) when:
+- The task needs 3+ searches or broad codebase exploration.
+- Intermediate output would be large and only the conclusion matters.
+- There is genuinely independent work that can run in parallel.
+
+Skip the subagent when:
+- The file path or symbol is already known → use Read/Grep/Bash directly.
+- It's a single targeted lookup.
+- You'd just be re-asking what you already know.
+
+Each subagent starts cold (no conversation memory, no warm prompt cache), so the briefing prompt must be self-contained: goal, context, what to return, and a length cap.
+
+## Health Stack
+
+- typecheck: cd web && tsc --noEmit
+- lint: cd web && pnpm lint
+- test: cd web && pnpm test

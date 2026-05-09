@@ -11,6 +11,7 @@ const withSerwist = async (config: NextConfig): Promise<NextConfig> => {
 }
 
 const nextConfig: NextConfig = {
+  turbopack: { root: __dirname },
   experimental: {
     // Required for Supabase SSR cookie handling in Next.js 16
   },
