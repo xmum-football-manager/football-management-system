@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"/>
+<link rel="stylesheet" href="../colors_and_type.css"/>
+<style>
+  html, body { margin: 0; padding: 0; background: var(--ink-900); color: var(--ink-50); font-family: var(--font-sans); }
+  .wrap { padding: 18px 22px; }
+  .row { display: flex; align-items: stretch; gap: 10px; }
+  .sw { flex: 1; height: 88px; border-radius: 10px; position: relative; display: flex; flex-direction: column; justify-content: flex-end; padding: 10px 12px; }
+  .sw .nm { font-family: var(--font-display); font-weight: 800; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.95); }
+  .sw .hex { font-family: var(--font-mono); font-size: 10px; color: rgba(255,255,255,0.65); margin-top: 2px; letter-spacing: 0.04em; }
+  .sw.on-light .nm { color: var(--ink-900); }
+  .sw.on-light .hex { color: var(--ink-700); }
+  .lbl { font-family: var(--font-display); font-weight: 800; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-400); margin-bottom: 10px; }
+</style></head>
+<body><div class="wrap">
+  <div class="lbl">Brand core</div>
+  <div class="row">
+    <div class="sw" style="background:#0E1A12;border:1px solid #1C2419"><div class="nm">Pitch</div><div class="hex">#0E1A12</div></div>
+    <div class="sw on-light" style="background:#A3E635"><div class="nm">Lime</div><div class="hex">#A3E635</div></div>
+    <div class="sw on-light" style="background:#C6F455"><div class="nm">Lime bright</div><div class="hex">#C6F455</div></div>
+    <div class="sw on-light" style="background:#84CC16"><div class="nm">Lime deep</div><div class="hex">#84CC16</div></div>
+    <div class="sw on-light" style="background:#F4F7EE"><div class="nm">Chalk</div><div class="hex">#F4F7EE</div></div>
+  </div>
+</div></body></html>
