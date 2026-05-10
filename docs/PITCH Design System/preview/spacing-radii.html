@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"/>
+<link rel="stylesheet" href="../colors_and_type.css"/>
+<style>
+  html, body { margin: 0; padding: 0; background: var(--ink-900); color: var(--ink-50); font-family: var(--font-sans); }
+  .wrap { padding: 18px 22px; }
+  .lbl { font-family: var(--font-display); font-weight: 800; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-400); margin-bottom: 12px; }
+  .row { display: flex; gap: 14px; align-items: flex-end; }
+  .item { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; }
+  .box { background: var(--ink-700); border: 1px solid var(--ink-600); width: 100%; height: 64px; }
+  .meta { font-family: var(--font-display); font-weight: 800; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-300); }
+  .px { font-family: var(--font-mono); font-size: 10px; color: var(--ink-500); }
+</style></head>
+<body><div class="wrap">
+  <div class="lbl">Radii · sm md lg xl pill</div>
+  <div class="row">
+    <div class="item"><div class="box" style="border-radius:6px"></div><span class="meta">sm</span><span class="px">6 px</span></div>
+    <div class="item"><div class="box" style="border-radius:12px"></div><span class="meta">md</span><span class="px">12 px</span></div>
+    <div class="item"><div class="box" style="border-radius:18px"></div><span class="meta">lg</span><span class="px">18 px</span></div>
+    <div class="item"><div class="box" style="border-radius:24px"></div><span class="meta">xl</span><span class="px">24 px</span></div>
+    <div class="item"><div class="box" style="border-radius:999px;background:var(--brand-lime);border-color:var(--brand-lime)"></div><span class="meta">pill</span><span class="px">999 px</span></div>
+  </div>
+</div></body></html>

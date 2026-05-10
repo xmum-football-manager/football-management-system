@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"/>
+<link rel="stylesheet" href="../colors_and_type.css"/>
+<style>
+  html, body { margin: 0; padding: 0; background: var(--ink-900); color: var(--ink-50); font-family: var(--font-sans); }
+  .wrap { padding: 18px 22px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .card { padding: 16px 18px; border-radius: 16px; display: flex; flex-direction: column; gap: 8px; }
+  .a { background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.35); }
+  .b { background: var(--ink-800); border: 1px solid var(--ink-700); }
+  .nm { font-family: var(--font-display); font-weight: 800; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-200); display: inline-flex; align-items: center; gap: 6px; }
+  .body { font-family: var(--font-sans); font-size: 14px; color: var(--ink-100); line-height: 1.45; }
+  .small { font-size: 12px; color: var(--ink-400); }
+  .a .nm { color: #7DD3FC; }
+</style></head>
+<body><div class="wrap">
+  <div class="card a">
+    <span class="nm"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>Banner · state change</span>
+    <div class="body">Tournament <strong>activated.</strong> Teams, dates, format, and points are now locked.</div>
+    <span class="small">Persists 24h. Dismissible.</span>
+  </div>
+  <div class="card b">
+    <span class="nm" style="color:#FCA5A5"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>Modal · destructive confirm</span>
+    <div class="body">Type the tournament name to delete.</div>
+    <span class="small">Reversible by Admin only.</span>
+  </div>
+</div></body></html>
