@@ -1,19 +1,23 @@
 # Dependencies
-web/node_modules/
-web/.pnpm-store/
+node_modules/
+.pnpm-store/
+.pnp/
+.pnp.*
 
 # Next.js build output
-web/.next/
-web/out/
+.next/
+out/
+build/
 
-# Environment — NEVER commit these
-web/.env
-web/.env.local
-web/.env*.local
+# Environment
+.env
+.env.local
+.env*.local
+!.env.example
 
-# Supabase local dev
-web/supabase/.temp/
-web/supabase/.branches/
+# Supabase
+**/supabase/.temp/
+**/supabase/.branches/
 
 # TypeScript cache
 web/tsconfig.tsbuildinfo
@@ -26,13 +30,12 @@ web/public/sw.js.map
 web/public/workbox-*.js.map
 web/public/serwist-precache-manifest.*.js
 
-# OS
+# OS & Editor
 .DS_Store
 Thumbs.db
-
-# Editor
 .vscode/
 .idea/
 *.swp
 *.swo
 .gstack/
+
