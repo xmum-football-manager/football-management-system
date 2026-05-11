@@ -53,13 +53,15 @@ function TabStrip({ tabs, tab, setTab }: { tabs: { id: Tab; label: string }[]; t
       borderBottom: '1px solid var(--ink-700)',
     }}>
       <div ref={stripRef} style={{
-        display: 'flex', alignItems: 'center', gap: 4,
+        display: 'flex', alignItems: 'center',
         maxWidth: 1400, margin: '0 auto',
-        padding: '0 28px',
+        padding: 0,
         overflowX: 'auto',
         scrollbarWidth: 'none',
         position: 'relative',
       }}>
+        {/* Left spacer — replaces padding-left */}
+        <span style={{ flexShrink: 0, width: 16 }} aria-hidden />
         {tabs.map(t => (
           <button
             key={t.id}
@@ -67,7 +69,7 @@ function TabStrip({ tabs, tab, setTab }: { tabs: { id: Tab; label: string }[]; t
             onClick={() => setTab(t.id)}
             style={{
               flexShrink: 0,
-              padding: '16px 18px',
+              padding: '16px 14px',
               fontFamily: 'var(--font-display)',
               fontWeight: 800,
               fontSize: 13,
@@ -84,6 +86,8 @@ function TabStrip({ tabs, tab, setTab }: { tabs: { id: Tab; label: string }[]; t
             {t.label}
           </button>
         ))}
+        {/* Right spacer — preserves right padding past scroll edge */}
+        <span style={{ flexShrink: 0, width: 16 }} aria-hidden />
         <span style={{
           position: 'absolute',
           bottom: 0,
@@ -381,7 +385,7 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
             {liveMatches.length > 0 && (
               <div>
                 <p style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--red-card)', marginBottom: 14 }}>● Live now</p>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))', gap: 16 }}>
                   {liveMatches.map(m => <MatchCard key={m.id} match={m} />)}
                 </div>
               </div>
@@ -389,7 +393,7 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
             {upcomingMatches.length > 0 && (
               <div>
                 <p style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--brand-lime)', marginBottom: 14 }}>Upcoming</p>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))', gap: 16 }}>
                   {upcomingMatches.slice(0, 5).map(m => <MatchCard key={m.id} match={m} />)}
                 </div>
               </div>
@@ -397,7 +401,7 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
             {finishedMatches.length > 0 && (
               <div>
                 <p style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ink-400)', marginBottom: 14 }}>Recent results</p>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))', gap: 16 }}>
                   {[...finishedMatches].reverse().slice(0, 3).map(m => <MatchCard key={m.id} match={m} />)}
                 </div>
               </div>
