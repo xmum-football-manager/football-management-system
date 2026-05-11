@@ -92,3 +92,14 @@ export const mockBracketMatches: MatchWithTeams[] = [
   // Final
   { ...mockMatchScheduled, id: 'final-1', home_team: { ...mockTeamHome, name: 'TBD' },          away_team: { ...mockTeamAway, name: 'TBD' } },
 ]
+
+export const mockToastMessages = {
+  success: 'Tournament saved successfully.',
+  error:   'Failed to save. Please try again.',
+  info:    'Scores updated.',
+} as const
+
+export const mockQrUrls = {
+  default: 'https://football-manager.com/t/tournament-1',
+  long:    'https://football-manager.com/t/kl-city-cup-2026-grand-final-knockout-stage',
+} as const

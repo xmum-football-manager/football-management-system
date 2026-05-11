@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { fn } from 'storybook/test'
 import { Toast } from './Toast'
+import { mockToastMessages } from './__fixtures__'
 
 const meta: Meta<typeof Toast> = {
   component: Toast,
