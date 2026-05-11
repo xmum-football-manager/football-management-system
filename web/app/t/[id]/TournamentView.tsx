@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useLayoutEffect, useRef, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { MatchCard } from '@/components/MatchCard'
-import { StandingsCard } from '@/components/StandingsCard'
+import { StandingsTable } from '@/components/StandingsTable'
 import { TeamCard } from '@/components/TeamCard'
 import { HeroLive } from '@/components/HeroLive'
 import { BracketView } from '@/components/BracketView'
@@ -430,10 +430,12 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
         {/* STANDINGS tab */}
         <section id="standings" style={{ padding: '64px 0 56px' }}>
           <SectionHead eyebrow="Group stage" title="The" accent="table" />
-          {standings.length === 0
-            ? <p style={{ color: 'var(--ink-400)', textAlign: 'center', padding: '48px 0' }}>No matches played yet.</p>
-            : <StandingsCard standings={standings} />
-          }
+          <StandingsTable
+            standings={standings}
+            matches={matches}
+            groupLabel="Group A"
+            advanceCount={2}
+          />
         </section>
 
         {/* BRACKET tab */}

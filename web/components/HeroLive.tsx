@@ -78,7 +78,7 @@ export function HeroLive({ match }: HeroLiveProps) {
             <div style={{
               width: 'clamp(64px, 10vw, 104px)', height: 'clamp(64px, 10vw, 104px)',
               borderRadius: 999, background: 'var(--ink-600)',
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               fontFamily: 'var(--font-display)', fontWeight: 900,
               fontSize: 'clamp(20px, 4vw, 40px)', color: '#fff',
               boxShadow: 'inset 0 0 0 4px rgba(255,255,255,0.12), 0 12px 32px rgba(0,0,0,0.45)',
