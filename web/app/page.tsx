@@ -1,71 +1,136 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import type { Tournament } from '@/lib/supabase/types'
+import { TournamentCardItem } from '@/components/TournamentCardItem'
+import { statusBadge, statusRail, formatDateRange, formatLabel } from '@/lib/home-utils'
 
 export const revalidate = 60
 
 export default async function HomePage() {
-  const supabase = await createClient()
-  const { data: tournaments } = await supabase
-    .from('tournaments')
-    .select('*')
-    .in('status', ['setup', 'active'])
-    .order('start_date', { ascending: true })
+  let list: Tournament[] = []
 
-  const list = (tournaments ?? []) as Tournament[]
+  if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
+    const { MOCK_TOURNAMENTS } = await import('@/lib/dev-fixtures')
+    list = MOCK_TOURNAMENTS
+  } else {
+    const supabase = await createClient()
+    const { data: tournaments } = await supabase
+      .from('tournaments')
+      .select('*')
+      .in('status', ['setup', 'active'])
+      .order('start_date', { ascending: true })
+
+    list = (tournaments ?? []) as Tournament[]
+  }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="bg-[#0f172a] text-white px-4 py-6">
-        <div className="max-w-2xl mx-auto">
-          <p className="text-3xl mb-1">⚽</p>
-          <h1 className="text-2xl font-bold">Live Tournaments</h1>
-          <p className="text-slate-400 text-sm mt-1">Follow scores and standings in real time</p>
+    <div style={{ minHeight: '100vh', background: 'var(--ink-900)', color: 'var(--ink-50)' }}>
+
+      {/* ── Header ── */}
+      <header style={{
+        position: 'sticky', top: 0, zIndex: 80,
+        background: 'rgba(14,26,18,0.78)',
+        backdropFilter: 'blur(14px)',
+        WebkitBackdropFilter: 'blur(14px)',
+        borderBottom: '1px solid var(--ink-700)',
+      }}>
+        <div style={{
+          display: 'flex', alignItems: 'center',
+          padding: '14px 28px', maxWidth: 1240, margin: '0 auto',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <img src="/logo-mark.svg" alt="Pitch" width={32} height={32} />
+            <span style={{
+              fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: 22,
+              letterSpacing: '-0.02em', textTransform: 'uppercase',
+            }}>Pitch</span>
+          </div>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 py-6">
+      {/* ── Active Tournaments ── */}
+      <main style={{ maxWidth: 1240, margin: '0 auto', padding: '48px 28px 80px' }}>
+
+        {/* Section heading */}
+        <h2 style={{
+          fontFamily: 'var(--font-display)', fontWeight: 900,
+          fontSize: 'clamp(28px, 4vw, 40px)',
+          letterSpacing: '-0.02em', textTransform: 'uppercase',
+          color: 'var(--ink-50)', margin: '0 0 24px',
+        }}>
+          Active Tournaments
+        </h2>
+
         {list.length === 0 ? (
-          <div className="text-center py-20">
-            <p className="text-4xl mb-3">🏆</p>
-            <p className="text-slate-600 font-medium">No active tournaments right now.</p>
-            <p className="text-slate-400 text-sm mt-1">Check back soon.</p>
+          /* Empty state */
+          <div style={{ textAlign: 'center', padding: '80px 0' }}>
+            <div style={{
+              width: 120, height: 120, margin: '0 auto 28px',
+              borderRadius: 'var(--radius-xl)',
+              background: 'var(--ink-800)',
+              border: '1px solid var(--ink-700)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="var(--ink-500)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
+                <path d="M2 12h20" />
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+              </svg>
+            </div>
+            <h2 style={{
+              fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: 28,
+              letterSpacing: '-0.01em', textTransform: 'uppercase',
+              color: 'var(--ink-100)', margin: 0,
+            }}>No tournaments running right now</h2>
+            <p style={{
+              marginTop: 10, fontSize: 15, color: 'var(--ink-400)',
+              maxWidth: 360, marginLeft: 'auto', marginRight: 'auto',
+            }}>
+              Check back soon.
+            </p>
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
-            {list.map(t => (
-              <Link key={t.id} href={`/t/${t.id}`}>
-                <div className="bg-white rounded-xl border border-slate-200 p-4 hover:border-green-500 transition-colors">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h2 className="font-bold text-slate-900 truncate">{t.name}</h2>
-                      {t.description && (
-                        <p className="text-slate-500 text-sm mt-0.5 line-clamp-2">{t.description}</p>
-                      )}
-                      {t.location && (
-                        <p className="text-slate-400 text-xs mt-1">📍 {t.location}</p>
-                      )}
-                    </div>
-                    <span className={`shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full ${
-                      t.status === 'active'
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-slate-100 text-slate-500'
-                    }`}>
-                      {t.status === 'active' ? 'Live' : 'Upcoming'}
-                    </span>
-                  </div>
-                  {t.start_date && (
-                    <p className="text-xs text-slate-400 mt-2">
-                      {new Date(t.start_date).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })}
-                      {t.end_date && ` – ${new Date(t.end_date).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })}`}
-                    </p>
-                  )}
-                </div>
-              </Link>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {list.map((t) => (
+              <TournamentCardItem
+                key={t.id}
+                tournament={t}
+                badge={statusBadge(t.status)}
+                rail={statusRail(t.status)}
+                dateRange={formatDateRange(t.start_date, t.end_date)}
+                formatLabel={formatLabel(t.format)}
+              />
             ))}
           </div>
         )}
       </main>
+
+      {/* ── Footer ── */}
+      <footer style={{
+        borderTop: '1px solid var(--ink-700)',
+        padding: '40px 28px 56px',
+        background: 'var(--ink-900)',
+      }}>
+        <div style={{
+          maxWidth: 1240, margin: '0 auto',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          flexWrap: 'wrap', gap: 16,
+          color: 'var(--ink-400)', fontSize: 13,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <img src="/logo-mark.svg" alt="Pitch" width={24} height={24} />
+            <span style={{
+              fontFamily: 'var(--font-display)', fontWeight: 900,
+              fontSize: 16, letterSpacing: '-0.01em', textTransform: 'uppercase',
+              color: 'var(--ink-50)',
+            }}>Pitch</span>
+            <span>Live tournaments, friends &amp; rivals.</span>
+          </div>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-500)' }}>
+            &copy; {new Date().getFullYear()} PitchSide
+          </span>
+        </div>
+      </footer>
     </div>
   )
 }
