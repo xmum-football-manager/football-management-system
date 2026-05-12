@@ -37,3 +37,17 @@ Thumbs.db
 *.swp
 *.swo
 .gstack/
+
+# Claude Code / Superpowers
+.claude/
+.superpowers/
+
+# Root node_modules (Storybook)
+node_modules/
+
+# UX notes
+ux.txt
+
+# Storybook stories and vitest shims
+web/stories/
+web/vitest.shims.d.ts
