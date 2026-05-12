@@ -1,4 +1,5 @@
 import type { MatchWithTeams } from '@/lib/supabase/types'
+import { LiveBadge } from './LiveBadge'
 
 interface MatchCardProps {
   match: MatchWithTeams
@@ -24,13 +25,13 @@ export function MatchCard({ match }: MatchCardProps) {
   const homeWon = isFinished && match.home_score > match.away_score
   const awayWon = isFinished && match.away_score > match.home_score
 
-  const accentColor = isLive ? 'var(--red-card)' : isUpcoming ? 'var(--brand-lime)' : 'var(--ink-500)'
+  const accentColor = isLive ? 'var(--brand-lime)' : isUpcoming ? 'var(--brand-lime)' : 'var(--ink-500)'
 
   return (
     <div style={{
       position: 'relative',
       background: 'var(--ink-800)',
-      border: `1px solid ${isLive ? 'rgba(220,38,38,0.4)' : 'var(--ink-700)'}`,
+      border: `1px solid ${isLive ? 'rgba(163,230,53,0.3)' : 'var(--ink-700)'}`,
       borderRadius: 'var(--radius-lg)',
       padding: 20,
       overflow: 'hidden',
@@ -46,22 +47,14 @@ export function MatchCard({ match }: MatchCardProps) {
       {/* Card header: status + group */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
         {isLive && (
-          <span style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 11,
-            letterSpacing: '0.1em', textTransform: 'uppercase', color: '#FCA5A5',
-          }}>
-            <span style={{
-              width: 6, height: 6, borderRadius: 999, background: 'var(--red-card)',
-              animation: 'pitchPulse 1.6s infinite',
-            }} />
-            LIVE
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <LiveBadge size="sm" />
             {match.match_started_at && (
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--ink-300)', fontWeight: 600 }}>
                 · {Math.floor((Date.now() - new Date(match.match_started_at).getTime()) / 60000)}&apos;
               </span>
             )}
-          </span>
+          </div>
         )}
         {isFinished && (
           <span style={{
