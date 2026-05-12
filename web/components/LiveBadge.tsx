@@ -19,8 +19,8 @@ export function LiveBadge({ size = 'md' }: LiveBadgeProps) {
     }}>
       <span style={{
         width: 8, height: 8, borderRadius: 999,
-        background: '#A3E635',
-        animation: 'limePulse 1.6s infinite',
+        background: '#DC2626',
+        animation: 'pitchPulse 1.6s infinite',
         display: 'inline-block',
       }} />
       Live
