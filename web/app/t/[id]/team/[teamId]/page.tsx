@@ -6,6 +6,10 @@ interface Props {
   params: Promise<{ id: string; teamId: string }>
 }
 
+function initials(name: string) {
+  return name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+}
+
 export async function generateMetadata({ params }: Props) {
   const { teamId } = await params
   const supabase = await createClient()
@@ -18,12 +22,23 @@ export default async function TeamPage({ params }: Props) {
   const { id, teamId } = await params
   const supabase = await createClient()
 
-  const { data: team } = await supabase
-    .from('teams')
-    .select('*, players(*)')
-    .eq('id', teamId)
-    .eq('tournament_id', id)
-    .single()
+  const [teamRes, standingRes] = await Promise.all([
+    supabase
+      .from('teams')
+      .select('*, players(*)')
+      .eq('id', teamId)
+      .eq('tournament_id', id)
+      .single(),
+    supabase
+      .from('standings')
+      .select('*')
+      .eq('tournament_id', id)
+      .eq('team_id', teamId)
+      .single()
+  ])
+
+  const team = teamRes.data
+  const standing = standingRes.data
 
   if (!team) notFound()
 
@@ -35,48 +50,179 @@ export default async function TeamPage({ params }: Props) {
   })
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="bg-[#0f172a] text-white px-4 py-4">
-        <div className="max-w-2xl mx-auto">
-          <Link href={`/t/${id}`} className="text-slate-400 text-sm hover:text-white">← Back to Tournament</Link>
-          <h1 className="text-xl font-bold mt-1">{team.name}</h1>
-          <p className="text-slate-400 text-xs mt-0.5">{players.length} player{players.length !== 1 ? 's' : ''}</p>
+    <div style={{ minHeight: '100vh', background: 'var(--ink-900)', color: 'var(--ink-50)' }}>
+      {/* Header section matches /t/[id] design */}
+      <header style={{ padding: '24px 16px', maxWidth: 672, margin: '0 auto' }}>
+        <Link 
+          href={`/t/${id}`} 
+          style={{ 
+            color: 'var(--ink-400)', 
+            fontSize: 14, 
+            display: 'inline-block', 
+            marginBottom: 32,
+            textDecoration: 'none'
+          }}
+        >
+          ← Back to tournament
+        </Link>
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
+          <div style={{
+            width: 48, height: 48,
+            borderRadius: 999, background: 'var(--ink-600)',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: 'var(--font-display)', fontWeight: 900,
+            fontSize: 18, color: '#fff',
+            boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.12), 0 4px 12px rgba(0,0,0,0.3)',
+          }}>
+            {initials(team.name)}
+          </div>
+          <div>
+            <h1 style={{ 
+              margin: 0, 
+              fontFamily: 'var(--font-display)', 
+              fontWeight: 900, 
+              fontSize: 24, 
+              letterSpacing: '-0.02em', 
+              textTransform: 'uppercase' 
+            }}>
+              {team.name}
+            </h1>
+            <p style={{ margin: '2px 0 0', color: 'var(--ink-400)', fontSize: 13, fontFamily: 'var(--font-mono)' }}>
+              Group A
+            </p>
+          </div>
         </div>
-      </header>
 
-      <main className="max-w-2xl mx-auto px-4 py-6">
+        {/* Stats strip */}
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: 16, 
+          fontFamily: 'var(--font-mono)', 
+          fontSize: 12, 
+          color: 'var(--ink-400)', 
+          marginBottom: 32,
+          padding: '12px 16px',
+          background: 'var(--ink-800)',
+          borderRadius: 'var(--radius-md)',
+          border: '1px solid var(--ink-700)',
+          overflowX: 'auto',
+          whiteSpace: 'nowrap'
+        }}>
+          <span>W: <strong style={{ color: 'var(--ink-50)' }}>{standing?.wins ?? 0}</strong></span>
+          <span>D: <strong style={{ color: 'var(--ink-50)' }}>{standing?.draws ?? 0}</strong></span>
+          <span>L: <strong style={{ color: 'var(--ink-50)' }}>{standing?.losses ?? 0}</strong></span>
+          <span>GD: <strong style={{ color: standing && standing.goal_difference > 0 ? 'var(--brand-lime)' : standing && standing.goal_difference < 0 ? '#f87171' : 'var(--ink-50)' }}>
+            {standing?.goal_difference && standing.goal_difference > 0 ? `+${standing.goal_difference}` : standing?.goal_difference ?? 0}
+          </strong></span>
+          <span style={{ marginLeft: 'auto' }}>Pts: <strong style={{ color: 'var(--brand-lime)', fontSize: 14 }}>{standing?.points ?? 0}</strong></span>
+        </div>
+
+        {/* Players list */}
         {players.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="text-4xl mb-3">👤</p>
-            <p className="text-slate-600 font-medium">No players registered yet.</p>
+          <div style={{
+            background: 'var(--ink-800)',
+            border: '1px solid var(--ink-700)',
+            borderRadius: 'var(--radius-lg)',
+            padding: '64px 24px',
+            textAlign: 'center',
+          }}>
+            <p style={{ fontSize: 32, margin: '0 0 12px' }}>👤</p>
+            <p style={{
+              fontFamily: 'var(--font-sans)',
+              fontWeight: 500,
+              color: 'var(--ink-400)',
+              margin: 0,
+            }}>
+              No players registered yet.
+            </p>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-100">
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide w-12">#</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">Name</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide hidden sm:table-cell">Position</th>
-                </tr>
-              </thead>
-              <tbody>
-                {players.map((p, i) => (
-                  <tr key={p.id} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                    <td className="px-4 py-3 text-slate-400 font-mono text-xs">
-                      {p.jersey_number ?? '—'}
-                    </td>
-                    <td className="px-4 py-3 font-medium text-slate-900">{p.name}</td>
-                    <td className="px-4 py-3 text-slate-500 hidden sm:table-cell capitalize">
-                      {p.position ?? '—'}
-                    </td>
+          <div style={{
+            background: 'var(--ink-800)',
+            border: '1px solid var(--ink-700)',
+            borderRadius: 'var(--radius-lg)',
+            overflow: 'hidden',
+          }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{
+                width: '100%',
+                borderCollapse: 'collapse',
+                textAlign: 'left',
+              }}>
+                <thead>
+                  <tr>
+                    <th style={{
+                      padding: '16px',
+                      fontFamily: 'var(--font-display)', fontWeight: 800,
+                      fontSize: 10, letterSpacing: '0.12em',
+                      textTransform: 'uppercase', color: 'var(--ink-400)',
+                      borderBottom: '1px solid var(--ink-700)',
+                      width: 48,
+                    }}>#</th>
+                    <th style={{
+                      padding: '16px',
+                      fontFamily: 'var(--font-display)', fontWeight: 800,
+                      fontSize: 10, letterSpacing: '0.12em',
+                      textTransform: 'uppercase', color: 'var(--ink-400)',
+                      borderBottom: '1px solid var(--ink-700)',
+                    }}>Name</th>
+                    <th className="hidden sm:table-cell" style={{
+                      padding: '16px',
+                      fontFamily: 'var(--font-display)', fontWeight: 800,
+                      fontSize: 10, letterSpacing: '0.12em',
+                      textTransform: 'uppercase', color: 'var(--ink-400)',
+                      borderBottom: '1px solid var(--ink-700)',
+                    }}>Position</th>
+                    <th style={{
+                      padding: '16px', textAlign: 'right',
+                      fontFamily: 'var(--font-display)', fontWeight: 800,
+                      fontSize: 10, letterSpacing: '0.12em',
+                      textTransform: 'uppercase', color: 'var(--ink-400)',
+                      borderBottom: '1px solid var(--ink-700)',
+                    }}>Goals</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {players.map((p, i) => (
+                    <tr key={p.id} style={{ borderBottom: i < players.length - 1 ? '1px solid var(--ink-700)' : 'none' }}>
+                      <td style={{
+                        padding: '16px',
+                        fontFamily: 'var(--font-mono)', fontSize: 13,
+                        color: 'var(--ink-400)', fontVariantNumeric: 'tabular-nums',
+                      }}>
+                        {p.jersey_number ?? '—'}
+                      </td>
+                      <td style={{
+                        padding: '16px',
+                        fontFamily: 'var(--font-sans)', fontWeight: 600,
+                        color: 'var(--ink-50)',
+                      }}>
+                        {p.name}
+                      </td>
+                      <td className="hidden sm:table-cell" style={{
+                        padding: '16px',
+                        fontFamily: 'var(--font-sans)', fontSize: 13,
+                        color: 'var(--ink-400)', textTransform: 'capitalize',
+                      }}>
+                        {p.position ?? '—'}
+                      </td>
+                      <td style={{
+                        padding: '16px', textAlign: 'right',
+                        fontFamily: 'var(--font-mono)', fontSize: 13,
+                        color: 'var(--ink-500)', fontVariantNumeric: 'tabular-nums',
+                      }}>
+                        —
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
-      </main>
+      </header>
     </div>
   )
 }
