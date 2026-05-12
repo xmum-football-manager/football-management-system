@@ -409,7 +409,7 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
             {initialTeams.length === 0
               ? <p style={{ color: 'var(--ink-400)', textAlign: 'center', padding: '48px 0' }}>No teams added yet.</p>
               : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16, alignItems: 'start' }}>
                   {initialTeams.map(team => <TeamCard key={team.id} team={team} standings={standings} tournamentId={tournament.id} />)}
                 </div>
               )

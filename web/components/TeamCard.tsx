@@ -149,7 +149,7 @@ export function TeamCard({ team, standings, tournamentId }: TeamCardProps) {
                 fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: 16,
                 fontVariantNumeric: 'tabular-nums', color: 'var(--ink-300)',
                 textAlign: 'right',
-              }}>{'—'}</span>
+              }}>{'—'/* Update based on player goals if Goals table exists in database */}</span>
             </div>
           ))}
 
