@@ -211,7 +211,7 @@ export default async function TeamPage({ params }: Props) {
                       <td style={{
                         padding: '16px', textAlign: 'right',
                         fontFamily: 'var(--font-mono)', fontSize: 13,
-                        color: 'var(--ink-500)', fontVariantNumeric: 'tabular-nums',
+                        color: 'var(--ink-300)', fontVariantNumeric: 'tabular-nums',
                       }}>
                         —
                       </td>
