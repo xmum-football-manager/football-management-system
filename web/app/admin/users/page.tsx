@@ -11,7 +11,7 @@ const ROLE_BADGE: Record<string, string> = {
 export default async function UsersPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/admin/login')
+  if (!user) redirect('/login')
 
   const { data: callerRoles } = await supabase.from('user_roles').select('role').eq('user_id', user.id)
   if (!callerRoles?.some(r => r.role === 'admin')) redirect('/admin')
