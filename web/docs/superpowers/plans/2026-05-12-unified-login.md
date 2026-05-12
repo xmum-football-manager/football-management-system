@@ -4,7 +4,7 @@
 
 **Goal:** Replace `/admin/login` and `/score/login` with a single `/login` page that has Admin, Organizer, and Scorekeeper tabs, redirecting to the right area after login.
 
-**Architecture:** One new client component at `app/login/page.tsx` exports a pure `hasRequiredRole` helper (testable) plus the default page component. Old login pages are deleted and replaced with Next.js route handlers that 308-redirect to the new URL. Both signout routes are updated to redirect to `/login`.
+**Architecture:** One new client component at `app/login/page.tsx` exports a pure `hasRequiredRole` helper (testable) plus the default page component. Old login pages are deleted (404 — internal tool, no redirect needed). Any server-side references to the old URLs are updated to point to `/login`. Both signout routes are updated to redirect to `/login`.
 
 **Tech Stack:** Next.js 16 App Router, Supabase SSR client (`@/lib/supabase/client`), Tailwind CSS, Vitest for unit tests.
 
@@ -232,62 +232,38 @@ git commit -m "feat: add unified login page with admin/organizer/scorekeeper tab
 
 ---
 
-### Task 3: Replace old login pages with redirect routes
+### Task 3: Delete old login pages and fix all references to them
 
 **Files:**
 - Delete: `web/app/admin/login/page.tsx`
-- Create: `web/app/admin/login/route.ts`
 - Delete: `web/app/score/login/page.tsx`
-- Create: `web/app/score/login/route.ts`
+- Modify: any server components or routes that reference `/admin/login` or `/score/login`
 
-Next.js cannot have both `page.tsx` and `route.ts` in the same directory — delete the page first.
+Old login pages become 404 — this is an internal tool, no need for redirects.
 
-- [ ] **Step 1: Delete old admin login page**
-
-```bash
-rm "web/app/admin/login/page.tsx"
-```
-
-- [ ] **Step 2: Create admin login redirect route**
-
-```ts
-// web/app/admin/login/route.ts
-import { NextResponse } from 'next/server'
-
-export function GET() {
-  return NextResponse.redirect(
-    new URL('/login?tab=admin', process.env.NEXT_PUBLIC_APP_URL!),
-    308
-  )
-}
-```
-
-- [ ] **Step 3: Delete old score login page**
+- [ ] **Step 1: Find all references to the old login URLs**
 
 ```bash
-rm "web/app/score/login/page.tsx"
+cd web && grep -r "/admin/login\|/score/login" --include="*.ts" --include="*.tsx" -l | grep -v node_modules
 ```
 
-- [ ] **Step 4: Create score login redirect route**
+Note every file returned. Each one needs its reference updated to `/login`.
 
-```ts
-// web/app/score/login/route.ts
-import { NextResponse } from 'next/server'
-
-export function GET() {
-  return NextResponse.redirect(
-    new URL('/login?tab=scorekeeper', process.env.NEXT_PUBLIC_APP_URL!),
-    308
-  )
-}
-```
-
-- [ ] **Step 5: Commit**
+- [ ] **Step 2: Delete both old login pages**
 
 ```bash
-cd web && git add app/admin/login/route.ts app/score/login/route.ts
-git rm app/admin/login/page.tsx app/score/login/page.tsx
-git commit -m "feat: replace old login pages with 308 redirects to /login"
+cd web && git rm app/admin/login/page.tsx app/score/login/page.tsx
+```
+
+- [ ] **Step 3: Update every reference found in Step 1**
+
+For each file, replace `/admin/login` → `/login` and `/score/login` → `/login`. For example, `app/admin/page.tsx` has `redirect('/admin/login')` — change it to `redirect('/login')`.
+
+- [ ] **Step 4: Commit**
+
+```bash
+cd web && git add -u
+git commit -m "feat: delete old login pages (404) and update all references to /login"
 ```
 
 ---
