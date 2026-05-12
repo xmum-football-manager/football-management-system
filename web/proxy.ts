@@ -34,8 +34,6 @@ export async function proxy(request: NextRequest) {
   if (surface !== 'public') {
     // Skip auth check for login page itself
     const isLoginPath =
-      url.pathname === '/admin/login' ||
-      url.pathname === '/score/login' ||
       url.pathname.endsWith('/login')
 
     if (!isLoginPath) {
@@ -59,10 +57,7 @@ export async function proxy(request: NextRequest) {
       const { data: { user } } = await supabase.auth.getUser()
 
       if (!user) {
-        const loginUrl = new URL(
-          surface === 'admin' ? '/admin/login' : '/score/login',
-          request.url
-        )
+        const loginUrl = new URL('/login', request.url)
         loginUrl.searchParams.set('redirectTo', url.pathname)
         return NextResponse.redirect(loginUrl)
       }
