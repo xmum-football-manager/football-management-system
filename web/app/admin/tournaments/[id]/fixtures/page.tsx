@@ -32,7 +32,6 @@ export default function FixturesPage() {
     setLoading(false)
   }
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load() }, [tournamentId])
 
   function addFixture(e: React.FormEvent) {

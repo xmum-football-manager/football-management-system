@@ -58,7 +58,6 @@ export function MatchCard({ match }: MatchCardProps) {
             LIVE
             {match.match_started_at && (
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--ink-300)', fontWeight: 600 }}>
-                {/* eslint-disable-next-line react-hooks/purity */}
                 · {Math.floor((Date.now() - new Date(match.match_started_at).getTime()) / 60000)}&apos;
               </span>
             )}

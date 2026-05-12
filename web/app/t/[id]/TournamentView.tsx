@@ -211,7 +211,6 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
 
   const [whatsappUrl, setWhatsappUrl] = useState('#')
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setWhatsappUrl(`https://wa.me/?text=${encodeURIComponent(`⚽ ${tournament.name} — live scores & standings: ${window.location.href}`)}`)
   }, [tournament.name])
 

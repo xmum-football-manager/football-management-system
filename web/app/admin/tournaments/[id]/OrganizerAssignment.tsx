@@ -23,7 +23,6 @@ export function OrganizerAssignment({ tournamentId }: Props) {
     if (res.ok) setOrganizers(await res.json())
   }, [tournamentId])
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load() }, [load])
 
   function assign(e: React.FormEvent) {
