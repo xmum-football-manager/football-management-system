@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  
+  <path d="M14 8 L34 8 L34 14 Q34 26 24 28 Q14 26 14 14 Z" fill="currentColor"></path>
+  
+  <path d="M14 12 Q6 12 6 18 Q6 22 12 22" stroke="currentColor" stroke-width="3" fill="none"></path>
+  <path d="M34 12 Q42 12 42 18 Q42 22 36 22" stroke="currentColor" stroke-width="3" fill="none"></path>
+  
+  <rect x="22" y="28" width="4" height="6" fill="currentColor"></rect>
+  
+  <rect x="14" y="34" width="20" height="4" rx="1" fill="currentColor"></rect>
+  <rect x="12" y="38" width="24" height="4" rx="1" fill="currentColor"></rect>
+  
+  <path d="M24 14 L25.8 17.5 L29.5 18 L26.8 20.5 L27.5 24.2 L24 22.4 L20.5 24.2 L21.2 20.5 L18.5 18 L22.2 17.5 Z" fill="var(--icon-accent, #A3E635)"></path>
+</svg>

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"/>
+<link rel="stylesheet" href="../colors_and_type.css"/>
+<style>
+  html, body { margin: 0; padding: 0; background: var(--ink-900); color: var(--ink-50); font-family: var(--font-sans); }
+  .wrap { padding: 22px; display: flex; flex-direction: column; gap: 14px; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-sans); font-weight: 700; font-size: 14px; padding: 12px 20px; border-radius: 999px; border: 1.5px solid var(--ink-700); background: var(--ink-800); color: var(--ink-50); cursor: pointer; }
+  .btn-lime { background: var(--brand-lime); border-color: var(--brand-lime); color: var(--ink-900); }
+  .btn-ghost { background: transparent; border-color: var(--ink-600); color: var(--ink-200); }
+  .btn-danger { background: rgba(220,38,38,0.16); border-color: rgba(220,38,38,0.45); color: #FCA5A5; }
+  .btn-sm { padding: 8px 14px; font-size: 12px; }
+  .lbl { font-family: var(--font-display); font-weight: 800; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-400); }
+  svg { width: 14px; height: 14px; }
+</style></head>
+<body><div class="wrap">
+  <div class="lbl">Buttons</div>
+  <div class="row">
+    <button class="btn btn-lime"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>New Tournament</button>
+    <button class="btn">Share</button>
+    <button class="btn btn-ghost">Cancel</button>
+    <button class="btn btn-danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Delete</button>
+  </div>
+  <div class="row">
+    <button class="btn btn-lime btn-sm">Start match</button>
+    <button class="btn btn-sm">Half time</button>
+    <button class="btn btn-sm" style="background:#422006;border-color:#78350F;color:#FCD34D">Yellow card</button>
+    <button class="btn btn-sm" style="background:#450A0A;border-color:#7F1D1D;color:#FCA5A5">Red card</button>
+  </div>
+</div></body></html>
