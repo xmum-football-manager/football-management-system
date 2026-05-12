@@ -25,13 +25,13 @@ export function MatchCard({ match }: MatchCardProps) {
   const homeWon = isFinished && match.home_score > match.away_score
   const awayWon = isFinished && match.away_score > match.home_score
 
-  const accentColor = isLive ? 'var(--brand-lime)' : isUpcoming ? 'var(--brand-lime)' : 'var(--ink-500)'
+  const accentColor = isLive ? 'var(--red-card)' : isUpcoming ? 'var(--brand-lime)' : 'var(--ink-500)'
 
   return (
     <div style={{
       position: 'relative',
       background: 'var(--ink-800)',
-      border: `1px solid ${isLive ? 'rgba(163,230,53,0.3)' : 'var(--ink-700)'}`,
+      border: `1px solid ${isLive ? 'rgba(220,38,38,0.4)' : 'var(--ink-700)'}`,
       borderRadius: 'var(--radius-lg)',
       padding: 20,
       overflow: 'hidden',
