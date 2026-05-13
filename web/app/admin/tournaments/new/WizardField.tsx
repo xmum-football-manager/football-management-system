@@ -12,8 +12,10 @@ export function Field({
 }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
-      {children}
+      <label className="block text-sm font-medium text-slate-700 mb-1">
+        {label}
+        {children}
+      </label>
       {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
     </div>
   )

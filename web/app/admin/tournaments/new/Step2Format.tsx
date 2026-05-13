@@ -1,6 +1,7 @@
 'use client'
 
 import { Field, inputClass } from './WizardField'
+import { deriveFormatFlags } from '@/lib/wizard-validation'
 import type { WizardFormValue, WizardErrors, KnockoutStartRound, SeedingMethod } from '@/lib/wizard-validation'
 
 const FORMAT_OPTIONS = [
@@ -30,9 +31,7 @@ interface Props {
 }
 
 export function Step2Format({ value, onChange, errors }: Props) {
-  const hasRR = value.format === 'round_robin' || value.format === 'round_robin_knockout'
-  const hasKO = value.format === 'knockout' || value.format === 'round_robin_knockout'
-  const isHybrid = value.format === 'round_robin_knockout'
+  const { hasRR, hasKO, isHybrid } = deriveFormatFlags(value.format)
 
   function handleFormatChange(fmt: string) {
     onChange({

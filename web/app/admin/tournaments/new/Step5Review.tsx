@@ -1,5 +1,6 @@
 'use client'
 
+import { deriveFormatFlags } from '@/lib/wizard-validation'
 import type { WizardFormValue } from '@/lib/wizard-validation'
 
 const FORMAT_LABELS: Record<string, string> = {
@@ -49,9 +50,7 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 export function Step5Review({ value, onEdit }: Props) {
-  const hasRR = value.format === 'round_robin' || value.format === 'round_robin_knockout'
-  const hasKO = value.format === 'knockout' || value.format === 'round_robin_knockout'
-  const isHybrid = value.format === 'round_robin_knockout'
+  const { hasRR, hasKO, isHybrid } = deriveFormatFlags(value.format)
 
   return (
     <div className="space-y-4">
@@ -59,14 +58,14 @@ export function Step5Review({ value, onEdit }: Props) {
         <Row label="Name" value={value.name} />
         {value.description && <Row label="Description" value={value.description} />}
         <Row label="Location" value={value.location || '—'} />
-        <Row label="Dates" value={`${value.start_date} → ${value.end_date}`} />
+        <Row label="Dates" value={value.start_date || value.end_date ? `${value.start_date || '—'} → ${value.end_date || '—'}` : '—'} />
       </Section>
 
       <Section title="Format" step={2} onEdit={onEdit}>
         <Row label="Format" value={FORMAT_LABELS[value.format]} />
-        {hasRR && <Row label="Groups" value={String(value.num_groups)} />}
-        {hasRR && <Row label="Teams per group" value={String(value.teams_per_group)} />}
-        {isHybrid && <Row label="Advance per group" value={String(value.advance_per_group)} />}
+        {hasRR && <Row label="Groups" value={value.num_groups !== '' ? String(value.num_groups) : '—'} />}
+        {hasRR && <Row label="Teams per group" value={value.teams_per_group !== '' ? String(value.teams_per_group) : '—'} />}
+        {isHybrid && <Row label="Advance per group" value={value.advance_per_group !== '' ? String(value.advance_per_group) : '—'} />}
         {hasKO && <Row label="Knockout from" value={KNOCKOUT_ROUND_LABELS[value.knockout_start_round as string] ?? '—'} />}
         {hasKO && <Row label="Seeding" value={SEEDING_LABELS[value.seeding_method as string] ?? '—'} />}
       </Section>
