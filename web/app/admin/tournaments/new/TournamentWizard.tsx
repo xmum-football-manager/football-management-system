@@ -17,6 +17,7 @@ export function TournamentWizard() {
   const [step, setStep] = useState(1)
   const [value, setValue] = useState<WizardFormValue>(DEFAULT_WIZARD_FORM)
   const [errors, setErrors] = useState<WizardErrors>({})
+  const [serverError, setServerError] = useState<string | null>(null)
 
   function patch(p: Partial<WizardFormValue>) {
     setValue(v => ({ ...v, ...p }))
@@ -34,6 +35,7 @@ export function TournamentWizard() {
       setErrors({})
       setStep(s => s + 1)
     } else {
+      setServerError(null)
       startTransition(async () => {
         const result = await createTournament(value)
         if (result.errors && result.failedStep) {
@@ -42,6 +44,7 @@ export function TournamentWizard() {
           return
         }
         if (result.serverError || !result.id) {
+          setServerError(result.serverError ?? 'Failed to create tournament')
           return
         }
         router.push(`/admin/tournaments/${result.id}`)
@@ -50,7 +53,7 @@ export function TournamentWizard() {
   }
 
   function handleBack() {
-    if (step === 1) { router.push('/admin'); return }
+    if (step === 1) { setErrors({}); router.push('/admin'); return }
     setErrors({})
     setStep(s => s - 1)
   }
@@ -58,6 +61,12 @@ export function TournamentWizard() {
   const stepProps = { value, onChange: patch, errors }
 
   return (
+    <>
+    {serverError && (
+      <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-4">
+        {serverError}
+      </p>
+    )}
     <WizardStepShell
       currentStep={step}
       onBack={handleBack}
@@ -71,5 +80,6 @@ export function TournamentWizard() {
       {step === 4 && <Step4PointsScoring {...stepProps} />}
       {step === 5 && <Step5Review value={value} onEdit={n => { setErrors({}); setStep(n) }} />}
     </WizardStepShell>
+    </>
   )
 }
