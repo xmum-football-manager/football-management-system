@@ -47,7 +47,7 @@ export function Step2Format({ value, onChange, errors }: Props) {
 
   return (
     <>
-      <Field label="Format *" error={undefined}>
+      <Field label="Format *" error={errors.format}>
         <div className="space-y-2 mt-1">
           {FORMAT_OPTIONS.map(opt => (
             <label key={opt.value} className="flex items-center gap-3 cursor-pointer">
@@ -136,7 +136,6 @@ export function Step2Format({ value, onChange, errors }: Props) {
                 </label>
               ))}
             </div>
-            {errors.seeding_method && <p className="text-xs text-red-600 mt-1">{errors.seeding_method}</p>}
           </Field>
         </div>
       )}

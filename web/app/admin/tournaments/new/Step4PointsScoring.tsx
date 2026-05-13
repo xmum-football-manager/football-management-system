@@ -17,7 +17,7 @@ export function Step4PointsScoring({ value, onChange, errors }: Props) {
       <div>
         <p className="text-sm font-medium text-slate-700 mb-3">Points System *</p>
         <div className="grid grid-cols-3 gap-4">
-          <Field label="Win" error={errors.points_win}>
+          <Field label="Win *" error={errors.points_win}>
             <input
               type="number"
               step="0.5"
@@ -26,7 +26,7 @@ export function Step4PointsScoring({ value, onChange, errors }: Props) {
               className={inputClass}
             />
           </Field>
-          <Field label="Draw" error={errors.points_draw}>
+          <Field label="Draw *" error={errors.points_draw}>
             <input
               type="number"
               step="0.5"
@@ -35,7 +35,7 @@ export function Step4PointsScoring({ value, onChange, errors }: Props) {
               className={inputClass}
             />
           </Field>
-          <Field label="Loss" error={errors.points_loss}>
+          <Field label="Loss *" error={errors.points_loss}>
             <input
               type="number"
               step="0.5"

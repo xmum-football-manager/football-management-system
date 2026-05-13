@@ -31,7 +31,7 @@ function Section({ title, step, onEdit, children }: { title: string; step: numbe
           onClick={() => onEdit(step)}
           className="text-xs text-green-600 hover:text-green-500 font-medium"
         >
-          Edit
+          [Edit]
         </button>
       </div>
       <div className="space-y-1">{children}</div>
