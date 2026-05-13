@@ -78,6 +78,17 @@ export const mockTournament: Tournament = {
   first_match_scheduled_at: '2026-05-01T09:00:00Z',
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-05-12T00:00:00Z',
+  halftime_enabled: true,
+  minutes_per_half: 45,
+  halftime_minutes: 15,
+  extra_time_minutes: null,
+  penalty_shootout_enabled: false,
+  require_goal_player: false,
+  num_groups: null,
+  teams_per_group: null,
+  advance_per_group: null,
+  knockout_start_round: null,
+  seeding_method: null,
 }
 
 export const mockBracketMatches: MatchWithTeams[] = [
