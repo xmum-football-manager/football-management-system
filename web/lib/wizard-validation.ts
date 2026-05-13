@@ -1,4 +1,4 @@
-import type { TournamentFormat } from '@/lib/supabase/types'
+import type { TournamentFormat, KnockoutStartRound, SeedingMethod } from '@/lib/supabase/types'
 
 export function deriveFormatFlags(format: TournamentFormat): { hasRR: boolean; hasKO: boolean; isHybrid: boolean } {
   return {
@@ -7,9 +7,6 @@ export function deriveFormatFlags(format: TournamentFormat): { hasRR: boolean; h
     isHybrid: format === 'round_robin_knockout',
   }
 }
-
-export type KnockoutStartRound = 'top_32' | 'top_16' | 'top_8' | 'semi' | 'final'
-export type SeedingMethod = 'by_standings' | 'manual' | 'random'
 
 export interface WizardFormValue {
   // Step 1

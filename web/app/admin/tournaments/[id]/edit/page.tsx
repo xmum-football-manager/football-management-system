@@ -142,6 +142,20 @@ export default function EditTournamentPage() {
         patch.seeding_method = hasKO ? form.seeding_method || null : null
       }
 
+      if (!formatLocked) {
+        const hasRR = form.format === 'round_robin' || form.format === 'round_robin_knockout'
+        if (hasRR) {
+          if (!form.num_groups || Number(form.num_groups) < 1) {
+            toast.error('Number of groups must be at least 1')
+            return
+          }
+          if (!form.teams_per_group || Number(form.teams_per_group) < 2) {
+            toast.error('Teams per group must be at least 2')
+            return
+          }
+        }
+      }
+
       if (Object.keys(patch).length === 0) {
         toast.error('All fields are locked — nothing to save.')
         return

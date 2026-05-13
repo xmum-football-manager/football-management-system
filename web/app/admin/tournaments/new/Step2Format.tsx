@@ -2,7 +2,8 @@
 
 import { Field, inputClass } from './WizardField'
 import { deriveFormatFlags } from '@/lib/wizard-validation'
-import type { WizardFormValue, WizardErrors, KnockoutStartRound, SeedingMethod } from '@/lib/wizard-validation'
+import type { WizardFormValue, WizardErrors } from '@/lib/wizard-validation'
+import type { KnockoutStartRound, SeedingMethod } from '@/lib/supabase/types'
 
 const FORMAT_OPTIONS = [
   { value: 'round_robin', label: 'Round Robin (League)' },
