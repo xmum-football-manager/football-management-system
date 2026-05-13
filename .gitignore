@@ -1,5 +1,5 @@
 # Dependencies
-node_modules
+node_modules/
 web/node_modules/
 web/.pnpm-store/
 
@@ -37,3 +37,20 @@ Thumbs.db
 *.swp
 *.swo
 .gstack/
+
+# Claude Code / Superpowers local session files
+.claude/
+.superpowers/
+web/.claude/settings.local.json
+web/.claude/worktrees/
+
+# Root node_modules (Storybook)
+node_modules/
+
+# Storybook build output and scaffold stories
+web/storybook-static/
+web/stories/
+web/vitest.shims.d.ts
+
+# UX notes
+ux.txt

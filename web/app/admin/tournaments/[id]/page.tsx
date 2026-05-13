@@ -15,7 +15,7 @@ export default async function TournamentDetailPage({ params }: Props) {
   const { id } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/admin/login')
+  if (!user) redirect('/login')
 
   const { data: tournament } = await supabase.from('tournaments').select('*').eq('id', id).single()
   if (!tournament) notFound()

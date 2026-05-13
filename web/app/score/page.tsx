@@ -6,7 +6,7 @@ import type { MatchWithTeams } from '@/lib/supabase/types'
 export default async function ScorePage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/score/login')
+  if (!user) redirect('/login')
 
   const { data: roles } = await supabase
     .from('user_roles')
