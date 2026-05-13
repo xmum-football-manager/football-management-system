@@ -12,7 +12,7 @@ interface Props {
 export function Step3MatchRules({ value, onChange, errors }: Props) {
   return (
     <>
-      <Field label="Halftime break *" error={undefined}>
+      <Field label="Halftime break *" error={errors.halftime_enabled}>
         <div className="flex gap-6 mt-1">
           {([true, false] as const).map(yes => (
             <label key={String(yes)} className="flex items-center gap-2 cursor-pointer">
