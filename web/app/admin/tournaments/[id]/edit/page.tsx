@@ -258,6 +258,81 @@ export default function EditTournamentPage() {
           )}
         </Field>
 
+        {/* Format-conditional fields */}
+        {(form.format === 'round_robin' || form.format === 'round_robin_knockout') && (
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Number of groups</label>
+              <input
+                type="number"
+                min={1}
+                value={form.num_groups}
+                disabled={formatLocked}
+                onChange={e => update('num_groups', e.target.value === '' ? '' : Number(e.target.value))}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Teams per group</label>
+              <input
+                type="number"
+                min={2}
+                value={form.teams_per_group}
+                disabled={formatLocked}
+                onChange={e => update('teams_per_group', e.target.value === '' ? '' : Number(e.target.value))}
+                className={inputClass}
+              />
+            </div>
+            {form.format === 'round_robin_knockout' && (
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Teams advancing per group</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={form.advance_per_group}
+                  disabled={formatLocked}
+                  onChange={e => update('advance_per_group', e.target.value === '' ? '' : Number(e.target.value))}
+                  className={inputClass}
+                />
+              </div>
+            )}
+          </div>
+        )}
+        {(form.format === 'knockout' || form.format === 'round_robin_knockout') && (
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Knockout starts at</label>
+              <select
+                value={form.knockout_start_round}
+                disabled={formatLocked}
+                onChange={e => update('knockout_start_round', e.target.value)}
+                className={inputClass}
+              >
+                <option value="">Select round</option>
+                <option value="top_32">Top 32</option>
+                <option value="top_16">Top 16</option>
+                <option value="top_8">Top 8</option>
+                <option value="semi">Semi-finals</option>
+                <option value="final">Final</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Seeding method</label>
+              <select
+                value={form.seeding_method}
+                disabled={formatLocked}
+                onChange={e => update('seeding_method', e.target.value)}
+                className={inputClass}
+              >
+                <option value="">Select method</option>
+                <option value="by_standings">By standings</option>
+                <option value="manual">Manual</option>
+                <option value="random">Random</option>
+              </select>
+            </div>
+          </div>
+        )}
+
         {/* Points System */}
         <div className="border-t border-slate-100 pt-4 space-y-4">
           <div className="flex items-center justify-between">
