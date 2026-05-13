@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { fn } from 'storybook/test'
 import { QrModal } from './QrModal'
+import { mockQrUrls } from './__fixtures__'
 
 const meta: Meta<typeof QrModal> = {
   component: QrModal,
