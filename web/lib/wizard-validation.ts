@@ -1,5 +1,13 @@
 import type { TournamentFormat } from '@/lib/supabase/types'
 
+export function deriveFormatFlags(format: TournamentFormat): { hasRR: boolean; hasKO: boolean; isHybrid: boolean } {
+  return {
+    hasRR: format === 'round_robin' || format === 'round_robin_knockout',
+    hasKO: format === 'knockout' || format === 'round_robin_knockout',
+    isHybrid: format === 'round_robin_knockout',
+  }
+}
+
 export type KnockoutStartRound = 'top_32' | 'top_16' | 'top_8' | 'semi' | 'final'
 export type SeedingMethod = 'by_standings' | 'manual' | 'random'
 
@@ -74,9 +82,7 @@ function validateStep1(v: WizardFormValue): WizardErrors {
 
 function validateStep2(v: WizardFormValue): WizardErrors {
   const e: WizardErrors = {}
-  const hasRR = v.format === 'round_robin' || v.format === 'round_robin_knockout'
-  const hasKO = v.format === 'knockout' || v.format === 'round_robin_knockout'
-  const isHybrid = v.format === 'round_robin_knockout'
+  const { hasRR, hasKO, isHybrid } = deriveFormatFlags(v.format)
   if (hasRR) {
     if (v.num_groups === '' || Number(v.num_groups) < 1) e.num_groups = 'At least 1 group required'
     if (v.teams_per_group === '' || Number(v.teams_per_group) < 2) e.teams_per_group = 'At least 2 teams per group required'

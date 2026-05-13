@@ -19,6 +19,7 @@ export function Step3MatchRules({ value, onChange, errors }: Props) {
               <input
                 type="radio"
                 name="halftime_enabled"
+                value={String(yes)}
                 checked={value.halftime_enabled === yes}
                 onChange={() => onChange({ halftime_enabled: yes, halftime_minutes: yes ? 15 : '' })}
                 className="accent-green-600"
