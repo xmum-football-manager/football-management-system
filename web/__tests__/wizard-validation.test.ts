@@ -79,6 +79,9 @@ describe('validateStep 2 — Format (knockout)', () => {
   it('requires knockout_start_round', () => {
     expect(validateStep(2, { ...base, format: 'knockout', knockout_start_round: '' })).toHaveProperty('knockout_start_round')
   })
+  it('requires seeding_method for knockout', () => {
+    expect(validateStep(2, { ...base, format: 'knockout', seeding_method: '' })).toHaveProperty('seeding_method')
+  })
 })
 
 describe('validateStep 3 — Match Rules', () => {
@@ -111,5 +114,11 @@ describe('validateStep 4 — Points & Scoring', () => {
   })
   it('requires win points', () => {
     expect(validateStep(4, { ...base, points_win: '' })).toHaveProperty('points_win')
+  })
+  it('requires draw points', () => {
+    expect(validateStep(4, { ...base, points_draw: '' })).toHaveProperty('points_draw')
+  })
+  it('requires loss points', () => {
+    expect(validateStep(4, { ...base, points_loss: '' })).toHaveProperty('points_loss')
   })
 })
