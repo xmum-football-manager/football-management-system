@@ -71,7 +71,7 @@ export function HeroLive({ match }: HeroLiveProps) {
           display: 'grid',
           gridTemplateColumns: '1fr auto 1fr',
           alignItems: 'center',
-          gap: 'clamp(20px, 4vw, 64px)',
+          gap: 'clamp(4px, 4vw, 64px)',
         }}>
           {/* Home */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', textAlign: 'right', gap: 12 }}>
@@ -80,13 +80,14 @@ export function HeroLive({ match }: HeroLiveProps) {
               borderRadius: 999, background: 'var(--ink-600)',
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               fontFamily: 'var(--font-display)', fontWeight: 900,
-              fontSize: 'clamp(24px, 4vw, 40px)', color: '#fff',
+              fontSize: 'clamp(20px, 4vw, 40px)', color: '#fff',
               boxShadow: 'inset 0 0 0 4px rgba(255,255,255,0.12), 0 12px 32px rgba(0,0,0,0.45)',
             }}>{initials(match.home_team.name)}</div>
             <div style={{
               fontFamily: 'var(--font-display)', fontWeight: 900,
-              fontSize: 'clamp(20px, 3vw, 34px)', letterSpacing: '-0.02em',
-              textTransform: 'uppercase', color: 'var(--ink-50)', lineHeight: 0.95,
+              fontSize: 'clamp(12px, 3vw, 34px)', letterSpacing: '-0.02em',
+              textTransform: 'uppercase', color: 'var(--ink-50)', lineHeight: 1.1,
+              wordBreak: 'break-word', overflowWrap: 'break-word',
             }}>{match.home_team.name}</div>
           </div>
 
@@ -94,10 +95,10 @@ export function HeroLive({ match }: HeroLiveProps) {
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
             <div style={{
               fontFamily: 'var(--font-display)', fontWeight: 900,
-              fontSize: 'clamp(72px, 14vw, 160px)', lineHeight: 0.85,
+              fontSize: 'clamp(48px, 14vw, 160px)', lineHeight: 0.85,
               letterSpacing: '-0.05em', fontVariantNumeric: 'tabular-nums',
               display: 'flex', alignItems: 'baseline',
-              gap: 'clamp(8px, 2vw, 24px)', color: 'var(--ink-50)',
+              gap: 'clamp(4px, 2vw, 24px)', color: 'var(--ink-50)',
               textShadow: '0 0 60px rgba(163,230,53,0.15)',
             }}>
               <span>{match.home_score}</span>
@@ -131,8 +132,9 @@ export function HeroLive({ match }: HeroLiveProps) {
             }}>{initials(match.away_team.name)}</div>
             <div style={{
               fontFamily: 'var(--font-display)', fontWeight: 900,
-              fontSize: 'clamp(20px, 3vw, 34px)', letterSpacing: '-0.02em',
-              textTransform: 'uppercase', color: 'var(--ink-50)', lineHeight: 0.95,
+              fontSize: 'clamp(14px, 2.5vw, 34px)', letterSpacing: '-0.02em',
+              textTransform: 'uppercase', color: 'var(--ink-50)', lineHeight: 1.1,
+              wordBreak: 'break-word', overflowWrap: 'break-word',
             }}>{match.away_team.name}</div>
           </div>
         </div>
