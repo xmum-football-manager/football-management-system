@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
-  <circle cx="24" cy="24" r="20" fill="currentColor"></circle>
-  <path d="M24 10 L32 16 L29 26 L19 26 L16 16 Z" fill="var(--icon-accent, #0E1A12)"></path>
-  <path d="M10 24 L16 27 L16 36 L10 32 Z" fill="var(--icon-accent, #0E1A12)"></path>
-  <path d="M38 24 L32 27 L32 36 L38 32 Z" fill="var(--icon-accent, #0E1A12)"></path>
-  <path d="M19 36 L29 36 L26 44 L22 44 Z" fill="var(--icon-accent, #0E1A12)"></path>
-</svg>

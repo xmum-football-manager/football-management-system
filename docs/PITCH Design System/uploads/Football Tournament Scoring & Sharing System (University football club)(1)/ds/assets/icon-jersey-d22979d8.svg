@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
-  
-  <path d="M14 8 L20 6 Q24 10 28 6 L34 8 L42 14 L38 20 L34 18 L34 42 L14 42 L14 18 L10 20 L6 14 Z" fill="currentColor"></path>
-  
-  <rect x="20" y="22" width="8" height="2" fill="var(--icon-accent, #A3E635)"></rect>
-</svg>
