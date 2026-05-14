@@ -11,14 +11,9 @@ import {
   canEditDates,
   canEditFormat,
 } from '@/lib/lock-rules'
-import type { Tournament } from '@/lib/supabase/types'
+import type { Tournament, TournamentFormat } from '@/lib/supabase/types'
 
 const inputClass = 'w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-slate-50 disabled:text-slate-400'
-
-const POINTS_PRESETS = [
-  { label: '3 / 2 / 1  (win / draw / loss)', win: 3, draw: 2, loss: 1 },
-  { label: '1 / 0.5 / 0  (win / draw / loss)', win: 1, draw: 0.5, loss: 0 },
-]
 
 const FORMAT_OPTIONS = [
   { value: 'round_robin', label: 'Round Robin (League)' },
@@ -35,10 +30,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
-function matchPreset(win: number, draw: number, loss: number): number {
-  return POINTS_PRESETS.findIndex(p => p.win === win && p.draw === draw && p.loss === loss)
-}
-
 export default function EditTournamentPage() {
   const { id } = useParams() as { id: string }
   const router = useRouter()
@@ -49,8 +40,22 @@ export default function EditTournamentPage() {
     location: '',
     start_date: '',
     end_date: '',
-    format: 'round_robin',
-    pointsPreset: 0,
+    format: 'round_robin' as TournamentFormat,
+    points_win: 1,
+    points_draw: 0.5,
+    points_loss: 0,
+    // Wizard fields
+    halftime_enabled: true,
+    minutes_per_half: 45,
+    halftime_minutes: 15 as number | '',
+    extra_time_minutes: '' as number | '',
+    penalty_shootout_enabled: false,
+    require_goal_player: false,
+    num_groups: '' as number | '',
+    teams_per_group: '' as number | '',
+    advance_per_group: '' as number | '',
+    knockout_start_round: '' as string,
+    seeding_method: '' as string,
   })
   const [isPending, startTransition] = useTransition()
 
@@ -68,13 +73,26 @@ export default function EditTournamentPage() {
         start_date: t.start_date,
         end_date: t.end_date,
         format: t.format,
-        pointsPreset: Math.max(0, matchPreset(t.points_win, t.points_draw, t.points_loss)),
+        points_win: t.points_win,
+        points_draw: t.points_draw,
+        points_loss: t.points_loss,
+        halftime_enabled: t.halftime_enabled,
+        minutes_per_half: t.minutes_per_half,
+        halftime_minutes: t.halftime_minutes ?? '',
+        extra_time_minutes: t.extra_time_minutes ?? '',
+        penalty_shootout_enabled: t.penalty_shootout_enabled,
+        require_goal_player: t.require_goal_player,
+        num_groups: t.num_groups ?? '',
+        teams_per_group: t.teams_per_group ?? '',
+        advance_per_group: t.advance_per_group ?? '',
+        knockout_start_round: t.knockout_start_round ?? '',
+        seeding_method: t.seeding_method ?? '',
       })
     }
     load()
   }, [id])
 
-  function update(field: string, value: string | number) {
+  function update(field: string, value: string | number | boolean) {
     setForm(f => ({ ...f, [field]: value }))
   }
 
@@ -91,7 +109,6 @@ export default function EditTournamentPage() {
       const venueLocked = !canEditVenueDescription(tournament.status)
       const datesLocked = !canEditDates(tournament.status)
       const formatLocked = !canEditFormat(tournament.status, tournament.first_match_scheduled_at)
-      const preset = POINTS_PRESETS[form.pointsPreset]
 
       const patch: Record<string, unknown> = {}
 
@@ -106,9 +123,37 @@ export default function EditTournamentPage() {
       }
       if (!formatLocked) {
         patch.format = form.format
-        patch.points_win = preset.win
-        patch.points_draw = preset.draw
-        patch.points_loss = preset.loss
+        patch.points_win = form.points_win
+        patch.points_draw = form.points_draw
+        patch.points_loss = form.points_loss
+        patch.halftime_enabled = form.halftime_enabled
+        patch.minutes_per_half = Number(form.minutes_per_half)
+        patch.halftime_minutes = form.halftime_enabled ? Number(form.halftime_minutes) : null
+        patch.extra_time_minutes = form.extra_time_minutes !== '' ? Number(form.extra_time_minutes) : null
+        patch.penalty_shootout_enabled = form.penalty_shootout_enabled
+        patch.require_goal_player = form.require_goal_player
+        const hasRR = form.format === 'round_robin' || form.format === 'round_robin_knockout'
+        const hasKO = form.format === 'knockout' || form.format === 'round_robin_knockout'
+        const isHybrid = form.format === 'round_robin_knockout'
+        patch.num_groups = hasRR ? Number(form.num_groups) : null
+        patch.teams_per_group = hasRR ? Number(form.teams_per_group) : null
+        patch.advance_per_group = isHybrid ? Number(form.advance_per_group) : null
+        patch.knockout_start_round = hasKO ? form.knockout_start_round || null : null
+        patch.seeding_method = hasKO ? form.seeding_method || null : null
+      }
+
+      if (!formatLocked) {
+        const hasRR = form.format === 'round_robin' || form.format === 'round_robin_knockout'
+        if (hasRR) {
+          if (!form.num_groups || Number(form.num_groups) < 1) {
+            toast.error('Number of groups must be at least 1')
+            return
+          }
+          if (!form.teams_per_group || Number(form.teams_per_group) < 2) {
+            toast.error('Teams per group must be at least 2')
+            return
+          }
+        }
       }
 
       if (Object.keys(patch).length === 0) {
@@ -227,26 +272,170 @@ export default function EditTournamentPage() {
           )}
         </Field>
 
-        <div className="border-t border-slate-100 pt-4">
-          <p className="text-sm font-semibold text-slate-700 mb-1">Points System</p>
-          {formatLocked && (
-            <p className="text-xs text-slate-400 mb-3">Locked once the first match is scheduled.</p>
-          )}
-          <div className="space-y-2">
-            {POINTS_PRESETS.map((preset, i) => (
-              <label key={i} className={`flex items-center gap-3 ${formatLocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
+        {/* Format-conditional fields */}
+        {(form.format === 'round_robin' || form.format === 'round_robin_knockout') && (
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Number of groups</label>
+              <input
+                type="number"
+                min={1}
+                value={form.num_groups}
+                disabled={formatLocked}
+                onChange={e => update('num_groups', e.target.value === '' ? '' : Number(e.target.value))}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Teams per group</label>
+              <input
+                type="number"
+                min={2}
+                value={form.teams_per_group}
+                disabled={formatLocked}
+                onChange={e => update('teams_per_group', e.target.value === '' ? '' : Number(e.target.value))}
+                className={inputClass}
+              />
+            </div>
+            {form.format === 'round_robin_knockout' && (
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Teams advancing per group</label>
                 <input
-                  type="radio"
-                  name="pointsPreset"
-                  checked={form.pointsPreset === i}
-                  onChange={() => update('pointsPreset', i)}
+                  type="number"
+                  min={1}
+                  value={form.advance_per_group}
                   disabled={formatLocked}
-                  className="accent-green-600"
+                  onChange={e => update('advance_per_group', e.target.value === '' ? '' : Number(e.target.value))}
+                  className={inputClass}
                 />
-                <span className="text-sm text-slate-700">{preset.label}</span>
-              </label>
+              </div>
+            )}
+          </div>
+        )}
+        {(form.format === 'knockout' || form.format === 'round_robin_knockout') && (
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Knockout starts at</label>
+              <select
+                value={form.knockout_start_round}
+                disabled={formatLocked}
+                onChange={e => update('knockout_start_round', e.target.value)}
+                className={inputClass}
+              >
+                <option value="">Select round</option>
+                <option value="top_32">Top 32</option>
+                <option value="top_16">Top 16</option>
+                <option value="top_8">Top 8</option>
+                <option value="semi">Semi-finals</option>
+                <option value="final">Final</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Seeding method</label>
+              <select
+                value={form.seeding_method}
+                disabled={formatLocked}
+                onChange={e => update('seeding_method', e.target.value)}
+                className={inputClass}
+              >
+                <option value="">Select method</option>
+                <option value="by_standings">By standings</option>
+                <option value="manual">Manual</option>
+                <option value="random">Random</option>
+              </select>
+            </div>
+          </div>
+        )}
+
+        {/* Points System */}
+        <div className="border-t border-slate-100 pt-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-slate-700">Points System</p>
+            {formatLocked && <p className="text-xs text-slate-400">Locked after first match scheduled.</p>}
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            {(['points_win', 'points_draw', 'points_loss'] as const).map(field => (
+              <div key={field}>
+                <label className="block text-xs font-medium text-slate-600 mb-1 capitalize">
+                  {field.replace('points_', '')}
+                </label>
+                <input
+                  type="number"
+                  step="0.5"
+                  value={form[field]}
+                  disabled={formatLocked}
+                  onChange={e => update(field, Number(e.target.value))}
+                  className={inputClass}
+                />
+              </div>
             ))}
           </div>
+        </div>
+
+        {/* Match Rules */}
+        <div className="border-t border-slate-100 pt-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-slate-700">Match Rules</p>
+            {formatLocked && <p className="text-xs text-slate-400">Locked after first match scheduled.</p>}
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Time per half (min)</label>
+              <input
+                type="number"
+                min={1}
+                value={form.minutes_per_half}
+                disabled={formatLocked}
+                onChange={e => update('minutes_per_half', Number(e.target.value))}
+                className={inputClass}
+              />
+            </div>
+            {form.halftime_enabled && (
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Halftime duration (min)</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={form.halftime_minutes}
+                  disabled={formatLocked}
+                  onChange={e => update('halftime_minutes', e.target.value === '' ? '' : Number(e.target.value))}
+                  className={inputClass}
+                />
+              </div>
+            )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Extra time duration (min)</label>
+            <input
+              type="number"
+              min={0}
+              value={form.extra_time_minutes}
+              disabled={formatLocked}
+              onChange={e => update('extra_time_minutes', e.target.value === '' ? '' : Number(e.target.value))}
+              placeholder="0 or blank = none"
+              className={inputClass}
+            />
+          </div>
+          <label className={`flex items-center gap-3 ${formatLocked ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
+            <input
+              type="checkbox"
+              checked={form.penalty_shootout_enabled}
+              disabled={formatLocked}
+              onChange={e => update('penalty_shootout_enabled', e.target.checked)}
+              className="accent-green-600"
+            />
+            <span className="text-sm text-slate-700">Penalty shootout as tiebreaker (best of 5)</span>
+          </label>
+          <label className={`flex items-center gap-3 ${formatLocked ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
+            <input
+              type="checkbox"
+              checked={form.require_goal_player}
+              disabled={formatLocked}
+              onChange={e => update('require_goal_player', e.target.checked)}
+              className="accent-green-600"
+            />
+            <span className="text-sm text-slate-700">Require player attribution for goals</span>
+          </label>
         </div>
 
         <button
