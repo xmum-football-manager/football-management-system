@@ -14,6 +14,9 @@ const nextConfig: NextConfig = {
   experimental: {
     // Required for Supabase SSR cookie handling in Next.js 16
   },
+  turbopack: {
+    root: __dirname,
+  },
 }
 
 export default async (phase: string) => {
