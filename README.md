@@ -12,6 +12,7 @@ A football tournament scoring and management system for university clubs. Built 
 │   ├── lib/              Supabase clients + domain logic (lock-rules, match-lifecycle)
 │   ├── supabase/         Migrations and canonical schema.sql
 │   ├── __tests__/        Vitest unit tests (business logic only)
+│   ├── tests/            Playwright visual regression tests
 │   └── proxy.ts          Subdomain rewrites + auth guards (Next.js 16 "proxy" = middleware)
 ├── docs/                 Product + engineering docs (PRD, schema, RLS, screens, etc.)
 └── package.json          Root only holds the Supabase CLI dev-dep
@@ -95,14 +96,34 @@ Supabase Auth doesn't assign roles automatically.
 All from `web/`:
 
 ```bash
-pnpm dev              # Start dev server (http://localhost:3000)
-pnpm build            # Production build
-pnpm start            # Run the production build locally
-pnpm lint             # ESLint
-pnpm test             # Vitest, run-once
-pnpm test:watch       # Vitest, watch mode
-pnpm test:coverage    # Vitest with coverage report
+pnpm dev                  # Start dev server (http://localhost:3000)
+pnpm build                # Production build
+pnpm start                # Run the production build locally
+pnpm lint                 # ESLint
+pnpm test                 # Vitest, run-once
+pnpm test:watch           # Vitest, watch mode
+pnpm test:coverage        # Vitest with coverage report
+pnpm test:visual          # Playwright visual regression tests
+pnpm test:visual:update   # Generate/update baseline screenshots
+pnpm test:visual:ui       # Playwright interactive UI mode
+pnpm test:visual:report   # Open last test report in browser
+pnpm storybook            # Start Storybook (http://localhost:6006)
+pnpm build-storybook      # Build static Storybook
 ```
+
+## Visual testing
+
+UI screenshots are automated with **Playwright** (multi-browser, multi-viewport) and **Storybook** (component isolation).
+
+```bash
+pnpm test:visual:update   # Capture baseline screenshots (first run or after UI changes)
+pnpm test:visual          # Run visual regression tests (compares against baselines)
+pnpm test:visual:report   # View test report with diffs in browser
+```
+
+Baselines live in `web/tests/visual/snapshots/` and are committed to git. When you intentionally change UI, run `pnpm test:visual:update` to accept the new screenshots.
+
+See `web/README.md` for full setup details.
 
 When you change the schema:
 
