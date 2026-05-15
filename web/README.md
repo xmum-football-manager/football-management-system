@@ -10,7 +10,26 @@ We use **Playwright** to automate UI screenshot capture across browsers and view
 
 ```bash
 pnpm install
-pnpm exec playwright install --with-deps   # install browsers (one-time)
+pnpm exec playwright install chromium firefox webkit   # download browser binaries (one-time)
+```
+
+On Linux, WebKit requires extra system packages:
+
+```bash
+sudo apt-get install libavif16 libwoff1
+```
+
+Auth-based tests (admin, tournament pages) need credentials passed as environment variables:
+
+```bash
+export TEST_USER_EMAIL=admin@admin.com
+export TEST_USER_PASSWORD=admin123
+```
+
+Then run tests:
+
+```bash
+TEST_USER_EMAIL=admin@admin.com TEST_USER_PASSWORD=admin123 pnpm test:visual
 ```
 
 ### Commands
