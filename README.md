@@ -115,6 +115,10 @@ pnpm build-storybook      # Build static Storybook
 
 UI screenshots are automated with **Playwright** (multi-browser, multi-viewport) and **Storybook** (component isolation).
 
+Before first run, install Playwright browsers: `pnpm exec playwright install`.
+
+Auth-based tests require `TEST_USER_EMAIL` and `TEST_USER_PASSWORD` environment variables (see `web/README.md` for details).
+
 ```bash
 pnpm test:visual:update   # Capture baseline screenshots (first run or after UI changes)
 pnpm test:visual          # Run visual regression tests (compares against baselines)
