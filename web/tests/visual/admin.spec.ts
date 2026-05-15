@@ -1,4 +1,11 @@
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'fs';
+
+let tournamentId: string;
+test.beforeAll(() => {
+  const testData = JSON.parse(readFileSync('playwright/.test-data.json', 'utf-8'));
+  tournamentId = testData.tournamentId;
+});
 
 test.describe('Admin Dashboard', () => {
   test.use({ storageState: 'playwright/.auth/user.json' });
@@ -28,7 +35,7 @@ test.describe('Admin Dashboard', () => {
     });
     page.on('pageerror', err => errors.push(err.message));
 
-    await page.goto('/admin/tournaments');
+    await page.goto(`/admin/tournaments/${tournamentId}`);
     await page.waitForLoadState('networkidle');
 
     expect(errors).toEqual([]);
