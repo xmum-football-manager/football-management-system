@@ -49,3 +49,4 @@ playwright/.auth/
 playwright/.test-data.json
 playwright-report/
 test-results/
+visual-story-report.html
