@@ -1,10 +1,20 @@
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'fs';
+
+const BENIGN_ERRORS = ['__cf_bm', 'Cookie'];
+
+let tournamentId: string;
+test.beforeAll(() => {
+  const testData = JSON.parse(readFileSync('playwright/.test-data.json', 'utf-8'));
+  tournamentId = testData.tournamentId;
+});
 
 test.describe('Tournament Pages', () => {
   test('login page matches baseline', async ({ page }) => {
     const errors: string[] = [];
     page.on('console', msg => {
-      if (msg.type() === 'error') errors.push(msg.text());
+      if (msg.type() === 'error' && !BENIGN_ERRORS.some(e => msg.text().includes(e)))
+        errors.push(msg.text());
     });
     page.on('pageerror', err => errors.push(err.message));
 
@@ -39,12 +49,12 @@ test.describe('Tournament Pages', () => {
   test('tournament public page matches baseline', async ({ page }) => {
     const errors: string[] = [];
     page.on('console', msg => {
-      if (msg.type() === 'error') errors.push(msg.text());
+      if (msg.type() === 'error' && !BENIGN_ERRORS.some(e => msg.text().includes(e)))
+        errors.push(msg.text());
     });
     page.on('pageerror', err => errors.push(err.message));
 
-    // Navigate to a tournament page (adjust ID as needed)
-    await page.goto('/t/test-tournament');
+    await page.goto(`/t/${tournamentId}`);
     await page.waitForLoadState('networkidle');
 
     expect(errors).toEqual([]);

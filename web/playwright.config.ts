@@ -13,7 +13,8 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   projects: [
-    { name: 'setup', testMatch: /.*\.setup\.ts/ },
+    { name: 'seed', testMatch: /seed\.setup\.ts/ },
+    { name: 'setup', testMatch: /auth\.setup\.ts/, dependencies: ['seed'] },
     // Desktop viewports
     {
       name: 'chromium-desktop',
