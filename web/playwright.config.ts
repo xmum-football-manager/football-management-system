@@ -17,49 +17,49 @@ export default defineConfig({
     // Desktop viewports
     {
       name: 'chromium-desktop',
-      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 720 }, storageState: 'playwright/.auth/user.json' },
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 720 } },
       dependencies: ['setup'],
     },
     {
       name: 'firefox-desktop',
-      use: { ...devices['Desktop Firefox'], viewport: { width: 1280, height: 720 }, storageState: 'playwright/.auth/user.json' },
+      use: { ...devices['Desktop Firefox'], viewport: { width: 1280, height: 720 } },
       dependencies: ['setup'],
     },
     {
       name: 'webkit-desktop',
-      use: { ...devices['Desktop Safari'], viewport: { width: 1280, height: 720 }, storageState: 'playwright/.auth/user.json' },
+      use: { ...devices['Desktop Safari'], viewport: { width: 1280, height: 720 } },
       dependencies: ['setup'],
     },
     // Tablet viewports
     {
       name: 'chromium-tablet',
-      use: { ...devices['Desktop Chrome'], viewport: { width: 768, height: 1024 }, storageState: 'playwright/.auth/user.json' },
+      use: { ...devices['Desktop Chrome'], viewport: { width: 768, height: 1024 } },
       dependencies: ['setup'],
     },
     {
       name: 'firefox-tablet',
-      use: { ...devices['Desktop Firefox'], viewport: { width: 768, height: 1024 }, storageState: 'playwright/.auth/user.json' },
+      use: { ...devices['Desktop Firefox'], viewport: { width: 768, height: 1024 } },
       dependencies: ['setup'],
     },
     {
       name: 'webkit-tablet',
-      use: { ...devices['Desktop Safari'], viewport: { width: 768, height: 1024 }, storageState: 'playwright/.auth/user.json' },
+      use: { ...devices['Desktop Safari'], viewport: { width: 768, height: 1024 } },
       dependencies: ['setup'],
     },
     // Mobile viewports
     {
       name: 'chromium-mobile',
-      use: { ...devices['Pixel 5'], viewport: { width: 375, height: 667 }, storageState: 'playwright/.auth/user.json' },
+      use: { ...devices['Pixel 5'], viewport: { width: 375, height: 667 } },
       dependencies: ['setup'],
     },
     {
       name: 'firefox-mobile',
-      use: { ...devices['Desktop Firefox'], viewport: { width: 375, height: 667 }, storageState: 'playwright/.auth/user.json' },
+      use: { ...devices['Desktop Firefox'], viewport: { width: 375, height: 667 } },
       dependencies: ['setup'],
     },
     {
       name: 'webkit-mobile',
-      use: { ...devices['iPhone 12'], viewport: { width: 375, height: 667 }, storageState: 'playwright/.auth/user.json' },
+      use: { ...devices['iPhone 12'], viewport: { width: 375, height: 667 } },
       dependencies: ['setup'],
     },
   ],
