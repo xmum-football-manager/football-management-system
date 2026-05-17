@@ -12,6 +12,7 @@ A football tournament scoring and management system for university clubs. Built 
 │   ├── lib/              Supabase clients + domain logic (lock-rules, match-lifecycle)
 │   ├── supabase/         Migrations and canonical schema.sql
 │   ├── __tests__/        Vitest unit tests (business logic only)
+│   ├── e2e/              Playwright end-to-end tests
 │   └── proxy.ts          Subdomain rewrites + auth guards (Next.js 16 "proxy" = middleware)
 ├── docs/                 Product + engineering docs (PRD, schema, RLS, screens, etc.)
 └── package.json          Root only holds the Supabase CLI dev-dep
@@ -102,6 +103,9 @@ pnpm lint             # ESLint
 pnpm test             # Vitest, run-once
 pnpm test:watch       # Vitest, watch mode
 pnpm test:coverage    # Vitest with coverage report
+```
+
+See `web/README.md` for Playwright e2e testing details.
 ```
 
 When you change the schema:
