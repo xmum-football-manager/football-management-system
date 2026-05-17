@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { LiveBadge } from './LiveBadge'
 import type { MatchWithTeams } from '@/lib/supabase/types'
 
 interface HeroLiveProps {
@@ -50,20 +51,7 @@ export function HeroLive({ match }: HeroLiveProps) {
 
         {/* Meta row */}
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, marginBottom: 32 }}>
-          <span style={{
-            display: 'inline-flex', alignItems: 'center', gap: 8,
-            padding: '8px 14px',
-            background: 'rgba(220,38,38,0.16)', border: '1px solid rgba(220,38,38,0.4)',
-            borderRadius: 999,
-            fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 12,
-            letterSpacing: '0.1em', textTransform: 'uppercase', color: '#FCA5A5',
-          }}>
-            <span style={{
-              width: 8, height: 8, borderRadius: 999, background: '#DC2626',
-              animation: 'pitchPulse 1.6s infinite', display: 'inline-block',
-            }} />
-            Live now
-          </span>
+          <LiveBadge size="md" />
         </div>
 
         {/* Scoreboard: home / score / away */}
@@ -78,7 +66,7 @@ export function HeroLive({ match }: HeroLiveProps) {
             <div style={{
               width: 'clamp(64px, 10vw, 104px)', height: 'clamp(64px, 10vw, 104px)',
               borderRadius: 999, background: 'var(--ink-600)',
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               fontFamily: 'var(--font-display)', fontWeight: 900,
               fontSize: 'clamp(20px, 4vw, 40px)', color: '#fff',
               boxShadow: 'inset 0 0 0 4px rgba(255,255,255,0.12), 0 12px 32px rgba(0,0,0,0.45)',
