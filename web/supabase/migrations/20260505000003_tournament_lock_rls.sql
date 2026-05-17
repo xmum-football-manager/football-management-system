@@ -79,7 +79,7 @@ create policy "matches_update_organizer_transition"
   with check (
     public.is_organizer(tournament_id)
     and public.is_valid_match_transition(
-      (select status from public.matches where id = matches.id),
+      (select status from public.matches as m where m.id = matches.id),
       matches.status
     )
     -- Block match_time edits when match is live/halftime/finished
@@ -87,11 +87,11 @@ create policy "matches_update_organizer_transition"
     -- If match_time is unchanged the condition below is trivially true.
     and (
       -- match_time unchanged → always ok
-      matches.match_time = (select match_time from public.matches where id = matches.id)
+      matches.match_time = (select match_time from public.matches as m where m.id = matches.id)
       -- match_time changed → only allowed when match is scheduled
       -- AND tournament is not finished/archived
       or (
-        (select status from public.matches where id = matches.id)
+        (select status from public.matches as m where m.id = matches.id)
           not in ('live', 'halftime', 'finished')
         and (
           select status from public.tournaments where id = matches.tournament_id
@@ -112,12 +112,10 @@ create policy "tournaments_update"
     and (
       -- dates unchanged → always ok regardless of status
       (
-        start_date = (select start_date from public.tournaments where id = tournaments.id)
-        and end_date = (select end_date from public.tournaments where id = tournaments.id)
+        start_date = (select start_date from public.tournaments as t where t.id = tournaments.id)
+        and end_date = (select end_date from public.tournaments as t where t.id = tournaments.id)
       )
       -- dates changed → only allowed when tournament is in setup status
-      or (
-        select status from public.tournaments where id = tournaments.id
-      ) not in ('active', 'finished', 'archived')
+      or (select status from public.tournaments as t where t.id = tournaments.id) not in ('active', 'finished', 'archived')
     )
   );

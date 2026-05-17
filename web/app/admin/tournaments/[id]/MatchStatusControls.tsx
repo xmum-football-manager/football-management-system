@@ -43,7 +43,7 @@ export function MatchStatusControls({ match: m, tournamentId, isAdmin }: Props) 
         .from('matches')
         .update(update)
         .eq('id', m.id).eq('status', m.status)
-      if (error) { toast.error('Could not update match status.'); return }
+      if (error) { toast.error("Could not update match status."); return }
 
       if (nextStatus === 'live' && m.status === 'finished') {
         await supabase.from('admin_audit_log').insert({

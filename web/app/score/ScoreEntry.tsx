@@ -119,47 +119,50 @@ function MatchScorer({ match: initialMatch }: { match: MatchWithTeams }) {
 
   return (
     <div className="w-full max-w-sm">
-      <div className="flex justify-center mb-6"><LiveBadge /></div>
+      <div className="text-center mb-6">
+        <p className="text-white text-lg font-bold">{match.home_team.name} vs {match.away_team.name}</p>
+        <div className="flex justify-center mt-3"><LiveBadge /></div>
+      </div>
 
-      <div className="text-center mb-8">
-        <div className="flex items-center justify-center gap-4">
-          <div className="flex-1">
-            <p className="text-white text-xl font-bold text-center leading-tight">{match.home_team.name}</p>
+      <div className="flex items-start justify-center gap-4">
+        <div className="flex flex-col items-center gap-2">
+          <div className="flex items-center gap-2">
+            <button onClick={() => adjustScore('home', -1)} disabled={isPending || optimisticScore.home === 0}
+              className="w-12 h-12 rounded-full bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-white text-xl font-bold flex items-center justify-center transition-colors border border-slate-700 select-none">
+              −
+            </button>
+            <span className="text-white font-extrabold text-4xl tabular-nums w-11 text-center">
+              {optimisticScore.home}
+            </span>
+            <button onClick={() => adjustScore('home', 1)} disabled={isPending}
+              className="w-12 h-12 rounded-full bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-white text-xl font-bold flex items-center justify-center transition-colors border border-slate-700 select-none">
+              +
+            </button>
           </div>
-          <div className="tabular-nums text-white font-extrabold shrink-0" style={{ fontSize: '72px', lineHeight: 1 }}>
-            {optimisticScore.home}–{optimisticScore.away}
+          <span className="text-slate-400 text-[11px] font-semibold tracking-wider uppercase">Home</span>
+        </div>
+
+        <div className="flex flex-col items-center gap-2">
+          <div className="flex items-center gap-2">
+            <button onClick={() => adjustScore('away', -1)} disabled={isPending || optimisticScore.away === 0}
+              className="w-12 h-12 rounded-full bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-white text-xl font-bold flex items-center justify-center transition-colors border border-slate-700 select-none">
+              −
+            </button>
+            <span className="text-white font-extrabold text-4xl tabular-nums w-11 text-center">
+              {optimisticScore.away}
+            </span>
+            <button onClick={() => adjustScore('away', 1)} disabled={isPending}
+              className="w-12 h-12 rounded-full bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-white text-xl font-bold flex items-center justify-center transition-colors border border-slate-700 select-none">
+              +
+            </button>
           </div>
-          <div className="flex-1">
-            <p className="text-white text-xl font-bold text-center leading-tight">{match.away_team.name}</p>
-          </div>
+          <span className="text-slate-400 text-[11px] font-semibold tracking-wider uppercase">Away</span>
         </div>
       </div>
 
-      <div className="flex flex-col gap-3">
-        <button onClick={() => adjustScore('home', 1)} disabled={isPending}
-          className="w-full h-16 rounded-xl text-white font-bold text-lg flex items-center justify-center gap-2 transition-opacity disabled:opacity-70"
-          style={{ background: '#7f1d1d' }}>
-          ⚽ + Goal {match.home_team.name}
-        </button>
-        <button onClick={() => adjustScore('away', 1)} disabled={isPending}
-          className="w-full h-16 rounded-xl text-white font-bold text-lg flex items-center justify-center gap-2 transition-opacity disabled:opacity-70"
-          style={{ background: '#1e3a5f' }}>
-          ⚽ + Goal {match.away_team.name}
-        </button>
-      </div>
+      <p className="text-center text-slate-500 text-xs mt-6">Saves automatically on each press.</p>
 
-      <div className="mt-4 flex gap-3">
-        <button onClick={() => adjustScore('home', -1)} disabled={isPending || optimisticScore.home === 0}
-          className="flex-1 h-10 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-slate-300 text-sm font-medium transition-colors">
-          Undo {match.home_team.name}
-        </button>
-        <button onClick={() => adjustScore('away', -1)} disabled={isPending || optimisticScore.away === 0}
-          className="flex-1 h-10 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-slate-300 text-sm font-medium transition-colors">
-          Undo {match.away_team.name}
-        </button>
-      </div>
-
-      {isPending && <p className="text-center text-slate-500 text-xs mt-4">Saving…</p>}
+      {isPending && <p className="text-center text-slate-500 text-xs mt-2">Saving…</p>}
     </div>
   )
 }
