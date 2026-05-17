@@ -46,5 +46,8 @@ storybook-static
 
 # Playwright
 playwright/.auth/
+playwright/.test-data.json
 playwright-report/
 test-results/
+visual-story-report.html
+.last-run.json
