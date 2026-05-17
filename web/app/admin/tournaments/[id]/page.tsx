@@ -54,36 +54,8 @@ export default function TournamentDetailPage() {
     setLoading(false)
   }, [id, router])
 
-  useEffect(() => {
-    let cancelled = false
-    const supabase = createClient()
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) { window.location.href = '/login'; return }
-      Promise.all([
-        supabase.from('tournaments').select('*').eq('id', id).single(),
-        supabase.from('teams').select('*, players(*)').eq('tournament_id', id).order('name'),
-        supabase.from('matches')
-          .select('*, home_team:teams!matches_home_team_id_fkey(*), away_team:teams!matches_away_team_id_fkey(*)')
-          .eq('tournament_id', id).order('match_time', { ascending: true }),
-        supabase.from('user_roles').select('role, tournament_id').eq('user_id', user.id),
-      ]).then(([tRes, teamsRes, matchesRes, rolesRes]) => {
-        if (cancelled) return
-        if (!tRes.data) { router.push('/admin'); return }
-        const t = tRes.data as Tournament
-        const admin = rolesRes.data?.some((r: RoleInfo) => r.role === 'admin') ?? false
-        const organizer = admin || (rolesRes.data?.some((r: RoleInfo) => r.role === 'organizer' && r.tournament_id === id) ?? false)
-        if (!organizer) { router.push('/admin'); return }
-        setTournament(t)
-        setTeams((teamsRes.data as TeamWithPlayers[]) ?? [])
-        setMatches((matchesRes.data as MatchWithTeams[]) ?? [])
-        setIsAdmin(admin)
-        setIsOrganizer(organizer)
-        setLoading(false)
-      })
-    })
-    return () => { cancelled = true }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id])
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { load() }, [load])
 
   if (loading || !tournament) {
     return (
