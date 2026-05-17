@@ -1,5 +1,4 @@
 # Dependencies
-node_modules/
 web/node_modules/
 web/.pnpm-store/
 
@@ -43,9 +42,6 @@ Thumbs.db
 .superpowers/
 web/.claude/settings.local.json
 web/.claude/worktrees/
-
-# Root node_modules (Storybook)
-node_modules/
 
 # Storybook build output and scaffold stories
 web/storybook-static/
