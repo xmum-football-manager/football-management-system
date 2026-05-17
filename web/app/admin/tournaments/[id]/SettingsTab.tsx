@@ -188,11 +188,11 @@ export function SettingsTab({ tournament: t, matches, tournamentId, isAdmin, onR
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Start Date</label>
-            <input type="date" value={form.start_date} onChange={e => update('start_date', e.target.value)} disabled={datesLocked} className={inputClass} />
+            <input type="date" value={form.start_date} onChange={e => update('start_date', e.target.value)} disabled={datesLocked} min={new Date().toISOString().split('T')[0]} className={inputClass} />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">End Date</label>
-            <input type="date" value={form.end_date} onChange={e => update('end_date', e.target.value)} disabled={datesLocked} min={form.start_date || undefined} className={inputClass} />
+            <input type="date" value={form.end_date} onChange={e => update('end_date', e.target.value)} disabled={datesLocked} min={form.start_date || new Date().toISOString().split('T')[0]} className={inputClass} />
           </div>
         </div>
       </div>
