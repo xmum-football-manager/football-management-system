@@ -3,8 +3,7 @@
 import { useEffect, useState } from 'react'
 import { LiveBadge } from './LiveBadge'
 import type { MatchWithTeams } from '@/lib/supabase/types'
-localhost:3000/t
-app/t/[id]
+
 interface HeroLiveProps {
   match: MatchWithTeams
 }
