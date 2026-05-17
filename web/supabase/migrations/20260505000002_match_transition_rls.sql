@@ -64,10 +64,7 @@ create policy "matches_update_organizer_transition"
   with check (
     public.is_organizer(tournament_id)
     and public.is_valid_match_transition(
-      -- OLD.status is accessible in USING via the row being updated;
-      -- in WITH CHECK we need the current (OLD) value from the table.
-      -- Use a subselect on the immutable id to get OLD status.
-      (select status from public.matches where id = matches.id),
+      (select status from public.matches as m where m.id = matches.id),
       matches.status
     )
   );

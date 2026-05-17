@@ -450,22 +450,24 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
         )}
 
         {/* TEAMS tab */}
-        <section id="teams" style={{ padding: '64px 0 56px' }}>
-          <SectionHead
-            eyebrow={`${initialTeams.length} clubs`}
-            title="The"
-            accent="teams"
-            right={<span style={{ color: 'var(--ink-400)', fontSize: 14 }}>Tap a team to see the roster</span>}
-          />
-          {initialTeams.length === 0
-            ? <p style={{ color: 'var(--ink-400)', textAlign: 'center', padding: '48px 0' }}>No teams added yet.</p>
-            : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
-                {initialTeams.map(team => <TeamCard key={team.id} team={team} standings={standings} />)}
-              </div>
-            )
-          }
-        </section>
+        {tab === 'teams' && (
+          <section style={{ padding: '64px 0 56px' }}>
+            <SectionHead
+              eyebrow={`${initialTeams.length} clubs`}
+              title="The"
+              accent="teams"
+              right={<span style={{ color: 'var(--ink-400)', fontSize: 14 }}>Tap a team to see the roster</span>}
+            />
+            {initialTeams.length === 0
+              ? <p style={{ color: 'var(--ink-400)', textAlign: 'center', padding: '48px 0' }}>No teams added yet.</p>
+              : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16, alignItems: 'start' }}>
+                  {initialTeams.map(team => <TeamCard key={team.id} team={team} standings={standings} tournamentId={tournament.id} />)}
+                </div>
+              )
+            }
+          </section>
+        )}
 
       </main>
 
