@@ -16,7 +16,8 @@
     "test:visual": "playwright test",
     "test:visual:update": "playwright test --update-snapshots",
     "test:visual:ui": "playwright test --ui",
-    "test:visual:report": "playwright show-report"
+    "test:visual:report": "playwright show-report",
+    "test:visual:story": "node scripts/generate-visual-story.mjs"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.51.0",
@@ -45,6 +46,7 @@
     "@types/react-dom": "^19",
     "@vitest/browser-playwright": "^4.1.6",
     "@vitest/coverage-v8": "^4.1.5",
+    "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "playwright": "^1.60.0",
