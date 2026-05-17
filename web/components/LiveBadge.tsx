@@ -1,4 +1,10 @@
-export function LiveBadge() {
+interface LiveBadgeProps {
+  size?: 'sm' | 'md'
+}
+
+export function LiveBadge({ size = 'md' }: LiveBadgeProps) {
+  const isSm = size === 'sm'
+  
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 8,
