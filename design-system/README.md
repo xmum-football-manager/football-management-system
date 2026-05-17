@@ -25,24 +25,6 @@ The product spec (UX) lives outside this repo:
 
 ---
 
-## Viewing locally
-
-From the repo root:
-
-```bash
-npx serve "docs/PITCH Design System"
-```
-
-Open the URL it prints. Useful pages:
-
-- `/ui_kits/admin/` — admin dashboard click-thru
-- `/preview/` — design-system tab cards
-- `/reference/Live Tournament.html` — participant view
-
-The HTML files use Babel-in-browser, so they need an HTTP server — `file://` won't work.
-
----
-
 ## Index
 
 ```
