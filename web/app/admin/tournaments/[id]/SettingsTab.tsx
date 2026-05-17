@@ -66,6 +66,7 @@ export function SettingsTab({ tournament: t, matches, tournamentId, isAdmin, onR
     if (res.ok) setScorekeepers(await res.json())
   }, [tournamentId])
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { loadScorekeepers() }, [loadScorekeepers])
 
   function update(field: string, value: string | number | boolean) {
@@ -273,6 +274,11 @@ export function SettingsTab({ tournament: t, matches, tournamentId, isAdmin, onR
       {/* Match Rules */}
       <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
         <h3 className="text-sm font-bold text-slate-900">Match Rules</h3>
+        <label className={`flex items-center gap-3 ${formatLocked ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
+          <input type="checkbox" checked={form.halftime_enabled} disabled={formatLocked}
+            onChange={e => update('halftime_enabled', e.target.checked)} className="accent-green-600" />
+          <span className="text-sm text-slate-700">Enable halftime</span>
+        </label>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Time per half (min)</label>
