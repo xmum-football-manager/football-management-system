@@ -2,11 +2,11 @@ import { describe, it, expect } from 'vitest'
 
 // Extracted from MatchCard.tsx — these are pure utility functions
 function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit', hour12: true })
+  return new Date(iso).toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kuala_Lumpur' })
 }
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-MY', { weekday: 'short', month: 'short', day: 'numeric' })
+  return new Date(iso).toLocaleDateString('en-MY', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'Asia/Kuala_Lumpur' })
 }
 
 function initials(name: string) {
