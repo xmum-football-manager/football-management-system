@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from '@/components/Toast'
 import { canManageTeams } from '@/lib/lock-rules'
+import { CsvImport } from './CsvImport'
 import type { TeamWithPlayers, TournamentStatus } from '@/lib/supabase/types'
 
 interface Props {
@@ -42,6 +43,7 @@ export function TeamsTab({ teams, tournamentStatus, tournamentId, minPlayers, on
         {teamsLocked && (
           <p className="text-xs text-amber-600 mb-3">Team and roster changes are locked once the tournament is active.</p>
         )}
+        <CsvImport tournamentId={tournamentId} existingTeams={teams} disabled={teamsLocked} onRefresh={onRefresh} />
         <form onSubmit={addTeam} className="flex gap-2 mb-4">
           <input type="text" value={newTeamName} onChange={e => setNewTeamName(e.target.value)} placeholder="Team name"
             className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
