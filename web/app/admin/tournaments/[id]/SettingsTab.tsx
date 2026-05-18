@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useTransition, useCallback, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { toast } from '@/components/Toast'
 import {
   canEditTournamentName,
@@ -9,6 +8,8 @@ import {
   canEditDates,
   canEditFormat,
 } from '@/lib/lock-rules'
+import { updateTournament } from '@/lib/db/tournaments'
+import { assignScorekeeper, removeScorekeeper } from '@/lib/db/roles'
 import type { Tournament, MatchWithTeams } from '@/lib/supabase/types'
 
 const inputClass = 'w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-slate-50 disabled:text-slate-400'
@@ -77,7 +78,6 @@ export function SettingsTab({ tournament: t, matches, tournamentId, isAdmin, onR
     if (form.end_date < form.start_date) { toast.error('End date cannot be before start date'); return }
     if (Number(form.min_players_per_team) < 11) { toast.error('Minimum players per team must be at least 11'); return }
     startTransition(async () => {
-      const supabase = createClient()
       const nameLocked = !canEditTournamentName(t.status, t.start_date)
       const venueLocked = !canEditVenueDescription(t.status)
       const datesLocked = !canEditDates(t.status)
@@ -111,37 +111,28 @@ export function SettingsTab({ tournament: t, matches, tournamentId, isAdmin, onR
 
       if (Object.keys(patch).length === 0) { toast.error('All fields are locked.'); return }
 
-      const { error } = await supabase.from('tournaments').update(patch).eq('id', tournamentId)
+      const { error } = await updateTournament(tournamentId, patch)
       if (error) { toast.error(error.message); return }
       toast.success('Settings saved!')
       onRefresh()
     })
   }
 
-  function assignScorekeeper(e: React.FormEvent) {
+  function handleAssignScorekeeper(e: React.FormEvent) {
     e.preventDefault()
     startSkTransition(async () => {
-      const supabase = createClient()
-      const { data: userId, error: userErr } = await supabase
-        .rpc('get_user_id_by_email', { email_input: skEmail.trim().toLowerCase() })
-      if (userErr || !userId) { toast.error('User not found. Make sure they have an account.'); return }
-      const { error } = await supabase.from('user_roles').insert({
-        user_id: userId, role: 'scorekeeper', tournament_id: tournamentId,
-        match_id: skScope === 'match' && skMatchId ? skMatchId : null,
-      })
-      if (error) { toast.error(error.message); return }
+      const matchId = skScope === 'match' && skMatchId ? skMatchId : null
+      const result = await assignScorekeeper(skEmail, tournamentId, matchId)
+      if (result.error) { toast.error(result.error.message); return }
       toast.success('Scorekeeper assigned!')
       setSkEmail(''); setSkMatchId('')
       await loadScorekeepers()
     })
   }
 
-  function removeScorekeeper(userId: string, matchId: string | null) {
+  function handleRemoveScorekeeper(userId: string, matchId: string | null) {
     startSkTransition(async () => {
-      const supabase = createClient()
-      let q = supabase.from('user_roles').delete().eq('user_id', userId).eq('role', 'scorekeeper').eq('tournament_id', tournamentId)
-      q = matchId ? q.eq('match_id', matchId) : q.is('match_id', null)
-      const { error } = await q
+      const { error } = await removeScorekeeper(userId, tournamentId, matchId)
       if (error) { toast.error(error.message); return }
       toast.success('Scorekeeper removed.')
       await loadScorekeepers()
@@ -329,7 +320,7 @@ export function SettingsTab({ tournament: t, matches, tournamentId, isAdmin, onR
       {isAdmin && (
         <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
           <h3 className="text-sm font-bold text-slate-900">Scorekeepers</h3>
-          <form onSubmit={assignScorekeeper} className="space-y-3">
+          <form onSubmit={handleAssignScorekeeper} className="space-y-3">
             <input type="email" value={skEmail} onChange={e => setSkEmail(e.target.value)} required
               placeholder="scorekeeper@example.com" className={inp} />
             <div className="flex gap-3">
@@ -364,7 +355,7 @@ export function SettingsTab({ tournament: t, matches, tournamentId, isAdmin, onR
                         {sk.match_id && match ? `${match.home_team.name} vs ${match.away_team.name}` : 'Entire tournament'}
                       </p>
                     </div>
-                    <button onClick={() => removeScorekeeper(sk.user_id, sk.match_id)} disabled={skPending}
+                    <button onClick={() => handleRemoveScorekeeper(sk.user_id, sk.match_id)} disabled={skPending}
                       className="text-red-400 hover:text-red-600 text-sm font-medium">Remove</button>
                   </div>
                 )

@@ -3,7 +3,6 @@
 import { useState, useTransition, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
 import { toast } from '@/components/Toast'
 import {
   canEditTournamentName,
@@ -11,6 +10,7 @@ import {
   canEditDates,
   canEditFormat,
 } from '@/lib/lock-rules'
+import { getTournament, updateTournament } from '@/lib/db/tournaments'
 import type { Tournament, TournamentFormat } from '@/lib/supabase/types'
 
 const inputClass = 'w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-slate-50 disabled:text-slate-400'
@@ -61,10 +61,8 @@ export default function EditTournamentPage() {
 
   useEffect(() => {
     async function load() {
-      const supabase = createClient()
-      const { data } = await supabase.from('tournaments').select('*').eq('id', id).single()
-      if (!data) return
-      const t = data as Tournament
+      const t = await getTournament(id)
+      if (!t) return
       setTournament(t)
       setForm({
         name: t.name,
@@ -104,7 +102,6 @@ export default function EditTournamentPage() {
       return
     }
     startTransition(async () => {
-      const supabase = createClient()
       const nameLocked = !canEditTournamentName(tournament.status, tournament.start_date)
       const venueLocked = !canEditVenueDescription(tournament.status)
       const datesLocked = !canEditDates(tournament.status)
@@ -161,7 +158,7 @@ export default function EditTournamentPage() {
         return
       }
 
-      const { error } = await supabase.from('tournaments').update(patch).eq('id', id)
+      const { error } = await updateTournament(id, patch)
       if (error) { toast.error(error.message); return }
       toast.success('Tournament updated!')
       router.push(`/admin/tournaments/${id}`)

@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { toast } from '@/components/Toast'
 import { canAddFixture, canDeleteFixture, canEditMatchTime } from '@/lib/lock-rules'
+import { createMatch, deleteMatch, updateMatchTime } from '@/lib/db/matches'
 import type { Team, MatchWithTeams, TournamentStatus } from '@/lib/supabase/types'
 
 function statusPill(status: string) {
@@ -57,13 +57,12 @@ export function FixturesTab({ teams, matches, tournamentStatus, tournamentId, on
     setFormErrors(errors)
     if (errors.length > 0) return
     startTransition(async () => {
-      const supabase = createClient()
-      const { error } = await supabase.from('matches').insert({
-        tournament_id: tournamentId,
-        home_team_id: form.home_team_id,
-        away_team_id: form.away_team_id,
-        match_time: new Date(form.match_time).toISOString(),
-      })
+      const { error } = await createMatch(
+        tournamentId,
+        form.home_team_id,
+        form.away_team_id,
+        new Date(form.match_time).toISOString()
+      )
       if (error) { toast.error(error.message); return }
       setForm({ home_team_id: '', away_team_id: '', match_time: '' })
       setFormErrors([])
@@ -72,10 +71,9 @@ export function FixturesTab({ teams, matches, tournamentStatus, tournamentId, on
     })
   }
 
-  function deleteFixture(matchId: string) {
+  function handleDeleteFixture(matchId: string) {
     startTransition(async () => {
-      const supabase = createClient()
-      await supabase.from('matches').delete().eq('id', matchId)
+      await deleteMatch(matchId)
       toast.success('Fixture removed.')
       onRefresh()
     })
@@ -90,10 +88,7 @@ export function FixturesTab({ teams, matches, tournamentStatus, tournamentId, on
   function saveEditTime() {
     if (!editingMatchId) return
     startTransition(async () => {
-      const supabase = createClient()
-      const { error } = await supabase.from('matches')
-        .update({ match_time: new Date(editingTime).toISOString() })
-        .eq('id', editingMatchId)
+      const { error } = await updateMatchTime(editingMatchId, new Date(editingTime).toISOString())
       if (error) { toast.error(error.message); return }
       setEditingMatchId(null)
       setEditingTime('')
@@ -188,7 +183,7 @@ export function FixturesTab({ teams, matches, tournamentStatus, tournamentId, on
                   <div className="flex items-center gap-3 shrink-0">
                     {statusPill(m.status)}
                     {m.status === 'scheduled' && (
-                      <button onClick={() => deleteFixture(m.id)} disabled={isPending || !canDelete} className="text-red-400 hover:text-red-600 disabled:opacity-30 text-lg leading-none">×</button>
+                      <button onClick={() => handleDeleteFixture(m.id)} disabled={isPending || !canDelete} className="text-red-400 hover:text-red-600 disabled:opacity-30 text-lg leading-none">×</button>
                     )}
                   </div>
                 </div>

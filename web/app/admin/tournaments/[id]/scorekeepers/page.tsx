@@ -2,9 +2,10 @@
 
 import { useState, useTransition, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { toast } from '@/components/Toast'
 import Link from 'next/link'
+import { getMatches } from '@/lib/db/matches'
+import { assignScorekeeper, removeScorekeeper } from '@/lib/db/roles'
 import type { MatchWithTeams } from '@/lib/supabase/types'
 
 interface ScorekeeperRow {
@@ -24,36 +25,24 @@ export default function ScorekeepersPage() {
   const [isPending, startTransition] = useTransition()
 
   const load = useCallback(async () => {
-    const supabase = createClient()
-    const [skRes, { data: m }] = await Promise.all([
+    const [skRes, matchesData] = await Promise.all([
       fetch(`/api/admin/scorekeepers?tournamentId=${tournamentId}`),
-      supabase.from('matches')
-        .select('*, home_team:teams!matches_home_team_id_fkey(*), away_team:teams!matches_away_team_id_fkey(*)')
-        .eq('tournament_id', tournamentId).order('match_time', { ascending: true }),
+      getMatches(tournamentId),
     ])
     if (skRes.ok) setScorekeepers(await skRes.json())
-    setMatches((m ?? []) as MatchWithTeams[])
+    setMatches(matchesData)
     setLoading(false)
   }, [tournamentId])
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load() }, [load])
 
-  function assign(e: React.FormEvent) {
+  function handleAssign(e: React.FormEvent) {
     e.preventDefault()
     startTransition(async () => {
-      const supabase = createClient()
-      const { data: userId, error: userErr } = await supabase
-        .rpc('get_user_id_by_email', { email_input: assignEmail.trim().toLowerCase() })
-      if (userErr || !userId) { toast.error('User not found. Make sure they have an account.'); return }
-
-      const { error } = await supabase.from('user_roles').insert({
-        user_id: userId,
-        role: 'scorekeeper',
-        tournament_id: tournamentId,
-        match_id: assignScope === 'match' && assignMatchId ? assignMatchId : null,
-      })
-      if (error) { toast.error(error.message); return }
+      const matchId = assignScope === 'match' && assignMatchId ? assignMatchId : null
+      const result = await assignScorekeeper(assignEmail, tournamentId, matchId)
+      if (result.error) { toast.error(result.error.message); return }
       toast.success('Scorekeeper assigned!')
       setAssignEmail('')
       setAssignMatchId('')
@@ -61,12 +50,9 @@ export default function ScorekeepersPage() {
     })
   }
 
-  function remove(userId: string, matchId: string | null) {
+  function handleRemove(userId: string, matchId: string | null) {
     startTransition(async () => {
-      const supabase = createClient()
-      let q = supabase.from('user_roles').delete().eq('user_id', userId).eq('role', 'scorekeeper').eq('tournament_id', tournamentId)
-      q = matchId ? q.eq('match_id', matchId) : q.is('match_id', null)
-      const { error } = await q
+      const { error } = await removeScorekeeper(userId, tournamentId, matchId)
       if (error) { toast.error(error.message); return }
       toast.success('Scorekeeper removed.')
       await load()
@@ -82,7 +68,7 @@ export default function ScorekeepersPage() {
       <div className="space-y-6">
         <div className="bg-white rounded-xl border border-slate-200 p-5">
           <h2 className="text-base font-bold mb-4">Assign Scorekeeper</h2>
-          <form onSubmit={assign} className="space-y-3">
+          <form onSubmit={handleAssign} className="space-y-3">
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Email address</label>
               <input type="email" value={assignEmail} onChange={e => setAssignEmail(e.target.value)} required placeholder="scorekeeper@example.com" className={inp} />
@@ -131,7 +117,7 @@ export default function ScorekeepersPage() {
                         {sk.match_id && match ? `${match.home_team.name} vs ${match.away_team.name}` : 'Entire tournament'}
                       </p>
                     </div>
-                    <button onClick={() => remove(sk.user_id, sk.match_id)} disabled={isPending} className="text-red-400 hover:text-red-600 text-sm font-medium">Remove</button>
+                    <button onClick={() => handleRemove(sk.user_id, sk.match_id)} disabled={isPending} className="text-red-400 hover:text-red-600 text-sm font-medium">Remove</button>
                   </div>
                 )
               })}

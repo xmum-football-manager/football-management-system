@@ -2,10 +2,12 @@
 
 import { useState, useTransition, useEffect } from 'react'
 import { useParams } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { toast } from '@/components/Toast'
 import Link from 'next/link'
 import { canAddFixture, canDeleteFixture, canEditMatchTime } from '@/lib/lock-rules'
+import { getTeams } from '@/lib/db/teams'
+import { getMatches, createMatch, deleteMatch, updateMatchTime } from '@/lib/db/matches'
+import { getTournamentStatus } from '@/lib/db/teams'
 import type { Team, MatchWithTeams, TournamentStatus } from '@/lib/supabase/types'
 
 function statusPill(status: string) {
@@ -36,17 +38,14 @@ export default function FixturesPage() {
   const [editingTime, setEditingTime] = useState('')
 
   async function load() {
-    const supabase = createClient()
-    const [{ data: tournament }, { data: t }, { data: m }] = await Promise.all([
-      supabase.from('tournaments').select('status').eq('id', tournamentId).single(),
-      supabase.from('teams').select('*').eq('tournament_id', tournamentId).order('name'),
-      supabase.from('matches')
-        .select('*, home_team:teams!matches_home_team_id_fkey(*), away_team:teams!matches_away_team_id_fkey(*)')
-        .eq('tournament_id', tournamentId).order('match_time', { ascending: true }),
+    const [status, teamsData, matchesData] = await Promise.all([
+      getTournamentStatus(tournamentId),
+      getTeams(tournamentId),
+      getMatches(tournamentId),
     ])
-    setTournamentStatus(tournament?.status ?? null)
-    setTeams(t ?? [])
-    setMatches((m ?? []) as MatchWithTeams[])
+    setTournamentStatus(status)
+    setTeams(teamsData)
+    setMatches(matchesData)
     setLoading(false)
   }
 
@@ -79,13 +78,12 @@ export default function FixturesPage() {
     setFormErrors(errors)
     if (errors.length > 0) return
     startTransition(async () => {
-      const supabase = createClient()
-      const { error } = await supabase.from('matches').insert({
-        tournament_id: tournamentId,
-        home_team_id: form.home_team_id,
-        away_team_id: form.away_team_id,
-        match_time: new Date(form.match_time).toISOString(),
-      })
+      const { error } = await createMatch(
+        tournamentId,
+        form.home_team_id,
+        form.away_team_id,
+        new Date(form.match_time).toISOString()
+      )
       if (error) { toast.error(error.message); return }
       setForm({ home_team_id: '', away_team_id: '', match_time: '' })
       setFormErrors([])
@@ -96,8 +94,7 @@ export default function FixturesPage() {
 
   function deleteFixture(matchId: string) {
     startTransition(async () => {
-      const supabase = createClient()
-      await supabase.from('matches').delete().eq('id', matchId)
+      await deleteMatch(matchId)
       toast.success('Fixture removed.')
       await load()
     })
@@ -111,9 +108,8 @@ export default function FixturesPage() {
 
   async function saveEditTime() {
     if (!editingMatchId) return
-    const supabase = createClient()
     startTransition(async () => {
-      const { error } = await supabase.from('matches').update({ match_time: new Date(editingTime).toISOString() }).eq('id', editingMatchId)
+      const { error } = await updateMatchTime(editingMatchId, new Date(editingTime).toISOString())
       if (error) { toast.error(error.message); return }
       setEditingMatchId(null)
       setEditingTime('')

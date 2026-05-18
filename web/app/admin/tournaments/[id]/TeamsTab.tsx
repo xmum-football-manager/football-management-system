@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { toast } from '@/components/Toast'
 import { canManageTeams } from '@/lib/lock-rules'
+import { createTeam, renameTeam, deleteTeam } from '@/lib/db/teams'
+import { createPlayer, updatePlayer, deletePlayer } from '@/lib/db/players'
 import { CsvImport } from './CsvImport'
 import type { TeamWithPlayers, Player, TournamentStatus } from '@/lib/supabase/types'
 
@@ -30,8 +31,7 @@ export function TeamsTab({ teams, tournamentStatus, tournamentId, minPlayers, on
     e.preventDefault()
     if (!newTeamName.trim()) return
     startTransition(async () => {
-      const supabase = createClient()
-      const { error } = await supabase.from('teams').insert({ tournament_id: tournamentId, name: newTeamName.trim() })
+      const { error } = await createTeam(tournamentId, newTeamName.trim())
       if (error) { toast.error(error.message); return }
       setNewTeamName('')
       toast.success(`Team "${newTeamName.trim()}" added!`)
@@ -39,10 +39,9 @@ export function TeamsTab({ teams, tournamentStatus, tournamentId, minPlayers, on
     })
   }
 
-  function deleteTeam(teamId: string) {
+  function handleDeleteTeam(teamId: string) {
     startTransition(async () => {
-      const supabase = createClient()
-      const { error } = await supabase.from('teams').delete().eq('id', teamId)
+      const { error } = await deleteTeam(teamId)
       setConfirmDelete(null)
       if (error) { toast.error(error.message); return }
       if (selectedTeam === teamId) setSelectedTeam(null)
@@ -59,8 +58,7 @@ export function TeamsTab({ teams, tournamentStatus, tournamentId, minPlayers, on
   function saveRename() {
     if (!editingTeam || !editTeamName.trim()) { setEditingTeam(null); return }
     startTransition(async () => {
-      const supabase = createClient()
-      const { error } = await supabase.from('teams').update({ name: editTeamName.trim() }).eq('id', editingTeam)
+      const { error } = await renameTeam(editingTeam, editTeamName.trim())
       setEditingTeam(null)
       if (error) { toast.error(error.message); return }
       toast.success('Team renamed.')
@@ -133,7 +131,7 @@ export function TeamsTab({ teams, tournamentStatus, tournamentId, minPlayers, on
                             </button>
                             {isConfirmingDelete ? (
                               <>
-                                <button onClick={() => deleteTeam(t.id)} disabled={isPending}
+                                <button onClick={() => handleDeleteTeam(t.id)} disabled={isPending}
                                   className="text-xs text-white bg-red-600 hover:bg-red-500 disabled:opacity-50 px-2 py-0.5 rounded font-semibold">
                                   Delete
                                 </button>
@@ -186,8 +184,7 @@ function RosterEditor({ team, onUpdate, locked }: { team: TeamWithPlayers; onUpd
     e.preventDefault()
     if (!form.name.trim()) return
     startTransition(async () => {
-      const supabase = createClient()
-      const { error } = await supabase.from('players').insert({
+      const { error } = await createPlayer({
         team_id: team.id, name: form.name.trim(),
         jersey_number: form.jersey_number ? parseInt(form.jersey_number) : null,
         position: form.position.trim() || null,
@@ -199,10 +196,9 @@ function RosterEditor({ team, onUpdate, locked }: { team: TeamWithPlayers; onUpd
     })
   }
 
-  function removePlayer(playerId: string) {
+  function handleDeletePlayer(playerId: string) {
     startTransition(async () => {
-      const supabase = createClient()
-      await supabase.from('players').delete().eq('id', playerId)
+      await deletePlayer(playerId)
       setConfirmDeletePlayer(null)
       onUpdate()
     })
@@ -220,12 +216,11 @@ function RosterEditor({ team, onUpdate, locked }: { team: TeamWithPlayers; onUpd
   function saveEditPlayer() {
     if (!editingPlayer || !editForm.name.trim()) { setEditingPlayer(null); return }
     startTransition(async () => {
-      const supabase = createClient()
-      const { error } = await supabase.from('players').update({
+      const { error } = await updatePlayer(editingPlayer, {
         name: editForm.name.trim(),
         jersey_number: editForm.jersey_number ? parseInt(editForm.jersey_number) : null,
         position: editForm.position.trim() || null,
-      }).eq('id', editingPlayer)
+      })
       setEditingPlayer(null)
       if (error) { toast.error(error.message); return }
       toast.success('Player updated.')
@@ -319,7 +314,7 @@ function RosterEditor({ team, onUpdate, locked }: { team: TeamWithPlayers; onUpd
                         )}
                         {isConfirming ? (
                           <>
-                            <button onClick={() => removePlayer(p.id)} disabled={isPending}
+                            <button onClick={() => handleDeletePlayer(p.id)} disabled={isPending}
                               className="text-xs text-white bg-red-600 hover:bg-red-500 disabled:opacity-50 px-1.5 py-0.5 rounded font-semibold">
                               Del
                             </button>

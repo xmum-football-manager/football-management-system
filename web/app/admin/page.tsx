@@ -126,7 +126,12 @@ function TournamentRow({ tournament: t }: { tournament: Tournament }) {
     >
       <div>
         <p className="font-semibold text-slate-900">{t.name}</p>
-        {t.location && <p className="text-xs text-slate-400 mt-0.5">📍 {t.location}</p>}
+        <div className="flex items-center gap-3 mt-0.5">
+          <p className="text-xs text-slate-400">
+            📅 {new Date(t.start_date).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })} - {new Date(t.end_date).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })}
+          </p>
+          {t.location && <p className="text-xs text-slate-400">📍 {t.location}</p>}
+        </div>
       </div>
       <span className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${statusColors[t.status] ?? ''}`}>
         {t.status}
