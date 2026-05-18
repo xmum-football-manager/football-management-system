@@ -4,6 +4,7 @@ import { useState, useTransition, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { toast } from '@/components/Toast'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 import { getMatches } from '@/lib/db/matches'
 import { assignScorekeeper, removeScorekeeper } from '@/lib/db/roles'
 import type { MatchWithTeams } from '@/lib/supabase/types'
@@ -25,9 +26,10 @@ export default function ScorekeepersPage() {
   const [isPending, startTransition] = useTransition()
 
   const load = useCallback(async () => {
+    const supabase = createClient()
     const [skRes, matchesData] = await Promise.all([
       fetch(`/api/admin/scorekeepers?tournamentId=${tournamentId}`),
-      getMatches(tournamentId),
+      getMatches(supabase, tournamentId),
     ])
     if (skRes.ok) setScorekeepers(await skRes.json())
     setMatches(matchesData)

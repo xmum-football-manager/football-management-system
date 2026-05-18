@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { toast } from '@/components/Toast'
 import { canAddFixture, canDeleteFixture, canEditMatchTime } from '@/lib/lock-rules'
+import { createClient } from '@/lib/supabase/client'
 import { createMatch, deleteMatch, updateMatchTime } from '@/lib/db/matches'
 import type { Team, MatchWithTeams, TournamentStatus } from '@/lib/supabase/types'
 
@@ -57,25 +58,29 @@ export function FixturesTab({ teams, matches, tournamentStatus, tournamentId, on
     setFormErrors(errors)
     if (errors.length > 0) return
     startTransition(async () => {
-      const { error } = await createMatch(
-        tournamentId,
-        form.home_team_id,
-        form.away_team_id,
-        new Date(form.match_time).toISOString()
-      )
-      if (error) { toast.error(error.message); return }
-      setForm({ home_team_id: '', away_team_id: '', match_time: '' })
-      setFormErrors([])
-      toast.success('Fixture scheduled!')
-      onRefresh()
+      const supabase = createClient()
+      try {
+        await createMatch(supabase, tournamentId, form.home_team_id, form.away_team_id, new Date(form.match_time).toISOString())
+        setForm({ home_team_id: '', away_team_id: '', match_time: '' })
+        setFormErrors([])
+        toast.success('Fixture scheduled!')
+        onRefresh()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Could not schedule fixture.')
+      }
     })
   }
 
   function handleDeleteFixture(matchId: string) {
     startTransition(async () => {
-      await deleteMatch(matchId)
-      toast.success('Fixture removed.')
-      onRefresh()
+      const supabase = createClient()
+      try {
+        await deleteMatch(supabase, matchId)
+        toast.success('Fixture removed.')
+        onRefresh()
+      } catch {
+        toast.error('Could not remove fixture.')
+      }
     })
   }
 
@@ -88,12 +93,16 @@ export function FixturesTab({ teams, matches, tournamentStatus, tournamentId, on
   function saveEditTime() {
     if (!editingMatchId) return
     startTransition(async () => {
-      const { error } = await updateMatchTime(editingMatchId, new Date(editingTime).toISOString())
-      if (error) { toast.error(error.message); return }
-      setEditingMatchId(null)
-      setEditingTime('')
-      toast.success('Match time updated.')
-      onRefresh()
+      const supabase = createClient()
+      try {
+        await updateMatchTime(supabase, editingMatchId, new Date(editingTime).toISOString())
+        setEditingMatchId(null)
+        setEditingTime('')
+        toast.success('Match time updated.')
+        onRefresh()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Could not update match time.')
+      }
     })
   }
 

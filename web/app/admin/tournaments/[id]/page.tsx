@@ -36,7 +36,7 @@ export default function TournamentDetailPage() {
     const [t, teamsData, matchesData, roles] = await Promise.all([
       getTournament(supabase, id),
       getTeams(id),
-      getMatches(id),
+      getMatches(supabase, id),
       getUserRoles(supabase, user.id),
     ])
 
