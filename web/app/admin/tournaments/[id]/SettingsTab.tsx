@@ -8,6 +8,7 @@ import {
   canEditDates,
   canEditFormat,
 } from '@/lib/lock-rules'
+import { createClient } from '@/lib/supabase/client'
 import { updateTournament } from '@/lib/db/tournaments'
 import { assignScorekeeper, removeScorekeeper } from '@/lib/db/roles'
 import type { Tournament, MatchWithTeams } from '@/lib/supabase/types'
@@ -111,10 +112,14 @@ export function SettingsTab({ tournament: t, matches, tournamentId, isAdmin, onR
 
       if (Object.keys(patch).length === 0) { toast.error('All fields are locked.'); return }
 
-      const { error } = await updateTournament(tournamentId, patch)
-      if (error) { toast.error(error.message); return }
-      toast.success('Settings saved!')
-      onRefresh()
+      const supabase = createClient()
+      try {
+        await updateTournament(supabase, tournamentId, patch)
+        toast.success('Settings saved!')
+        onRefresh()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Save failed')
+      }
     })
   }
 

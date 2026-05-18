@@ -8,6 +8,7 @@ import { OverviewTab } from './OverviewTab'
 import { TeamsTab } from './TeamsTab'
 import { FixturesTab } from './FixturesTab'
 import { SettingsTab } from './SettingsTab'
+import { createClient } from '@/lib/supabase/client'
 import { getTournament } from '@/lib/db/tournaments'
 import { getTeams } from '@/lib/db/teams'
 import { getMatches } from '@/lib/db/matches'
@@ -28,14 +29,15 @@ export default function TournamentDetailPage() {
   const [isOrganizer, setIsOrganizer] = useState(false)
 
   const load = useCallback(async () => {
-    const user = await getCurrentUser()
+    const supabase = createClient()
+    const user = await getCurrentUser(supabase)
     if (!user) { window.location.href = '/login'; return }
 
     const [t, teamsData, matchesData, roles] = await Promise.all([
-      getTournament(id),
+      getTournament(supabase, id),
       getTeams(id),
       getMatches(id),
-      getUserRoles(user.id),
+      getUserRoles(supabase, user.id),
     ])
 
     if (!t) { router.push('/admin'); return }
