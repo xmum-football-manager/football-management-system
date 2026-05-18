@@ -1,8 +1,8 @@
 'use client'
 
 import { useTransition } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { toast } from '@/components/Toast'
+import { goLive } from '@/lib/db/tournaments'
 import type { Tournament, TeamWithPlayers } from '@/lib/supabase/types'
 
 interface GoLiveCheck {
@@ -71,13 +71,9 @@ export function GoLivePanel({ tournament, teams, onLive }: Props) {
   const checks = computeChecks(tournament, teams)
   const allOk = checks.every(c => c.ok)
 
-  function goLive() {
+  function handleGoLive() {
     startTransition(async () => {
-      const supabase = createClient()
-      const { error } = await supabase
-        .from('tournaments')
-        .update({ status: 'active' })
-        .eq('id', tournament.id)
+      const { error } = await goLive(tournament.id)
       if (error) { toast.error(error.message); return }
       toast.success('Tournament is now live!')
       onLive()
@@ -112,7 +108,7 @@ export function GoLivePanel({ tournament, teams, onLive }: Props) {
         ))}
       </ul>
       <button
-        onClick={goLive}
+        onClick={handleGoLive}
         disabled={!allOk || isPending}
         className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-colors ${
           allOk

@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { toast } from '@/components/Toast'
 import { canEditVenueDescription, canEditDates } from '@/lib/lock-rules'
+import { updateTournament } from '@/lib/db/tournaments'
 import type { Tournament } from '@/lib/supabase/types'
 
 const inputClass = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-slate-50 disabled:text-slate-400'
@@ -25,14 +25,13 @@ export function TournamentSetupCard({ tournament }: { tournament: Tournament }) 
       return
     }
     startTransition(async () => {
-      const supabase = createClient()
       const patch: Record<string, unknown> = {}
       if (!venueLocked) patch.location = location || null
       if (!datesLocked) {
         patch.start_date = startDate
         patch.end_date = endDate
       }
-      const { error } = await supabase.from('tournaments').update(patch).eq('id', tournament.id)
+      const { error } = await updateTournament(tournament.id, patch)
       if (error) toast.error(error.message)
       else toast.success('Setup saved!')
     })

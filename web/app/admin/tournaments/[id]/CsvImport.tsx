@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useTransition, useRef } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { toast } from '@/components/Toast'
+import { createTeamsBatch } from '@/lib/db/teams'
+import { createPlayersBatch } from '@/lib/db/players'
 import type { TeamWithPlayers } from '@/lib/supabase/types'
 
 interface CsvRow {
@@ -86,15 +87,12 @@ export function CsvImport({ tournamentId, existingTeams, disabled, onRefresh }: 
   function doImport() {
     if (!preview || preview.rows.length === 0) return
     startTransition(async () => {
-      const supabase = createClient()
-
       const existingTeamNames = new Set(existingTeams.map(t => t.name))
       const existingPlayersByTeam = new Map<string, Set<string>>()
       for (const t of existingTeams) {
         existingPlayersByTeam.set(t.name, new Set(t.players.map(p => p.name)))
       }
 
-      // Create new teams
       const uniqueTeamNames = [...preview.teams.keys()]
       const newTeamNames = uniqueTeamNames.filter(n => !existingTeamNames.has(n))
       const skippedTeams = uniqueTeamNames.length - newTeamNames.length
@@ -103,75 +101,40 @@ export function CsvImport({ tournamentId, existingTeams, disabled, onRefresh }: 
       let createdPlayers = 0
       let skippedPlayers = 0
 
+      const teamIdMap = new Map<string, string>()
+      for (const t of existingTeams) teamIdMap.set(t.name, t.id)
+
       if (newTeamNames.length > 0) {
-        const teamInserts = newTeamNames.map(name => ({ tournament_id: tournamentId, name }))
-        const { data: insertedTeams, error: teamErr } = await supabase
-          .from('teams')
-          .insert(teamInserts)
-          .select('id, name')
+        const { data: insertedTeams, error: teamErr } = await createTeamsBatch(tournamentId, newTeamNames)
         if (teamErr) { toast.error(`Failed to create teams: ${teamErr.message}`); return }
         createdTeams = insertedTeams?.length ?? 0
-
-        // Build team name -> id map (existing + new)
-        const teamIdMap = new Map<string, string>()
-        for (const t of existingTeams) teamIdMap.set(t.name, t.id)
         for (const t of insertedTeams ?? []) teamIdMap.set(t.name, t.id)
+      }
 
-        // Insert players
-        const playerInserts: { team_id: string; name: string; jersey_number: number | null; position: string | null }[] = []
-        for (const row of preview.rows) {
-          const teamId = teamIdMap.get(row.team_name)
-          if (!teamId) continue
+      // Build player inserts
+      const playerInserts: { team_id: string; name: string; jersey_number: number | null; position: string | null }[] = []
+      for (const row of preview.rows) {
+        const teamId = teamIdMap.get(row.team_name)
+        if (!teamId) continue
 
-          const existingNames = existingPlayersByTeam.get(row.team_name)
-          if (existingNames?.has(row.player_name)) { skippedPlayers++; continue }
+        const existingNames = existingPlayersByTeam.get(row.team_name)
+        if (existingNames?.has(row.player_name)) { skippedPlayers++; continue }
 
-          playerInserts.push({
-            team_id: teamId,
-            name: row.player_name,
-            jersey_number: row.jersey_number ? Number(row.jersey_number) : null,
-            position: row.position || null,
-          })
+        playerInserts.push({
+          team_id: teamId,
+          name: row.player_name,
+          jersey_number: row.jersey_number ? Number(row.jersey_number) : null,
+          position: row.position || null,
+        })
 
-          // Track to avoid duplicate inserts within the same CSV
-          if (!existingNames) existingPlayersByTeam.set(row.team_name, new Set([row.player_name]))
-          else existingNames.add(row.player_name)
-        }
+        if (!existingNames) existingPlayersByTeam.set(row.team_name, new Set([row.player_name]))
+        else existingNames.add(row.player_name)
+      }
 
-        if (playerInserts.length > 0) {
-          const { error: playerErr } = await supabase.from('players').insert(playerInserts)
-          if (playerErr) { toast.error(`Failed to create players: ${playerErr.message}`); return }
-          createdPlayers = playerInserts.length
-        }
-      } else {
-        // All teams exist — just add players to existing teams
-        const teamIdMap = new Map<string, string>()
-        for (const t of existingTeams) teamIdMap.set(t.name, t.id)
-
-        const playerInserts: { team_id: string; name: string; jersey_number: number | null; position: string | null }[] = []
-        for (const row of preview.rows) {
-          const teamId = teamIdMap.get(row.team_name)
-          if (!teamId) continue
-
-          const existingNames = existingPlayersByTeam.get(row.team_name)
-          if (existingNames?.has(row.player_name)) { skippedPlayers++; continue }
-
-          playerInserts.push({
-            team_id: teamId,
-            name: row.player_name,
-            jersey_number: row.jersey_number ? Number(row.jersey_number) : null,
-            position: row.position || null,
-          })
-
-          if (!existingNames) existingPlayersByTeam.set(row.team_name, new Set([row.player_name]))
-          else existingNames.add(row.player_name)
-        }
-
-        if (playerInserts.length > 0) {
-          const { error: playerErr } = await supabase.from('players').insert(playerInserts)
-          if (playerErr) { toast.error(`Failed to create players: ${playerErr.message}`); return }
-          createdPlayers = playerInserts.length
-        }
+      if (playerInserts.length > 0) {
+        const { error: playerErr } = await createPlayersBatch(playerInserts)
+        if (playerErr) { toast.error(`Failed to create players: ${playerErr.message}`); return }
+        createdPlayers = playerInserts.length
       }
 
       const parts: string[] = []

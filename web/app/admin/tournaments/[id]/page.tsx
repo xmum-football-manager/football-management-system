@@ -3,12 +3,15 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
 import { TabStrip, type TabId } from './TabStrip'
 import { OverviewTab } from './OverviewTab'
 import { TeamsTab } from './TeamsTab'
 import { FixturesTab } from './FixturesTab'
 import { SettingsTab } from './SettingsTab'
+import { getTournament } from '@/lib/db/tournaments'
+import { getTeams } from '@/lib/db/teams'
+import { getMatches } from '@/lib/db/matches'
+import { getCurrentUser, getUserRoles } from '@/lib/db/tournaments'
 import type { Tournament, MatchWithTeams, TeamWithPlayers } from '@/lib/supabase/types'
 
 interface RoleInfo { role: string; tournament_id: string | null }
@@ -25,30 +28,26 @@ export default function TournamentDetailPage() {
   const [isOrganizer, setIsOrganizer] = useState(false)
 
   const load = useCallback(async () => {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) { window.location.href = '/login'; return }
 
-    const [tRes, teamsRes, matchesRes, rolesRes] = await Promise.all([
-      supabase.from('tournaments').select('*').eq('id', id).single(),
-      supabase.from('teams').select('*, players(*)').eq('tournament_id', id).order('name'),
-      supabase.from('matches')
-        .select('*, home_team:teams!matches_home_team_id_fkey(*), away_team:teams!matches_away_team_id_fkey(*)')
-        .eq('tournament_id', id).order('match_time', { ascending: true }),
-      supabase.from('user_roles').select('role, tournament_id').eq('user_id', user.id),
+    const [t, teamsData, matchesData, roles] = await Promise.all([
+      getTournament(id),
+      getTeams(id),
+      getMatches(id),
+      getUserRoles(user.id),
     ])
 
-    if (!tRes.data) { router.push('/admin'); return }
+    if (!t) { router.push('/admin'); return }
 
-    const t = tRes.data as Tournament
-    const admin = rolesRes.data?.some((r: RoleInfo) => r.role === 'admin') ?? false
-    const organizer = admin || (rolesRes.data?.some((r: RoleInfo) => r.role === 'organizer' && r.tournament_id === id) ?? false)
+    const admin = roles.some((r: RoleInfo) => r.role === 'admin') ?? false
+    const organizer = admin || (roles.some((r: RoleInfo) => r.role === 'organizer' && r.tournament_id === id) ?? false)
 
     if (!organizer) { router.push('/admin'); return }
 
     setTournament(t)
-    setTeams((teamsRes.data as TeamWithPlayers[]) ?? [])
-    setMatches((matchesRes.data as MatchWithTeams[]) ?? [])
+    setTeams(teamsData)
+    setMatches(matchesData)
     setIsAdmin(admin)
     setIsOrganizer(organizer)
     setLoading(false)

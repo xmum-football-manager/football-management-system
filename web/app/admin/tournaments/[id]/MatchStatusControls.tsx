@@ -2,9 +2,9 @@
 
 import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { toast } from '@/components/Toast'
 import { getAvailableTransitions } from '@/lib/match-lifecycle'
+import { transitionMatchStatus, logRevertAudit } from '@/lib/db/matches'
 import type { MatchWithTeams, MatchStatus } from '@/lib/supabase/types'
 
 interface Props {
@@ -27,32 +27,22 @@ export function MatchStatusControls({ match: m, tournamentId, isAdmin }: Props) 
 
   function transition(nextStatus: MatchStatus) {
     startTransition(async () => {
-      const supabase = createClient()
       const now = new Date().toISOString()
+      const timestamps: Record<string, string | null> = {}
 
-      const update: Record<string, string | null> = { status: nextStatus }
       if (nextStatus === 'live' && m.status === 'scheduled') {
-        update.match_started_at = now
+        timestamps.match_started_at = now
       } else if (nextStatus === 'finished') {
-        update.match_finished_at = now
+        timestamps.match_finished_at = now
       } else if (nextStatus === 'live' && m.status === 'finished') {
-        update.match_finished_at = null
+        timestamps.match_finished_at = null
       }
 
-      const { error } = await supabase
-        .from('matches')
-        .update(update)
-        .eq('id', m.id).eq('status', m.status)
+      const { error } = await transitionMatchStatus(m.id, m.status, nextStatus, timestamps)
       if (error) { toast.error("Could not update match status."); return }
 
       if (nextStatus === 'live' && m.status === 'finished') {
-        await supabase.from('admin_audit_log').insert({
-          action: 'revert_finished_to_live',
-          match_id: m.id,
-          tournament_id: tournamentId,
-          previous_status: 'finished',
-          new_status: 'live',
-        })
+        await logRevertAudit(m.id, tournamentId)
       }
 
       router.refresh()

@@ -1,8 +1,8 @@
 'use client'
 
 import { useTransition } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { toast } from '@/components/Toast'
+import { finishTournament } from '@/lib/db/tournaments'
 import { MatchStatusControls } from './MatchStatusControls'
 import { ScoreEditor } from './ScoreEditor'
 import { OrganizerAssignment } from './OrganizerAssignment'
@@ -66,8 +66,7 @@ function FinishPanel({ tournamentId, onFinished }: { tournamentId: string; onFin
 
   function finish() {
     startTransition(async () => {
-      const supabase = createClient()
-      const { error } = await supabase.from('tournaments').update({ status: 'finished' }).eq('id', tournamentId)
+      const { error } = await finishTournament(tournamentId)
       if (error) { toast.error(error.message); return }
       toast.success('Tournament marked as finished.')
       onFinished()
