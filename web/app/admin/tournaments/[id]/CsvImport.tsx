@@ -71,6 +71,7 @@ export function CsvImport({ tournamentId, existingTeams, disabled, onRefresh }: 
   const [isPending, startTransition] = useTransition()
   const [preview, setPreview] = useState<ParsedResult | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const supabase = createClient()
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -107,7 +108,6 @@ export function CsvImport({ tournamentId, existingTeams, disabled, onRefresh }: 
 
       if (newTeamNames.length > 0) {
         try {
-          const supabase = createClient()
           const insertedTeams = await createTeamsBatch(supabase, tournamentId, newTeamNames)
           createdTeams = insertedTeams.length
           for (const t of insertedTeams) teamIdMap.set(t.name, t.id)
@@ -138,9 +138,13 @@ export function CsvImport({ tournamentId, existingTeams, disabled, onRefresh }: 
       }
 
       if (playerInserts.length > 0) {
-        const { error: playerErr } = await createPlayersBatch(playerInserts)
-        if (playerErr) { toast.error(`Failed to create players: ${playerErr.message}`); return }
-        createdPlayers = playerInserts.length
+        try {
+          await createPlayersBatch(supabase, playerInserts)
+          createdPlayers = playerInserts.length
+        } catch (err) {
+          toast.error(`Failed to create players: ${err instanceof Error ? err.message : 'unknown error'}`)
+          return
+        }
       }
 
       const parts: string[] = []
