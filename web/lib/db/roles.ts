@@ -1,40 +1,40 @@
-import { createClient } from '@/lib/supabase/client'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
-export async function assignScorekeeper(email: string, tournamentId: string, matchId: string | null) {
-  const supabase = createClient()
+export async function assignScorekeeper(supabase: SupabaseClient, email: string, tournamentId: string, matchId: string | null) {
   const { data: userId, error: userErr } = await supabase
     .rpc('get_user_id_by_email', { email_input: email.trim().toLowerCase() })
-  if (userErr || !userId) return { error: new Error('User not found. Make sure they have an account.') }
+  if (userErr || !userId) throw new Error('User not found. Make sure they have an account.')
 
-  return supabase.from('user_roles').insert({
+  const { error } = await supabase.from('user_roles').insert({
     user_id: userId, role: 'scorekeeper', tournament_id: tournamentId, match_id: matchId,
   })
+  if (error) throw new Error(error.message)
 }
 
-export async function removeScorekeeper(userId: string, tournamentId: string, matchId: string | null) {
-  const supabase = createClient()
+export async function removeScorekeeper(supabase: SupabaseClient, userId: string, tournamentId: string, matchId: string | null) {
   let q = supabase.from('user_roles').delete().eq('user_id', userId).eq('role', 'scorekeeper').eq('tournament_id', tournamentId)
   q = matchId ? q.eq('match_id', matchId) : q.is('match_id', null)
-  return q
+  const { error } = await q
+  if (error) throw new Error(error.message)
 }
 
-export async function assignOrganizer(email: string, tournamentId: string) {
-  const supabase = createClient()
+export async function assignOrganizer(supabase: SupabaseClient, email: string, tournamentId: string) {
   const { data: userId, error: userErr } = await supabase
     .rpc('get_user_id_by_email', { email_input: email.trim().toLowerCase() })
-  if (userErr || !userId) return { error: new Error('User not found.') }
+  if (userErr || !userId) throw new Error('User not found.')
 
-  return supabase.from('user_roles').upsert(
+  const { error } = await supabase.from('user_roles').upsert(
     { user_id: userId, role: 'organizer', tournament_id: tournamentId },
     { onConflict: 'user_id,role,tournament_id' }
   )
+  if (error) throw new Error(error.message)
 }
 
-export async function removeOrganizer(userId: string, tournamentId: string) {
-  const supabase = createClient()
-  return supabase.from('user_roles')
+export async function removeOrganizer(supabase: SupabaseClient, userId: string, tournamentId: string) {
+  const { error } = await supabase.from('user_roles')
     .delete()
     .eq('user_id', userId)
     .eq('role', 'organizer')
     .eq('tournament_id', tournamentId)
+  if (error) throw new Error(error.message)
 }

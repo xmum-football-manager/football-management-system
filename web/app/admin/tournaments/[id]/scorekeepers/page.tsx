@@ -17,6 +17,7 @@ interface ScorekeeperRow {
 
 export default function ScorekeepersPage() {
   const { id: tournamentId } = useParams() as { id: string }
+  const supabase = createClient()
   const [scorekeepers, setScorekeepers] = useState<ScorekeeperRow[]>([])
   const [matches, setMatches] = useState<MatchWithTeams[]>([])
   const [loading, setLoading] = useState(true)
@@ -26,7 +27,6 @@ export default function ScorekeepersPage() {
   const [isPending, startTransition] = useTransition()
 
   const load = useCallback(async () => {
-    const supabase = createClient()
     const [skRes, matchesData] = await Promise.all([
       fetch(`/api/admin/scorekeepers?tournamentId=${tournamentId}`),
       getMatches(supabase, tournamentId),
@@ -43,8 +43,12 @@ export default function ScorekeepersPage() {
     e.preventDefault()
     startTransition(async () => {
       const matchId = assignScope === 'match' && assignMatchId ? assignMatchId : null
-      const result = await assignScorekeeper(assignEmail, tournamentId, matchId)
-      if (result.error) { toast.error(result.error.message); return }
+      try {
+        await assignScorekeeper(supabase, assignEmail, tournamentId, matchId)
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Assign failed')
+        return
+      }
       toast.success('Scorekeeper assigned!')
       setAssignEmail('')
       setAssignMatchId('')
@@ -54,8 +58,12 @@ export default function ScorekeepersPage() {
 
   function handleRemove(userId: string, matchId: string | null) {
     startTransition(async () => {
-      const { error } = await removeScorekeeper(userId, tournamentId, matchId)
-      if (error) { toast.error(error.message); return }
+      try {
+        await removeScorekeeper(supabase, userId, tournamentId, matchId)
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Remove failed')
+        return
+      }
       toast.success('Scorekeeper removed.')
       await load()
     })
