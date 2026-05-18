@@ -37,12 +37,12 @@ export default function FixturesPage() {
   const [isPending, startTransition] = useTransition()
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null)
   const [editingTime, setEditingTime] = useState('')
+  const supabase = createClient()
 
   async function load() {
-    const supabase = createClient()
     const [status, teamsData, matchesData] = await Promise.all([
-      getTournamentStatus(tournamentId),
-      getTeams(tournamentId),
+      getTournamentStatus(supabase, tournamentId),
+      getTeams(supabase, tournamentId),
       getMatches(supabase, tournamentId),
     ])
     setTournamentStatus(status)
@@ -80,7 +80,6 @@ export default function FixturesPage() {
     setFormErrors(errors)
     if (errors.length > 0) return
     startTransition(async () => {
-      const supabase = createClient()
       try {
         await createMatch(supabase, tournamentId, form.home_team_id, form.away_team_id, new Date(form.match_time).toISOString())
         setForm({ home_team_id: '', away_team_id: '', match_time: '' })
@@ -95,7 +94,6 @@ export default function FixturesPage() {
 
   function deleteFixture(matchId: string) {
     startTransition(async () => {
-      const supabase = createClient()
       try {
         await deleteMatch(supabase, matchId)
         toast.success('Fixture removed.')
@@ -115,7 +113,6 @@ export default function FixturesPage() {
   async function saveEditTime() {
     if (!editingMatchId) return
     startTransition(async () => {
-      const supabase = createClient()
       try {
         await updateMatchTime(supabase, editingMatchId, new Date(editingTime).toISOString())
         setEditingMatchId(null)

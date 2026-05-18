@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { toast } from '@/components/Toast'
 import { canManageTeams } from '@/lib/lock-rules'
+import { createClient } from '@/lib/supabase/client'
 import { createTeam, renameTeam, deleteTeam } from '@/lib/db/teams'
 import { createPlayer, updatePlayer, deletePlayer } from '@/lib/db/players'
 import { CsvImport } from './CsvImport'
@@ -31,22 +32,30 @@ export function TeamsTab({ teams, tournamentStatus, tournamentId, minPlayers, on
     e.preventDefault()
     if (!newTeamName.trim()) return
     startTransition(async () => {
-      const { error } = await createTeam(tournamentId, newTeamName.trim())
-      if (error) { toast.error(error.message); return }
-      setNewTeamName('')
-      toast.success(`Team "${newTeamName.trim()}" added!`)
-      onRefresh()
+      try {
+        const supabase = createClient()
+        await createTeam(supabase, tournamentId, newTeamName.trim())
+        setNewTeamName('')
+        toast.success(`Team "${newTeamName.trim()}" added!`)
+        onRefresh()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Could not add team.')
+      }
     })
   }
 
   function handleDeleteTeam(teamId: string) {
     startTransition(async () => {
-      const { error } = await deleteTeam(teamId)
       setConfirmDelete(null)
-      if (error) { toast.error(error.message); return }
-      if (selectedTeam === teamId) setSelectedTeam(null)
-      toast.success('Team deleted.')
-      onRefresh()
+      try {
+        const supabase = createClient()
+        await deleteTeam(supabase, teamId)
+        if (selectedTeam === teamId) setSelectedTeam(null)
+        toast.success('Team deleted.')
+        onRefresh()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Could not delete team.')
+      }
     })
   }
 
@@ -58,11 +67,15 @@ export function TeamsTab({ teams, tournamentStatus, tournamentId, minPlayers, on
   function saveRename() {
     if (!editingTeam || !editTeamName.trim()) { setEditingTeam(null); return }
     startTransition(async () => {
-      const { error } = await renameTeam(editingTeam, editTeamName.trim())
       setEditingTeam(null)
-      if (error) { toast.error(error.message); return }
-      toast.success('Team renamed.')
-      onRefresh()
+      try {
+        const supabase = createClient()
+        await renameTeam(supabase, editingTeam, editTeamName.trim())
+        toast.success('Team renamed.')
+        onRefresh()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Could not rename team.')
+      }
     })
   }
 

@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import { toast } from '@/components/Toast'
 import Link from 'next/link'
 import { canManageTeams } from '@/lib/lock-rules'
+import { createClient } from '@/lib/supabase/client'
 import { getTeams, getTournamentStatus, createTeam, deleteTeam, renameTeam } from '@/lib/db/teams'
 import { createPlayer, deletePlayer, updatePlayer } from '@/lib/db/players'
 import type { TeamWithPlayers, Player, TournamentStatus } from '@/lib/supabase/types'
@@ -19,9 +20,10 @@ export default function TeamsPage() {
   const [isPending, startTransition] = useTransition()
 
   async function loadTeams() {
+    const supabase = createClient()
     const [status, teamsData] = await Promise.all([
-      getTournamentStatus(tournamentId),
-      getTeams(tournamentId),
+      getTournamentStatus(supabase, tournamentId),
+      getTeams(supabase, tournamentId),
     ])
     setTournamentStatus(status)
     setTeams(teamsData)
@@ -35,30 +37,42 @@ export default function TeamsPage() {
     e.preventDefault()
     if (!newTeamName.trim()) return
     startTransition(async () => {
-      const { error } = await createTeam(tournamentId, newTeamName.trim())
-      if (error) { toast.error(error.message); return }
-      setNewTeamName('')
-      toast.success(`Team "${newTeamName.trim()}" added!`)
-      await loadTeams()
+      try {
+        const supabase = createClient()
+        await createTeam(supabase, tournamentId, newTeamName.trim())
+        setNewTeamName('')
+        toast.success(`Team "${newTeamName.trim()}" added!`)
+        await loadTeams()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Could not add team.')
+      }
     })
   }
 
   function handleDeleteTeam(teamId: string) {
     startTransition(async () => {
-      const { error } = await deleteTeam(teamId)
-      if (error) { toast.error(error.message); return }
-      if (selectedTeam === teamId) setSelectedTeam(null)
-      toast.success('Team deleted.')
-      await loadTeams()
+      try {
+        const supabase = createClient()
+        await deleteTeam(supabase, teamId)
+        if (selectedTeam === teamId) setSelectedTeam(null)
+        toast.success('Team deleted.')
+        await loadTeams()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Could not delete team.')
+      }
     })
   }
 
   function handleRenameTeam(teamId: string, name: string) {
     startTransition(async () => {
-      const { error } = await renameTeam(teamId, name)
-      if (error) { toast.error(error.message); return }
-      toast.success('Team renamed.')
-      await loadTeams()
+      try {
+        const supabase = createClient()
+        await renameTeam(supabase, teamId, name)
+        toast.success('Team renamed.')
+        await loadTeams()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Could not rename team.')
+      }
     })
   }
 

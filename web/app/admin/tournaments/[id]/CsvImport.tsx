@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useRef } from 'react'
 import { toast } from '@/components/Toast'
+import { createClient } from '@/lib/supabase/client'
 import { createTeamsBatch } from '@/lib/db/teams'
 import { createPlayersBatch } from '@/lib/db/players'
 import type { TeamWithPlayers } from '@/lib/supabase/types'
@@ -105,10 +106,15 @@ export function CsvImport({ tournamentId, existingTeams, disabled, onRefresh }: 
       for (const t of existingTeams) teamIdMap.set(t.name, t.id)
 
       if (newTeamNames.length > 0) {
-        const { data: insertedTeams, error: teamErr } = await createTeamsBatch(tournamentId, newTeamNames)
-        if (teamErr) { toast.error(`Failed to create teams: ${teamErr.message}`); return }
-        createdTeams = insertedTeams?.length ?? 0
-        for (const t of insertedTeams ?? []) teamIdMap.set(t.name, t.id)
+        try {
+          const supabase = createClient()
+          const insertedTeams = await createTeamsBatch(supabase, tournamentId, newTeamNames)
+          createdTeams = insertedTeams.length
+          for (const t of insertedTeams) teamIdMap.set(t.name, t.id)
+        } catch (err) {
+          toast.error(`Failed to create teams: ${err instanceof Error ? err.message : 'unknown error'}`)
+          return
+        }
       }
 
       // Build player inserts
