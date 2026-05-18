@@ -47,6 +47,7 @@ export function Step1BasicInfo({ value, onChange, errors }: Props) {
             type="date"
             value={value.start_date}
             onChange={e => onChange({ start_date: e.target.value })}
+            min={new Date().toISOString().split('T')[0]}
             className={inputClass}
           />
         </Field>
@@ -55,7 +56,7 @@ export function Step1BasicInfo({ value, onChange, errors }: Props) {
             type="date"
             value={value.end_date}
             onChange={e => onChange({ end_date: e.target.value })}
-            min={value.start_date || undefined}
+            min={value.start_date || new Date().toISOString().split('T')[0]}
             className={inputClass}
           />
         </Field>

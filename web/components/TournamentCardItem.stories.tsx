@@ -35,6 +35,7 @@ const baseTournament: Tournament = {
   advance_per_group: null,
   knockout_start_round: null,
   seeding_method: null,
+  min_players_per_team: 11,
 }
 
 export const Active: Story = {

@@ -62,6 +62,7 @@ export function TournamentSetupCard({ tournament }: { tournament: Tournament }) 
                 type="date"
                 value={startDate}
                 onChange={e => setStartDate(e.target.value)}
+                min={new Date().toISOString().split('T')[0]}
                 className={inputClass}
               />
             </div>
@@ -71,7 +72,7 @@ export function TournamentSetupCard({ tournament }: { tournament: Tournament }) 
                 type="date"
                 value={endDate}
                 onChange={e => setEndDate(e.target.value)}
-                min={startDate || undefined}
+                min={startDate || new Date().toISOString().split('T')[0]}
                 className={inputClass}
               />
             </div>

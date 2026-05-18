@@ -51,3 +51,6 @@ playwright-report/
 e2e-results/
 visual-story-report.html
 .last-run.json
+
+# Tool-generated
+docs/superpowers/

@@ -236,6 +236,7 @@ export default function EditTournamentPage() {
               onChange={e => update('start_date', e.target.value)}
               required
               disabled={datesLocked}
+              min={new Date().toISOString().split('T')[0]}
               className={inputClass}
             />
           </Field>
@@ -246,7 +247,7 @@ export default function EditTournamentPage() {
               onChange={e => update('end_date', e.target.value)}
               required
               disabled={datesLocked}
-              min={form.start_date || undefined}
+              min={form.start_date || new Date().toISOString().split('T')[0]}
               className={inputClass}
             />
           </Field>
