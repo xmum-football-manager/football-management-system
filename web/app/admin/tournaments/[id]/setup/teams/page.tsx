@@ -1,36 +1,21 @@
 'use client'
 
-import { useState, useTransition, useEffect } from 'react'
-import { useParams } from 'next/navigation'
+import { useState, useTransition } from 'react'
 import { toast } from '@/components/Toast'
 import { canManageTeams } from '@/lib/lock-rules'
 import { createClient } from '@/lib/supabase/client'
-import { getTeams, getTournamentStatus, createTeam, deleteTeam, renameTeam } from '@/lib/db/teams'
+import { createTeam, deleteTeam } from '@/lib/db/teams'
 import { createPlayer, deletePlayer } from '@/lib/db/players'
-import type { TeamWithPlayers, TournamentStatus } from '@/lib/supabase/types'
+import { useSetup } from '../SetupContext'
+import type { TeamWithPlayers } from '@/lib/supabase/types'
 
 export default function SetupTeamsPage() {
-  const { id: tournamentId } = useParams() as { id: string }
-  const [teams, setTeams] = useState<TeamWithPlayers[]>([])
-  const [tournamentStatus, setTournamentStatus] = useState<TournamentStatus | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { tournament, teams, refresh } = useSetup()
+  const tournamentId = tournament.id
   const [newTeamName, setNewTeamName] = useState('')
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const supabase = createClient()
-
-  async function loadTeams() {
-    const [status, teamsData] = await Promise.all([
-      getTournamentStatus(supabase, tournamentId),
-      getTeams(supabase, tournamentId),
-    ])
-    setTournamentStatus(status)
-    setTeams(teamsData)
-    setLoading(false)
-  }
-
-  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
-  useEffect(() => { loadTeams() }, [tournamentId])
 
   function addTeam(e: React.FormEvent) {
     e.preventDefault()
@@ -40,7 +25,7 @@ export default function SetupTeamsPage() {
         await createTeam(supabase, tournamentId, newTeamName.trim())
         setNewTeamName('')
         toast.success(`Team "${newTeamName.trim()}" added!`)
-        await loadTeams()
+        await refresh()
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Could not add team.')
       }
@@ -53,17 +38,15 @@ export default function SetupTeamsPage() {
         await deleteTeam(supabase, teamId)
         if (selectedTeam === teamId) setSelectedTeam(null)
         toast.success('Team deleted.')
-        await loadTeams()
+        await refresh()
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Could not delete team.')
       }
     })
   }
 
-  if (loading) return <div className="text-center py-16 text-slate-400">Loading…</div>
-
   const activeTeam = teams.find(t => t.id === selectedTeam)
-  const teamsLocked = tournamentStatus !== null && !canManageTeams(tournamentStatus)
+  const teamsLocked = !canManageTeams(tournament.status)
 
   return (
     <div className="grid md:grid-cols-2 gap-6">
@@ -105,7 +88,7 @@ export default function SetupTeamsPage() {
       </div>
       <div>
         {activeTeam ? (
-          <RosterEditor supabase={supabase} team={activeTeam} onUpdate={loadTeams} locked={teamsLocked} />
+          <RosterEditor supabase={supabase} team={activeTeam} onUpdate={refresh} locked={teamsLocked} />
         ) : (
           <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-400">
             <p>Select a team to edit its roster.</p>
@@ -116,7 +99,7 @@ export default function SetupTeamsPage() {
   )
 }
 
-function RosterEditor({ supabase, team, onUpdate, locked }: { supabase: ReturnType<typeof createClient>; team: TeamWithPlayers; onUpdate: () => void; locked: boolean }) {
+function RosterEditor({ supabase, team, onUpdate, locked }: { supabase: ReturnType<typeof createClient>; team: TeamWithPlayers; onUpdate: () => Promise<void>; locked: boolean }) {
   const [form, setForm] = useState({ name: '', jersey_number: '', position: '' })
   const [isPending, startTransition] = useTransition()
   const sorted = [...team.players].sort((a, b) => (a.jersey_number ?? 999) - (b.jersey_number ?? 999))
@@ -133,7 +116,7 @@ function RosterEditor({ supabase, team, onUpdate, locked }: { supabase: ReturnTy
         })
         setForm({ name: '', jersey_number: '', position: '' })
         toast.success('Player added!')
-        onUpdate()
+        await onUpdate()
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Could not add player.')
       }
@@ -144,7 +127,7 @@ function RosterEditor({ supabase, team, onUpdate, locked }: { supabase: ReturnTy
     startTransition(async () => {
       try {
         await deletePlayer(supabase, playerId)
-        onUpdate()
+        await onUpdate()
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Could not delete player.')
       }
