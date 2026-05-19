@@ -1,6 +1,8 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import { getTeamWithPlayers } from '@/lib/db/teams'
+import { getTeamStanding } from '@/lib/db/standings'
 
 interface Props {
   params: Promise<{ id: string; teamId: string }>
@@ -11,9 +13,9 @@ function initials(name: string) {
 }
 
 export async function generateMetadata({ params }: Props) {
-  const { teamId } = await params
+  const { id, teamId } = await params
   const supabase = await createClient()
-  const { data: team } = await supabase.from('teams').select('name').eq('id', teamId).single()
+  const team = await getTeamWithPlayers(supabase, teamId, id)
   if (!team) return { title: 'Team Not Found' }
   return { title: `${team.name} — Roster` }
 }
@@ -22,23 +24,10 @@ export default async function TeamPage({ params }: Props) {
   const { id, teamId } = await params
   const supabase = await createClient()
 
-  const [teamRes, standingRes] = await Promise.all([
-    supabase
-      .from('teams')
-      .select('*, players(*)')
-      .eq('id', teamId)
-      .eq('tournament_id', id)
-      .single(),
-    supabase
-      .from('standings')
-      .select('*')
-      .eq('tournament_id', id)
-      .eq('team_id', teamId)
-      .single()
+  const [team, standing] = await Promise.all([
+    getTeamWithPlayers(supabase, teamId, id),
+    getTeamStanding(supabase, teamId, id),
   ])
-
-  const team = teamRes.data
-  const standing = standingRes.data
 
   if (!team) notFound()
 

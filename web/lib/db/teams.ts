@@ -37,6 +37,24 @@ export async function deleteTeam(supabase: SupabaseClient, teamId: string): Prom
   if (error) throw new Error(error.message)
 }
 
+export async function getTeamWithPlayers(
+  supabase: SupabaseClient,
+  teamId: string,
+  tournamentId: string,
+): Promise<TeamWithPlayers | null> {
+  const { data, error } = await supabase
+    .from('teams')
+    .select('*, players(*)')
+    .eq('id', teamId)
+    .eq('tournament_id', tournamentId)
+    .single()
+  if (error) {
+    if (error.code === 'PGRST116') return null
+    throw new Error(error.message)
+  }
+  return data as TeamWithPlayers
+}
+
 export async function getTournamentStatus(supabase: SupabaseClient, tournamentId: string): Promise<TournamentStatus | null> {
   const { data, error } = await supabase
     .from('tournaments')

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { getTeams, createTeam, renameTeam, deleteTeam, getTournamentStatus } from '../teams'
+import { getTeams, createTeam, renameTeam, deleteTeam, getTournamentStatus, getTeamWithPlayers } from '../teams'
 
 function mockClient(response: { data: unknown; error: unknown }) {
   const single = vi.fn().mockResolvedValue(response)
@@ -75,5 +75,33 @@ describe('teams DAL', () => {
   it('getTournamentStatus throws on non-PGRST116 errors', async () => {
     const client = mockClient({ data: null, error: { code: '42P01', message: 'relation does not exist' } })
     await expect(getTournamentStatus(client, 'tr1')).rejects.toThrow('relation does not exist')
+  })
+})
+
+function mockChainedEqSingle(response: { data: unknown; error: unknown }) {
+  const single = vi.fn().mockResolvedValue(response)
+  const innerEq = vi.fn().mockReturnValue({ single })
+  const outerEq = vi.fn().mockReturnValue({ eq: innerEq })
+  const select = vi.fn().mockReturnValue({ eq: outerEq })
+  const from = vi.fn().mockReturnValue({ select })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return { from } as any
+}
+
+describe('getTeamWithPlayers', () => {
+  it('returns the team when found', async () => {
+    const team = { id: 't1', tournament_id: 'tr1', players: [] }
+    const client = mockChainedEqSingle({ data: team, error: null })
+    expect(await getTeamWithPlayers(client, 't1', 'tr1')).toEqual(team)
+  })
+
+  it('returns null on PGRST116 (no row)', async () => {
+    const client = mockChainedEqSingle({ data: null, error: { code: 'PGRST116', message: 'no row' } })
+    expect(await getTeamWithPlayers(client, 't1', 'tr1')).toBeNull()
+  })
+
+  it('throws on other errors', async () => {
+    const client = mockChainedEqSingle({ data: null, error: { code: '42P01', message: 'relation does not exist' } })
+    await expect(getTeamWithPlayers(client, 't1', 'tr1')).rejects.toThrow('relation does not exist')
   })
 })

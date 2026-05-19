@@ -60,3 +60,49 @@ export async function getUserRoles(supabase: SupabaseClient, userId: string) {
   if (error) throw new Error(error.message)
   return data ?? []
 }
+
+export async function getAllUserRoles(supabase: SupabaseClient) {
+  const { data, error } = await supabase
+    .from('user_roles')
+    .select('user_id, role, tournament_id')
+  if (error) throw new Error(error.message)
+  return data ?? []
+}
+
+export async function getActiveTournaments(supabase: SupabaseClient): Promise<Tournament[]> {
+  const { data, error } = await supabase
+    .from('tournaments')
+    .select('*')
+    .in('status', ['setup', 'active'])
+    .order('start_date', { ascending: true })
+  if (error) throw new Error(error.message)
+  return (data as Tournament[]) ?? []
+}
+
+export async function getAllTournaments(supabase: SupabaseClient): Promise<Tournament[]> {
+  const { data, error } = await supabase
+    .from('tournaments')
+    .select('*')
+    .order('created_at', { ascending: false })
+  if (error) throw new Error(error.message)
+  return (data as Tournament[]) ?? []
+}
+
+export async function getTournamentsByIds(
+  supabase: SupabaseClient,
+  ids: string[],
+): Promise<Tournament[]> {
+  if (ids.length === 0) return []
+  const { data, error } = await supabase
+    .from('tournaments')
+    .select('*')
+    .in('id', ids)
+    .order('created_at', { ascending: false })
+  if (error) throw new Error(error.message)
+  return (data as Tournament[]) ?? []
+}
+
+export async function pingTournaments(supabase: SupabaseClient): Promise<void> {
+  const { error } = await supabase.from('tournaments').select('id').limit(1)
+  if (error) throw new Error(error.message)
+}
