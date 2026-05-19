@@ -78,6 +78,25 @@ export async function transitionMatchStatus(
   if (error) throw new Error(error.message)
 }
 
+export async function getScoreableMatches(
+  supabase: SupabaseClient,
+  matchIds: string[],
+  tournamentIds: string[],
+): Promise<MatchWithTeams[]> {
+  const filters: string[] = []
+  if (matchIds.length > 0) filters.push(`id.in.(${matchIds.join(',')})`)
+  if (tournamentIds.length > 0) filters.push(`tournament_id.in.(${tournamentIds.join(',')})`)
+  if (filters.length === 0) return []
+  const { data, error } = await supabase
+    .from('matches')
+    .select('*, home_team:teams!matches_home_team_id_fkey(*), away_team:teams!matches_away_team_id_fkey(*)')
+    .in('status', ['scheduled', 'live', 'halftime'])
+    .or(filters.join(','))
+    .order('match_time', { ascending: true })
+  if (error) throw new Error(error.message)
+  return (data as MatchWithTeams[]) ?? []
+}
+
 export async function logRevertAudit(
   supabase: SupabaseClient,
   matchId: string,

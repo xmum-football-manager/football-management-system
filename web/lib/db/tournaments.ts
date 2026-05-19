@@ -106,3 +106,16 @@ export async function pingTournaments(supabase: SupabaseClient): Promise<void> {
   const { error } = await supabase.from('tournaments').select('id').limit(1)
   if (error) throw new Error(error.message)
 }
+
+export async function createTournament(
+  supabase: SupabaseClient,
+  fields: Partial<Tournament>,
+): Promise<{ id: string }> {
+  const { data, error } = await supabase
+    .from('tournaments')
+    .insert(fields)
+    .select('id')
+    .single()
+  if (error) throw new Error(error.message)
+  return data as { id: string }
+}

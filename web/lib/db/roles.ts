@@ -38,3 +38,54 @@ export async function removeOrganizer(supabase: SupabaseClient, userId: string, 
     .eq('tournament_id', tournamentId)
   if (error) throw new Error(error.message)
 }
+
+export async function getScorekeepersForTournament(
+  supabase: SupabaseClient,
+  tournamentId: string,
+): Promise<Array<{ user_id: string; match_id: string | null }>> {
+  const { data, error } = await supabase
+    .from('user_roles')
+    .select('user_id, match_id')
+    .eq('role', 'scorekeeper')
+    .eq('tournament_id', tournamentId)
+  if (error) throw new Error(error.message)
+  return (data as Array<{ user_id: string; match_id: string | null }>) ?? []
+}
+
+export async function getOrganizersForTournament(
+  supabase: SupabaseClient,
+  tournamentId: string,
+): Promise<Array<{ user_id: string }>> {
+  const { data, error } = await supabase
+    .from('user_roles')
+    .select('user_id')
+    .eq('role', 'organizer')
+    .eq('tournament_id', tournamentId)
+  if (error) throw new Error(error.message)
+  return (data as Array<{ user_id: string }>) ?? []
+}
+
+export async function getScorekeeperAssignments(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<Array<{ tournament_id: string | null; match_id: string | null }>> {
+  const { data, error } = await supabase
+    .from('user_roles')
+    .select('tournament_id, match_id')
+    .eq('user_id', userId)
+    .eq('role', 'scorekeeper')
+  if (error) throw new Error(error.message)
+  return (data as Array<{ tournament_id: string | null; match_id: string | null }>) ?? []
+}
+
+export async function createUserRole(
+  supabase: SupabaseClient,
+  userId: string,
+  role: string,
+  tournamentId: string | null,
+): Promise<void> {
+  const { error } = await supabase
+    .from('user_roles')
+    .insert({ user_id: userId, role, tournament_id: tournamentId })
+  if (error) throw new Error(error.message)
+}
