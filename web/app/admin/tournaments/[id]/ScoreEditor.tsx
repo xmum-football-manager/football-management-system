@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useOptimistic } from 'react'
 import { toast } from '@/components/Toast'
+import { createClient } from '@/lib/supabase/client'
 import { updateMatchScore } from '@/lib/db/matches'
 
 interface Props {
@@ -27,13 +28,14 @@ export function ScoreEditor({ matchId, homeScore, awayScore, homeName, awayName 
     }
     startTransition(async () => {
       setOptimistic(next)
-      const { error } = await updateMatchScore(matchId, next.home, next.away)
-      if (error) {
+      const supabase = createClient()
+      try {
+        await updateMatchScore(supabase, matchId, next.home, next.away)
+        setBase(next)
+      } catch {
         toast.error('Score not saved.')
         setOptimistic(base)
-        return
       }
-      setBase(next)
     })
   }
 

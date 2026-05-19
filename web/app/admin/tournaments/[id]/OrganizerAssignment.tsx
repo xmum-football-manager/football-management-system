@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useEffect, useCallback } from 'react'
 import { toast } from '@/components/Toast'
+import { createClient } from '@/lib/supabase/client'
 import { assignOrganizer, removeOrganizer } from '@/lib/db/roles'
 
 interface OrganizerRow {
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export function OrganizerAssignment({ tournamentId }: Props) {
+  const supabase = createClient()
   const [organizers, setOrganizers] = useState<OrganizerRow[]>([])
   const [email, setEmail] = useState('')
   const [isPending, startTransition] = useTransition()
@@ -29,8 +31,12 @@ export function OrganizerAssignment({ tournamentId }: Props) {
   function handleAssign(e: React.FormEvent) {
     e.preventDefault()
     startTransition(async () => {
-      const result = await assignOrganizer(email, tournamentId)
-      if (result.error) { toast.error(result.error.message); return }
+      try {
+        await assignOrganizer(supabase, email, tournamentId)
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Assign failed')
+        return
+      }
       toast.success('Organizer assigned!')
       setEmail('')
       await load()
@@ -39,8 +45,12 @@ export function OrganizerAssignment({ tournamentId }: Props) {
 
   function handleRemove(userId: string) {
     startTransition(async () => {
-      const { error } = await removeOrganizer(userId, tournamentId)
-      if (error) { toast.error(error.message); return }
+      try {
+        await removeOrganizer(supabase, userId, tournamentId)
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Remove failed')
+        return
+      }
       toast.success('Organizer removed.')
       await load()
     })

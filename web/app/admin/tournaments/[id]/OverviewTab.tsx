@@ -2,6 +2,7 @@
 
 import { useTransition } from 'react'
 import { toast } from '@/components/Toast'
+import { createClient } from '@/lib/supabase/client'
 import { finishTournament } from '@/lib/db/tournaments'
 import { MatchStatusControls } from './MatchStatusControls'
 import { ScoreEditor } from './ScoreEditor'
@@ -66,10 +67,14 @@ function FinishPanel({ tournamentId, onFinished }: { tournamentId: string; onFin
 
   function finish() {
     startTransition(async () => {
-      const { error } = await finishTournament(tournamentId)
-      if (error) { toast.error(error.message); return }
-      toast.success('Tournament marked as finished.')
-      onFinished()
+      const supabase = createClient()
+      try {
+        await finishTournament(supabase, tournamentId)
+        toast.success('Tournament marked as finished.')
+        onFinished()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Failed to finish tournament')
+      }
     })
   }
 

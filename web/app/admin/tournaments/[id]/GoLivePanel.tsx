@@ -2,6 +2,7 @@
 
 import { useTransition } from 'react'
 import { toast } from '@/components/Toast'
+import { createClient } from '@/lib/supabase/client'
 import { goLive } from '@/lib/db/tournaments'
 import type { Tournament, TeamWithPlayers } from '@/lib/supabase/types'
 
@@ -73,10 +74,14 @@ export function GoLivePanel({ tournament, teams, onLive }: Props) {
 
   function handleGoLive() {
     startTransition(async () => {
-      const { error } = await goLive(tournament.id)
-      if (error) { toast.error(error.message); return }
-      toast.success('Tournament is now live!')
-      onLive()
+      const supabase = createClient()
+      try {
+        await goLive(supabase, tournament.id)
+        toast.success('Tournament is now live!')
+        onLive()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Failed to go live')
+      }
     })
   }
 

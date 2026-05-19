@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { getCurrentUser, getUserRoles, getAllUserRoles } from '@/lib/db/tournaments'
 
 const ROLE_BADGE: Record<string, string> = {
   admin: 'bg-purple-100 text-purple-700',
@@ -10,22 +11,22 @@ const ROLE_BADGE: Record<string, string> = {
 
 export default async function UsersPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getCurrentUser(supabase)
   if (!user) redirect('/login')
 
-  const { data: callerRoles } = await supabase.from('user_roles').select('role').eq('user_id', user.id)
-  if (!callerRoles?.some(r => r.role === 'admin')) redirect('/admin')
+  const callerRoles = await getUserRoles(supabase, user.id)
+  if (!callerRoles.some(r => r.role === 'admin')) redirect('/admin')
 
   const service = createServiceClient()
-  const [{ data: authUsers }, { data: roles }] = await Promise.all([
+  const [{ data: authUsers }, roles] = await Promise.all([
     service.auth.admin.listUsers({ perPage: 1000 }),
-    service.from('user_roles').select('user_id, role, tournament_id'),
+    getAllUserRoles(service),
   ])
 
   const users = (authUsers?.users ?? []).map(u => ({
     id: u.id,
     email: u.email ?? '—',
-    roles: (roles ?? []).filter(r => r.user_id === u.id),
+    roles: roles.filter(r => r.user_id === u.id),
   }))
 
   return (
