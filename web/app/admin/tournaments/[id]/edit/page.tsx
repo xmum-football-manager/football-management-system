@@ -34,6 +34,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 export default function EditTournamentPage() {
   const { id } = useParams() as { id: string }
   const router = useRouter()
+  const supabase = createClient()
   const [tournament, setTournament] = useState<Tournament | null>(null)
   const [form, setForm] = useState({
     name: '',
@@ -62,7 +63,6 @@ export default function EditTournamentPage() {
 
   useEffect(() => {
     async function load() {
-      const supabase = createClient()
       const t = await getTournament(supabase, id)
       if (!t) return
       setTournament(t)
@@ -160,7 +160,6 @@ export default function EditTournamentPage() {
         return
       }
 
-      const supabase = createClient()
       try {
         await updateTournament(supabase, id, patch)
         toast.success('Tournament updated!')

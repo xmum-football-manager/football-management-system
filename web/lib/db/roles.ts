@@ -81,7 +81,7 @@ export async function getScorekeeperAssignments(
 export async function createUserRole(
   supabase: SupabaseClient,
   userId: string,
-  role: string,
+  role: 'organizer' | 'scorekeeper',
   tournamentId: string | null,
 ): Promise<void> {
   const { error } = await supabase

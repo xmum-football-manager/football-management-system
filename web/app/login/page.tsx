@@ -40,7 +40,7 @@ function LoginForm() {
     e.preventDefault()
     setError('')
     const config = TAB_CONFIG[tab]
-    const target = redirectTo ?? config.redirect
+    const target = (redirectTo && redirectTo.startsWith('/')) ? redirectTo : config.redirect
 
     startTransition(async () => {
       const supabase = createClient()

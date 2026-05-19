@@ -29,6 +29,7 @@ interface Props {
 }
 
 export function FixturesTab({ teams, matches, tournamentStatus, tournamentId, onRefresh }: Props) {
+  const supabase = createClient()
   const [form, setForm] = useState({ home_team_id: '', away_team_id: '', match_date: '', match_time: '' })
   const [formErrors, setFormErrors] = useState<string[]>([])
   const [isPending, startTransition] = useTransition()
@@ -59,7 +60,6 @@ export function FixturesTab({ teams, matches, tournamentStatus, tournamentId, on
     setFormErrors(errors)
     if (errors.length > 0) return
     startTransition(async () => {
-      const supabase = createClient()
       try {
         await createMatch(supabase, tournamentId, form.home_team_id, form.away_team_id, new Date(`${form.match_date}T${form.match_time}`).toISOString())
         setForm({ home_team_id: '', away_team_id: '', match_date: '', match_time: '' })
@@ -74,7 +74,6 @@ export function FixturesTab({ teams, matches, tournamentStatus, tournamentId, on
 
   function handleDeleteFixture(matchId: string) {
     startTransition(async () => {
-      const supabase = createClient()
       try {
         await deleteMatch(supabase, matchId)
         toast.success('Fixture removed.')
@@ -96,7 +95,6 @@ export function FixturesTab({ teams, matches, tournamentStatus, tournamentId, on
   function saveEditTime() {
     if (!editingMatchId) return
     startTransition(async () => {
-      const supabase = createClient()
       try {
         await updateMatchTime(supabase, editingMatchId, new Date(`${editingDate}T${editingTime}`).toISOString())
         setEditingMatchId(null)
