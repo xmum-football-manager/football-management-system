@@ -1,14 +1,12 @@
 'use client'
 
-import { useState, useTransition, useEffect } from 'react'
-import { useParams } from 'next/navigation'
+import { useState, useTransition } from 'react'
 import { toast } from '@/components/Toast'
 import { canAddFixture, canDeleteFixture, canEditMatchTime } from '@/lib/lock-rules'
 import { createClient } from '@/lib/supabase/client'
-import { getTeams } from '@/lib/db/teams'
-import { getMatches, createMatch, deleteMatch, updateMatchTime } from '@/lib/db/matches'
-import { getTournamentStatus } from '@/lib/db/teams'
-import type { Team, MatchWithTeams, TournamentStatus } from '@/lib/supabase/types'
+import { createMatch, deleteMatch, updateMatchTime } from '@/lib/db/matches'
+import { useSetup } from '../SetupContext'
+import type { MatchWithTeams } from '@/lib/supabase/types'
 
 function statusPill(status: string) {
   const map: Record<string, { label: string; classes: string }> = {
@@ -26,11 +24,8 @@ function statusPill(status: string) {
 }
 
 export default function SetupFixturesPage() {
-  const { id: tournamentId } = useParams() as { id: string }
-  const [teams, setTeams] = useState<Team[]>([])
-  const [matches, setMatches] = useState<MatchWithTeams[]>([])
-  const [tournamentStatus, setTournamentStatus] = useState<TournamentStatus | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { tournament, teams, matches, refresh } = useSetup()
+  const tournamentId = tournament.id
   const [form, setForm] = useState({ home_team_id: '', away_team_id: '', match_date: '', match_time: '' })
   const [formErrors, setFormErrors] = useState<string[]>([])
   const [isPending, startTransition] = useTransition()
@@ -38,21 +33,6 @@ export default function SetupFixturesPage() {
   const [editingDate, setEditingDate] = useState('')
   const [editingTime, setEditingTime] = useState('')
   const supabase = createClient()
-
-  async function load() {
-    const [status, teamsData, matchesData] = await Promise.all([
-      getTournamentStatus(supabase, tournamentId),
-      getTeams(supabase, tournamentId),
-      getMatches(supabase, tournamentId),
-    ])
-    setTournamentStatus(status)
-    setTeams(teamsData)
-    setMatches(matchesData)
-    setLoading(false)
-  }
-
-  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
-  useEffect(() => { load() }, [tournamentId])
 
   function validateForm(): string[] {
     const errors: string[] = []
@@ -81,7 +61,7 @@ export default function SetupFixturesPage() {
         setForm({ home_team_id: '', away_team_id: '', match_date: '', match_time: '' })
         setFormErrors([])
         toast.success('Fixture scheduled!')
-        await load()
+        await refresh()
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Could not schedule fixture.')
       }
@@ -93,7 +73,7 @@ export default function SetupFixturesPage() {
       try {
         await deleteMatch(supabase, matchId)
         toast.success('Fixture removed.')
-        await load()
+        await refresh()
       } catch {
         toast.error('Could not remove fixture.')
       }
@@ -101,7 +81,7 @@ export default function SetupFixturesPage() {
   }
 
   function startEditTime(match: MatchWithTeams) {
-    if (!canEditMatchTime(tournamentStatus ?? 'setup', match.status)) return
+    if (!canEditMatchTime(tournament.status, match.status)) return
     setEditingMatchId(match.id)
     const iso = new Date(match.match_time).toISOString().slice(0, 16)
     setEditingDate(iso.slice(0, 10))
@@ -117,18 +97,16 @@ export default function SetupFixturesPage() {
         setEditingDate('')
         setEditingTime('')
         toast.success('Match time updated.')
-        await load()
+        await refresh()
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Could not update match time.')
       }
     })
   }
 
-  if (loading) return <div className="text-center py-16 text-slate-400">Loading…</div>
-
   const sel = 'w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500'
   const selError = 'w-full border border-red-400 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 bg-red-50'
-  const fixturesLocked = tournamentStatus !== null && !canAddFixture(tournamentStatus)
+  const fixturesLocked = !canAddFixture(tournament.status)
 
   return (
     <div className="space-y-6">
@@ -188,8 +166,8 @@ export default function SetupFixturesPage() {
         ) : (
           <div className="space-y-2">
             {matches.map(m => {
-              const canDelete = canDeleteFixture(tournamentStatus ?? 'setup')
-              const canEdit = canEditMatchTime(tournamentStatus ?? 'setup', m.status)
+              const canDelete = canDeleteFixture(tournament.status)
+              const canEdit = canEditMatchTime(tournament.status, m.status)
               const isEditing = editingMatchId === m.id
               return (
                 <div key={m.id} className="bg-white rounded-xl border border-slate-200 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
