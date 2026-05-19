@@ -1,10 +1,13 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
+import { useParams } from 'next/navigation'
 import { toast } from '@/components/Toast'
 import { canAddFixture, canDeleteFixture, canEditMatchTime } from '@/lib/lock-rules'
 import { createClient } from '@/lib/supabase/client'
-import { createMatch, deleteMatch, updateMatchTime } from '@/lib/db/matches'
+import { getTeams } from '@/lib/db/teams'
+import { getMatches, createMatch, deleteMatch, updateMatchTime } from '@/lib/db/matches'
+import { getTournamentStatus } from '@/lib/db/teams'
 import type { Team, MatchWithTeams, TournamentStatus } from '@/lib/supabase/types'
 
 function statusPill(status: string) {
@@ -16,26 +19,40 @@ function statusPill(status: string) {
   }
   const s = map[status] ?? { label: status, classes: 'bg-slate-100 text-slate-500' }
   return (
-    <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full capitalize ${s.classes}`}>{s.label}</span>
+    <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full capitalize ${s.classes}`}>
+      {s.label}
+    </span>
   )
 }
 
-interface Props {
-  teams: Team[]
-  matches: MatchWithTeams[]
-  tournamentStatus: TournamentStatus
-  tournamentId: string
-  onRefresh: () => void
-}
-
-export function FixturesTab({ teams, matches, tournamentStatus, tournamentId, onRefresh }: Props) {
-  const supabase = createClient()
+export default function SetupFixturesPage() {
+  const { id: tournamentId } = useParams() as { id: string }
+  const [teams, setTeams] = useState<Team[]>([])
+  const [matches, setMatches] = useState<MatchWithTeams[]>([])
+  const [tournamentStatus, setTournamentStatus] = useState<TournamentStatus | null>(null)
+  const [loading, setLoading] = useState(true)
   const [form, setForm] = useState({ home_team_id: '', away_team_id: '', match_date: '', match_time: '' })
   const [formErrors, setFormErrors] = useState<string[]>([])
   const [isPending, startTransition] = useTransition()
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null)
   const [editingDate, setEditingDate] = useState('')
   const [editingTime, setEditingTime] = useState('')
+  const supabase = createClient()
+
+  async function load() {
+    const [status, teamsData, matchesData] = await Promise.all([
+      getTournamentStatus(supabase, tournamentId),
+      getTeams(supabase, tournamentId),
+      getMatches(supabase, tournamentId),
+    ])
+    setTournamentStatus(status)
+    setTeams(teamsData)
+    setMatches(matchesData)
+    setLoading(false)
+  }
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
+  useEffect(() => { load() }, [tournamentId])
 
   function validateForm(): string[] {
     const errors: string[] = []
@@ -45,9 +62,8 @@ export function FixturesTab({ teams, matches, tournamentStatus, tournamentId, on
       const clash = matches.some(m => {
         if (m.status !== 'scheduled') return false
         const existing = new Date(m.match_time).getTime()
-        return Math.abs(newTime - existing) < 3600000 &&
-          (m.home_team_id === form.home_team_id || m.away_team_id === form.home_team_id ||
-           m.home_team_id === form.away_team_id || m.away_team_id === form.away_team_id)
+        const diff = Math.abs(newTime - existing)
+        return diff < 3600000 && (m.home_team_id === form.home_team_id || m.away_team_id === form.home_team_id || m.home_team_id === form.away_team_id || m.away_team_id === form.away_team_id)
       })
       if (clash) errors.push('One of the selected teams already has a match scheduled within an hour of this time.')
     }
@@ -65,19 +81,19 @@ export function FixturesTab({ teams, matches, tournamentStatus, tournamentId, on
         setForm({ home_team_id: '', away_team_id: '', match_date: '', match_time: '' })
         setFormErrors([])
         toast.success('Fixture scheduled!')
-        onRefresh()
+        await load()
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Could not schedule fixture.')
       }
     })
   }
 
-  function handleDeleteFixture(matchId: string) {
+  function deleteFixture(matchId: string) {
     startTransition(async () => {
       try {
         await deleteMatch(supabase, matchId)
         toast.success('Fixture removed.')
-        onRefresh()
+        await load()
       } catch {
         toast.error('Could not remove fixture.')
       }
@@ -85,14 +101,14 @@ export function FixturesTab({ teams, matches, tournamentStatus, tournamentId, on
   }
 
   function startEditTime(match: MatchWithTeams) {
-    if (!canEditMatchTime(tournamentStatus, match.status)) return
+    if (!canEditMatchTime(tournamentStatus ?? 'setup', match.status)) return
     setEditingMatchId(match.id)
     const iso = new Date(match.match_time).toISOString().slice(0, 16)
     setEditingDate(iso.slice(0, 10))
     setEditingTime(iso.slice(11, 16))
   }
 
-  function saveEditTime() {
+  async function saveEditTime() {
     if (!editingMatchId) return
     startTransition(async () => {
       try {
@@ -101,16 +117,18 @@ export function FixturesTab({ teams, matches, tournamentStatus, tournamentId, on
         setEditingDate('')
         setEditingTime('')
         toast.success('Match time updated.')
-        onRefresh()
+        await load()
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Could not update match time.')
       }
     })
   }
 
-  const fixturesLocked = !canAddFixture(tournamentStatus)
+  if (loading) return <div className="text-center py-16 text-slate-400">Loading…</div>
+
   const sel = 'w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500'
   const selError = 'w-full border border-red-400 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 bg-red-50'
+  const fixturesLocked = tournamentStatus !== null && !canAddFixture(tournamentStatus)
 
   return (
     <div className="space-y-6">
@@ -170,8 +188,8 @@ export function FixturesTab({ teams, matches, tournamentStatus, tournamentId, on
         ) : (
           <div className="space-y-2">
             {matches.map(m => {
-              const canDelete = canDeleteFixture(tournamentStatus)
-              const canEdit = canEditMatchTime(tournamentStatus, m.status)
+              const canDelete = canDeleteFixture(tournamentStatus ?? 'setup')
+              const canEdit = canEditMatchTime(tournamentStatus ?? 'setup', m.status)
               const isEditing = editingMatchId === m.id
               return (
                 <div key={m.id} className="bg-white rounded-xl border border-slate-200 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -199,7 +217,7 @@ export function FixturesTab({ teams, matches, tournamentStatus, tournamentId, on
                   <div className="flex items-center gap-3 shrink-0">
                     {statusPill(m.status)}
                     {m.status === 'scheduled' && (
-                      <button onClick={() => handleDeleteFixture(m.id)} disabled={isPending || !canDelete} className="text-red-400 hover:text-red-600 disabled:opacity-30 text-lg leading-none">×</button>
+                      <button onClick={() => deleteFixture(m.id)} disabled={isPending || !canDelete} className="text-red-400 hover:text-red-600 disabled:opacity-30 text-lg leading-none">×</button>
                     )}
                   </div>
                 </div>
