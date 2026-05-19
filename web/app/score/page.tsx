@@ -1,37 +1,23 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { ScoreEntry } from './ScoreEntry'
-import type { MatchWithTeams } from '@/lib/supabase/types'
+import { getCurrentUser } from '@/lib/db/tournaments'
+import { getScorekeeperAssignments } from '@/lib/db/roles'
+import { getScoreableMatches } from '@/lib/db/matches'
 
 export default async function ScorePage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getCurrentUser(supabase)
   if (!user) redirect('/score/login?redirectTo=/score')
 
-  const { data: roles } = await supabase
-    .from('user_roles')
-    .select('role, tournament_id, match_id')
-    .eq('user_id', user.id)
-    .eq('role', 'scorekeeper')
-
-  if (!roles || roles.length === 0) return <NoAssignment email={user.email} />
+  const roles = await getScorekeeperAssignments(supabase, user.id)
+  if (roles.length === 0) return <NoAssignment email={user.email} />
 
   const matchIds = roles.filter(r => r.match_id).map(r => r.match_id as string)
   const tournamentIds = roles.filter(r => r.tournament_id && !r.match_id).map(r => r.tournament_id as string)
 
-  const filters: string[] = []
-  if (matchIds.length > 0) filters.push(`id.in.(${matchIds.join(',')})`)
-  if (tournamentIds.length > 0) filters.push(`tournament_id.in.(${tournamentIds.join(',')})`)
-  if (filters.length === 0) return <NoAssignment email={user.email} />
-
-  const { data: matches } = await supabase
-    .from('matches')
-    .select('*, home_team:teams!matches_home_team_id_fkey(*), away_team:teams!matches_away_team_id_fkey(*)')
-    .in('status', ['scheduled', 'live', 'halftime'])
-    .or(filters.join(','))
-    .order('match_time', { ascending: true })
-
-  if (!matches || matches.length === 0) return <NoAssignment email={user.email} />
+  const matches = await getScoreableMatches(supabase, matchIds, tournamentIds)
+  if (matches.length === 0) return <NoAssignment email={user.email} />
 
   const sorted = [...matches].sort((a, b) => {
     if (a.status === 'live' && b.status !== 'live') return -1
@@ -39,7 +25,7 @@ export default async function ScorePage() {
     return new Date(a.match_time).getTime() - new Date(b.match_time).getTime()
   })
 
-  return <ScoreEntry matches={sorted as MatchWithTeams[]} userEmail={user.email ?? ''} />
+  return <ScoreEntry matches={sorted} userEmail={user.email ?? ''} />
 }
 
 function NoAssignment({ email }: { email?: string }) {

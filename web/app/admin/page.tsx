@@ -2,29 +2,24 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import type { Tournament } from '@/lib/supabase/types'
+import { getCurrentUser, getUserRoles, getAllTournaments, getTournamentsByIds } from '@/lib/db/tournaments'
 
 export default async function AdminDashboard() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getCurrentUser(supabase)
   if (!user) redirect('/login')
 
-  const { data: roles } = await supabase
-    .from('user_roles')
-    .select('role, tournament_id')
-    .eq('user_id', user.id)
+  const roles = await getUserRoles(supabase, user.id)
+  const isAdmin = roles.some(r => r.role === 'admin')
 
-  const isAdmin = roles?.some(r => r.role === 'admin') ?? false
-
-  const query = supabase
-    .from('tournaments')
-    .select('*')
-    .order('created_at', { ascending: false })
-
-  if (!isAdmin) {
+  let tournaments: Tournament[]
+  if (isAdmin) {
+    tournaments = await getAllTournaments(supabase)
+  } else {
     const orgTournamentIds = roles
-      ?.filter(r => r.role === 'organizer')
+      .filter(r => r.role === 'organizer')
       .map(r => r.tournament_id)
-      .filter(Boolean) ?? []
+      .filter((id): id is string => Boolean(id))
     if (orgTournamentIds.length === 0) {
       return (
         <AdminShell user={user} isAdmin={isAdmin}>
@@ -32,11 +27,10 @@ export default async function AdminDashboard() {
         </AdminShell>
       )
     }
-    query.in('id', orgTournamentIds)
+    tournaments = await getTournamentsByIds(supabase, orgTournamentIds)
   }
 
-  const { data: tournaments } = await query
-  const activeCount = tournaments?.filter(t => t.status === 'active').length ?? 0
+  const activeCount = tournaments.filter(t => t.status === 'active').length
 
   return (
     <AdminShell user={user} isAdmin={isAdmin}>
@@ -56,12 +50,12 @@ export default async function AdminDashboard() {
           )}
         </div>
 
-        {(tournaments ?? []).length === 0 ? (
+        {tournaments.length === 0 ? (
           <EmptyState />
         ) : (
           <div className="grid gap-3">
-            {(tournaments ?? []).map(t => (
-              <TournamentRow key={t.id} tournament={t as Tournament} />
+            {tournaments.map(t => (
+              <TournamentRow key={t.id} tournament={t} />
             ))}
           </div>
         )}

@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { getCurrentUser, getUserRoles } from '@/lib/db/tournaments'
+import { createUserRole } from '@/lib/db/roles'
 
 const DEFAULT_PASSWORD = 'footballclub'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getCurrentUser(supabase)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: roles } = await supabase.from('user_roles').select('role').eq('user_id', user.id)
-  if (!roles?.some(r => r.role === 'admin')) {
+  const roles = await getUserRoles(supabase, user.id)
+  if (!roles.some(r => r.role === 'admin')) {
     return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
   }
 
@@ -30,11 +32,11 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  const { error: roleError } = await service
-    .from('user_roles')
-    .insert({ user_id: created.user.id, role, tournament_id: null })
-
-  if (roleError) return NextResponse.json({ error: roleError.message }, { status: 500 })
+  try {
+    await createUserRole(service, created.user.id, role, null)
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : 'Failed to assign role' }, { status: 500 })
+  }
 
   return NextResponse.json({ success: true, userId: created.user.id })
 }

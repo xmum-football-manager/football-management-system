@@ -8,6 +8,7 @@ import {
   canEditDates,
   canEditFormat,
 } from '@/lib/lock-rules'
+import { createClient } from '@/lib/supabase/client'
 import { updateTournament } from '@/lib/db/tournaments'
 import { assignScorekeeper, removeScorekeeper } from '@/lib/db/roles'
 import type { Tournament, MatchWithTeams } from '@/lib/supabase/types'
@@ -29,6 +30,7 @@ interface Props {
 }
 
 export function SettingsTab({ tournament: t, matches, tournamentId, isAdmin, onRefresh }: Props) {
+  const supabase = createClient()
   const [form, setForm] = useState({
     name: t.name,
     description: t.description ?? '',
@@ -111,10 +113,13 @@ export function SettingsTab({ tournament: t, matches, tournamentId, isAdmin, onR
 
       if (Object.keys(patch).length === 0) { toast.error('All fields are locked.'); return }
 
-      const { error } = await updateTournament(tournamentId, patch)
-      if (error) { toast.error(error.message); return }
-      toast.success('Settings saved!')
-      onRefresh()
+      try {
+        await updateTournament(supabase, tournamentId, patch)
+        toast.success('Settings saved!')
+        onRefresh()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Save failed')
+      }
     })
   }
 
@@ -122,8 +127,12 @@ export function SettingsTab({ tournament: t, matches, tournamentId, isAdmin, onR
     e.preventDefault()
     startSkTransition(async () => {
       const matchId = skScope === 'match' && skMatchId ? skMatchId : null
-      const result = await assignScorekeeper(skEmail, tournamentId, matchId)
-      if (result.error) { toast.error(result.error.message); return }
+      try {
+        await assignScorekeeper(supabase, skEmail, tournamentId, matchId)
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Assign failed')
+        return
+      }
       toast.success('Scorekeeper assigned!')
       setSkEmail(''); setSkMatchId('')
       await loadScorekeepers()
@@ -132,8 +141,12 @@ export function SettingsTab({ tournament: t, matches, tournamentId, isAdmin, onR
 
   function handleRemoveScorekeeper(userId: string, matchId: string | null) {
     startSkTransition(async () => {
-      const { error } = await removeScorekeeper(userId, tournamentId, matchId)
-      if (error) { toast.error(error.message); return }
+      try {
+        await removeScorekeeper(supabase, userId, tournamentId, matchId)
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Remove failed')
+        return
+      }
       toast.success('Scorekeeper removed.')
       await loadScorekeepers()
     })

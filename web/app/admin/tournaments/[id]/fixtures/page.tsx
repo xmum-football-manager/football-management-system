@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import { toast } from '@/components/Toast'
 import Link from 'next/link'
 import { canAddFixture, canDeleteFixture, canEditMatchTime } from '@/lib/lock-rules'
+import { createClient } from '@/lib/supabase/client'
 import { getTeams } from '@/lib/db/teams'
 import { getMatches, createMatch, deleteMatch, updateMatchTime } from '@/lib/db/matches'
 import { getTournamentStatus } from '@/lib/db/teams'
@@ -36,12 +37,13 @@ export default function FixturesPage() {
   const [isPending, startTransition] = useTransition()
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null)
   const [editingTime, setEditingTime] = useState('')
+  const supabase = createClient()
 
   async function load() {
     const [status, teamsData, matchesData] = await Promise.all([
-      getTournamentStatus(tournamentId),
-      getTeams(tournamentId),
-      getMatches(tournamentId),
+      getTournamentStatus(supabase, tournamentId),
+      getTeams(supabase, tournamentId),
+      getMatches(supabase, tournamentId),
     ])
     setTournamentStatus(status)
     setTeams(teamsData)
@@ -78,25 +80,27 @@ export default function FixturesPage() {
     setFormErrors(errors)
     if (errors.length > 0) return
     startTransition(async () => {
-      const { error } = await createMatch(
-        tournamentId,
-        form.home_team_id,
-        form.away_team_id,
-        new Date(form.match_time).toISOString()
-      )
-      if (error) { toast.error(error.message); return }
-      setForm({ home_team_id: '', away_team_id: '', match_time: '' })
-      setFormErrors([])
-      toast.success('Fixture scheduled!')
-      await load()
+      try {
+        await createMatch(supabase, tournamentId, form.home_team_id, form.away_team_id, new Date(form.match_time).toISOString())
+        setForm({ home_team_id: '', away_team_id: '', match_time: '' })
+        setFormErrors([])
+        toast.success('Fixture scheduled!')
+        await load()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Could not schedule fixture.')
+      }
     })
   }
 
   function deleteFixture(matchId: string) {
     startTransition(async () => {
-      await deleteMatch(matchId)
-      toast.success('Fixture removed.')
-      await load()
+      try {
+        await deleteMatch(supabase, matchId)
+        toast.success('Fixture removed.')
+        await load()
+      } catch {
+        toast.error('Could not remove fixture.')
+      }
     })
   }
 
@@ -109,12 +113,15 @@ export default function FixturesPage() {
   async function saveEditTime() {
     if (!editingMatchId) return
     startTransition(async () => {
-      const { error } = await updateMatchTime(editingMatchId, new Date(editingTime).toISOString())
-      if (error) { toast.error(error.message); return }
-      setEditingMatchId(null)
-      setEditingTime('')
-      toast.success('Match time updated.')
-      await load()
+      try {
+        await updateMatchTime(supabase, editingMatchId, new Date(editingTime).toISOString())
+        setEditingMatchId(null)
+        setEditingTime('')
+        toast.success('Match time updated.')
+        await load()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Could not update match time.')
+      }
     })
   }
 

@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useCallback, useLayoutEffect, useRef, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { getMatches } from '@/lib/db/matches'
+import { getTournamentStandings } from '@/lib/db/standings'
 import { MatchCard } from '@/components/MatchCard'
 import { StandingsTable } from '@/components/StandingsTable'
 import { TeamCard } from '@/components/TeamCard'
@@ -221,14 +223,16 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
 
   const refetch = useCallback(async () => {
     const supabase = createClient()
-    const [{ data: m }, { data: s }] = await Promise.all([
-      supabase.from('matches')
-        .select('*, home_team:teams!matches_home_team_id_fkey(*), away_team:teams!matches_away_team_id_fkey(*)')
-        .eq('tournament_id', tournament.id).order('match_time', { ascending: true }),
-      supabase.from('standings').select('*').eq('tournament_id', tournament.id),
-    ])
-    if (m) setMatches(m as MatchWithTeams[])
-    if (s) setStandings(s as Standing[])
+    try {
+      const [m, s] = await Promise.all([
+        getMatches(supabase, tournament.id),
+        getTournamentStandings(supabase, tournament.id),
+      ])
+      setMatches(m)
+      setStandings(s)
+    } catch {
+      // Realtime refetch failures are non-fatal; next subscription event will retry.
+    }
   }, [tournament.id])
 
   useEffect(() => {
