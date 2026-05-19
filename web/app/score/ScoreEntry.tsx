@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useOptimistic } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { updateMatchScore } from '@/lib/db/matches'
 import { toast } from '@/components/Toast'
 import { LiveBadge } from '@/components/LiveBadge'
 import { canScorekeeper } from '@/lib/match-lifecycle'
@@ -52,6 +53,7 @@ export function ScoreEntry({ matches, userEmail }: ScoreEntryProps) {
 function MatchScorer({ match: initialMatch }: { match: MatchWithTeams }) {
   const [match, setMatch] = useState(initialMatch)
   const [isPending, startTransition] = useTransition()
+  const supabase = createClient()
   const [optimisticScore, setOptimistic] = useOptimistic(
     { home: match.home_score, away: match.away_score },
     (_: { home: number; away: number }, action: { home: number; away: number }) => action
@@ -101,13 +103,9 @@ function MatchScorer({ match: initialMatch }: { match: MatchWithTeams }) {
 
     startTransition(async () => {
       setOptimistic({ home: newHome, away: newAway })
-      const supabase = createClient()
-      const { error } = await supabase
-        .from('matches')
-        .update({ home_score: newHome, away_score: newAway })
-        .eq('id', match.id).eq('status', 'live')
-
-      if (error) {
+      try {
+        await updateMatchScore(supabase, match.id, newHome, newAway)
+      } catch {
         toast.error('Score not saved. Check connection.')
         setOptimistic({ home: match.home_score, away: match.away_score })
         return

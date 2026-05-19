@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createTournament as createTournamentDal } from '@/lib/db/tournaments'
 import { validateStep, type WizardFormValue, type WizardErrors } from '@/lib/wizard-validation'
 
 export type CreateTournamentResult =
@@ -20,9 +21,8 @@ export async function createTournament(value: WizardFormValue): Promise<CreateTo
   const hasKO = value.format === 'knockout' || value.format === 'round_robin_knockout'
   const isHybrid = value.format === 'round_robin_knockout'
 
-  const { data, error } = await supabase
-    .from('tournaments')
-    .insert({
+  try {
+    const { id } = await createTournamentDal(supabase, {
       name: value.name.trim(),
       description: value.description.trim() || null,
       location: value.location.trim() || null,
@@ -44,9 +44,8 @@ export async function createTournament(value: WizardFormValue): Promise<CreateTo
       knockout_start_round: hasKO ? value.knockout_start_round || null : null,
       seeding_method: hasKO ? value.seeding_method || null : null,
     })
-    .select('id')
-    .single()
-
-  if (error) return { id: null, serverError: error.message, errors: null, failedStep: null }
-  return { id: data.id, serverError: null, errors: null, failedStep: null }
+    return { id, serverError: null, errors: null, failedStep: null }
+  } catch (e) {
+    return { id: null, serverError: e instanceof Error ? e.message : 'Failed to create tournament', errors: null, failedStep: null }
+  }
 }

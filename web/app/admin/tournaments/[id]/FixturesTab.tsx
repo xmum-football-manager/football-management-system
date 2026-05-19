@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { toast } from '@/components/Toast'
 import { canAddFixture, canDeleteFixture, canEditMatchTime } from '@/lib/lock-rules'
+import { createClient } from '@/lib/supabase/client'
 import { createMatch, deleteMatch, updateMatchTime } from '@/lib/db/matches'
 import type { Team, MatchWithTeams, TournamentStatus } from '@/lib/supabase/types'
 
@@ -28,17 +29,18 @@ interface Props {
 }
 
 export function FixturesTab({ teams, matches, tournamentStatus, tournamentId, onRefresh }: Props) {
-  const [form, setForm] = useState({ home_team_id: '', away_team_id: '', match_time: '' })
+  const [form, setForm] = useState({ home_team_id: '', away_team_id: '', match_date: '', match_time: '' })
   const [formErrors, setFormErrors] = useState<string[]>([])
   const [isPending, startTransition] = useTransition()
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null)
+  const [editingDate, setEditingDate] = useState('')
   const [editingTime, setEditingTime] = useState('')
 
   function validateForm(): string[] {
     const errors: string[] = []
     if (form.home_team_id === form.away_team_id) errors.push('A team cannot play against itself.')
-    if (form.home_team_id && form.away_team_id && form.match_time) {
-      const newTime = new Date(form.match_time).getTime()
+    if (form.home_team_id && form.away_team_id && form.match_date && form.match_time) {
+      const newTime = new Date(`${form.match_date}T${form.match_time}`).getTime()
       const clash = matches.some(m => {
         if (m.status !== 'scheduled') return false
         const existing = new Date(m.match_time).getTime()
@@ -57,43 +59,54 @@ export function FixturesTab({ teams, matches, tournamentStatus, tournamentId, on
     setFormErrors(errors)
     if (errors.length > 0) return
     startTransition(async () => {
-      const { error } = await createMatch(
-        tournamentId,
-        form.home_team_id,
-        form.away_team_id,
-        new Date(form.match_time).toISOString()
-      )
-      if (error) { toast.error(error.message); return }
-      setForm({ home_team_id: '', away_team_id: '', match_time: '' })
-      setFormErrors([])
-      toast.success('Fixture scheduled!')
-      onRefresh()
+      const supabase = createClient()
+      try {
+        await createMatch(supabase, tournamentId, form.home_team_id, form.away_team_id, new Date(`${form.match_date}T${form.match_time}`).toISOString())
+        setForm({ home_team_id: '', away_team_id: '', match_date: '', match_time: '' })
+        setFormErrors([])
+        toast.success('Fixture scheduled!')
+        onRefresh()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Could not schedule fixture.')
+      }
     })
   }
 
   function handleDeleteFixture(matchId: string) {
     startTransition(async () => {
-      await deleteMatch(matchId)
-      toast.success('Fixture removed.')
-      onRefresh()
+      const supabase = createClient()
+      try {
+        await deleteMatch(supabase, matchId)
+        toast.success('Fixture removed.')
+        onRefresh()
+      } catch {
+        toast.error('Could not remove fixture.')
+      }
     })
   }
 
   function startEditTime(match: MatchWithTeams) {
     if (!canEditMatchTime(tournamentStatus, match.status)) return
     setEditingMatchId(match.id)
-    setEditingTime(new Date(match.match_time).toISOString().slice(0, 16))
+    const iso = new Date(match.match_time).toISOString().slice(0, 16)
+    setEditingDate(iso.slice(0, 10))
+    setEditingTime(iso.slice(11, 16))
   }
 
   function saveEditTime() {
     if (!editingMatchId) return
     startTransition(async () => {
-      const { error } = await updateMatchTime(editingMatchId, new Date(editingTime).toISOString())
-      if (error) { toast.error(error.message); return }
-      setEditingMatchId(null)
-      setEditingTime('')
-      toast.success('Match time updated.')
-      onRefresh()
+      const supabase = createClient()
+      try {
+        await updateMatchTime(supabase, editingMatchId, new Date(`${editingDate}T${editingTime}`).toISOString())
+        setEditingMatchId(null)
+        setEditingDate('')
+        setEditingTime('')
+        toast.success('Match time updated.')
+        onRefresh()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Could not update match time.')
+      }
     })
   }
 
@@ -128,15 +141,16 @@ export function FixturesTab({ teams, matches, tournamentStatus, tournamentId, on
                 </select>
               </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Date & Time</label>
-                <input type="datetime-local" value={form.match_time} onChange={e => { setForm(f => ({ ...f, match_time: e.target.value })); setFormErrors([]) }} required className={formErrors.length > 0 ? selError : sel} />
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Match Date & Time</label>
+              <div className="grid grid-cols-2 gap-3">
+                <input type="date" value={form.match_date} onChange={e => { setForm(f => ({ ...f, match_date: e.target.value })); setFormErrors([]) }} required className={formErrors.length > 0 ? selError : sel} />
+                <input type="time" value={form.match_time} onChange={e => { setForm(f => ({ ...f, match_time: e.target.value })); setFormErrors([]) }} required className={formErrors.length > 0 ? selError : sel} />
               </div>
-              <button type="submit" disabled={isPending || fixturesLocked} className="bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-semibold py-2.5 px-4 rounded-lg text-sm h-fit sm:self-end">
-                {isPending ? 'Scheduling…' : 'Schedule Match'}
-              </button>
             </div>
+            <button type="submit" disabled={isPending || fixturesLocked} className="w-full bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-semibold py-2.5 px-4 rounded-lg text-sm">
+              {isPending ? 'Scheduling…' : 'Schedule Match'}
+            </button>
             {formErrors.length > 0 && (
               <ul className="space-y-1">
                 {formErrors.map((err, i) => (
@@ -166,11 +180,15 @@ export function FixturesTab({ teams, matches, tournamentStatus, tournamentId, on
                   <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 min-w-0">
                     <p className="font-medium text-sm whitespace-nowrap">{m.home_team.name} vs {m.away_team.name}</p>
                     {isEditing ? (
-                      <div className="flex items-center gap-1">
-                        <input type="datetime-local" value={editingTime} onChange={e => setEditingTime(e.target.value)}
-                          className="w-44 border border-slate-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-green-500" autoFocus />
-                        <button onClick={saveEditTime} disabled={isPending} className="text-green-600 hover:text-green-700 text-xs font-semibold disabled:opacity-30">Save</button>
-                        <button onClick={() => { setEditingMatchId(null); setEditingTime('') }} className="text-slate-400 hover:text-slate-600 text-xs">Cancel</button>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <input type="date" value={editingDate} onChange={e => setEditingDate(e.target.value)}
+                          className="border border-slate-300 rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500" autoFocus />
+                        <input type="time" value={editingTime} onChange={e => setEditingTime(e.target.value)}
+                          className="border border-slate-300 rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500" />
+                        <div className="flex items-center gap-2">
+                          <button onClick={saveEditTime} disabled={isPending} className="text-xs font-semibold text-white bg-green-600 hover:bg-green-500 disabled:opacity-30 px-2.5 py-1 rounded-md">Save</button>
+                          <button onClick={() => { setEditingMatchId(null); setEditingDate(''); setEditingTime('') }} className="text-xs text-slate-400 hover:text-slate-600">Cancel</button>
+                        </div>
                       </div>
                     ) : (
                       <button onClick={() => startEditTime(m)} disabled={!canEdit}

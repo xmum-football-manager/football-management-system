@@ -3,6 +3,7 @@ import Link from 'next/link'
 import type { Tournament } from '@/lib/supabase/types'
 import { TournamentCardItem } from '@/components/TournamentCardItem'
 import { statusBadge, statusRail, formatDateRange, formatLabel } from '@/lib/home-utils'
+import { getActiveTournaments } from '@/lib/db/tournaments'
 
 export const revalidate = 60
 
@@ -14,13 +15,7 @@ export default async function HomePage() {
     list = MOCK_TOURNAMENTS
   } else {
     const supabase = await createClient()
-    const { data: tournaments } = await supabase
-      .from('tournaments')
-      .select('*')
-      .in('status', ['setup', 'active'])
-      .order('start_date', { ascending: true })
-
-    list = (tournaments ?? []) as Tournament[]
+    list = await getActiveTournaments(supabase)
   }
 
   return (
