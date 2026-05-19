@@ -3,15 +3,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { TabStrip, type TabId } from './TabStrip'
+import { TabStrip } from './TabStrip'
 import { OverviewTab } from './OverviewTab'
-import { TeamsTab } from './TeamsTab'
-import { FixturesTab } from './FixturesTab'
-import { SettingsTab } from './SettingsTab'
-import { getTournament } from '@/lib/db/tournaments'
+import { createClient } from '@/lib/supabase/client'
+import { getTournament, getCurrentUser, getUserRoles } from '@/lib/db/tournaments'
 import { getTeams } from '@/lib/db/teams'
 import { getMatches } from '@/lib/db/matches'
-import { getCurrentUser, getUserRoles } from '@/lib/db/tournaments'
 import type { Tournament, MatchWithTeams, TeamWithPlayers } from '@/lib/supabase/types'
 
 interface RoleInfo { role: string; tournament_id: string | null }
@@ -19,7 +16,6 @@ interface RoleInfo { role: string; tournament_id: string | null }
 export default function TournamentDetailPage() {
   const { id } = useParams() as { id: string }
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<TabId>('overview')
   const [loading, setLoading] = useState(true)
   const [tournament, setTournament] = useState<Tournament | null>(null)
   const [teams, setTeams] = useState<TeamWithPlayers[]>([])
@@ -28,14 +24,15 @@ export default function TournamentDetailPage() {
   const [isOrganizer, setIsOrganizer] = useState(false)
 
   const load = useCallback(async () => {
-    const user = await getCurrentUser()
+    const supabase = createClient()
+    const user = await getCurrentUser(supabase)
     if (!user) { window.location.href = '/login'; return }
 
     const [t, teamsData, matchesData, roles] = await Promise.all([
-      getTournament(id),
-      getTeams(id),
-      getMatches(id),
-      getUserRoles(user.id),
+      getTournament(supabase, id),
+      getTeams(supabase, id),
+      getMatches(supabase, id),
+      getUserRoles(supabase, user.id),
     ])
 
     if (!t) { router.push('/admin'); return }
@@ -83,47 +80,18 @@ export default function TournamentDetailPage() {
         </div>
       </header>
 
-      <TabStrip active={activeTab} onChange={setActiveTab} teamsAlert={teamsAlert} />
+      <TabStrip teamsAlert={teamsAlert} />
 
       <main className="max-w-5xl mx-auto px-4 py-8">
-        {activeTab === 'overview' && (
-          <OverviewTab
-            tournament={tournament}
-            matches={matches}
-            teams={teams}
-            tournamentId={id}
-            isAdmin={isAdmin}
-            isOrganizer={isOrganizer}
-            onRefresh={load}
-          />
-        )}
-        {activeTab === 'teams' && (
-          <TeamsTab
-            teams={teams}
-            tournamentStatus={tournament.status}
-            tournamentId={id}
-            minPlayers={tournament.min_players_per_team}
-            onRefresh={load}
-          />
-        )}
-        {activeTab === 'fixtures' && (
-          <FixturesTab
-            teams={teams}
-            matches={matches}
-            tournamentStatus={tournament.status}
-            tournamentId={id}
-            onRefresh={load}
-          />
-        )}
-        {activeTab === 'settings' && (
-          <SettingsTab
-            tournament={tournament}
-            matches={matches}
-            tournamentId={id}
-            isAdmin={isAdmin}
-            onRefresh={load}
-          />
-        )}
+        <OverviewTab
+          tournament={tournament}
+          matches={matches}
+          teams={teams}
+          tournamentId={id}
+          isAdmin={isAdmin}
+          isOrganizer={isOrganizer}
+          onRefresh={load}
+        />
       </main>
     </div>
   )

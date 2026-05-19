@@ -10,6 +10,7 @@ import {
   canEditDates,
   canEditFormat,
 } from '@/lib/lock-rules'
+import { createClient } from '@/lib/supabase/client'
 import { getTournament, updateTournament } from '@/lib/db/tournaments'
 import type { Tournament, TournamentFormat } from '@/lib/supabase/types'
 
@@ -33,6 +34,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 export default function EditTournamentPage() {
   const { id } = useParams() as { id: string }
   const router = useRouter()
+  const supabase = createClient()
   const [tournament, setTournament] = useState<Tournament | null>(null)
   const [form, setForm] = useState({
     name: '',
@@ -61,7 +63,7 @@ export default function EditTournamentPage() {
 
   useEffect(() => {
     async function load() {
-      const t = await getTournament(id)
+      const t = await getTournament(supabase, id)
       if (!t) return
       setTournament(t)
       setForm({
@@ -158,10 +160,13 @@ export default function EditTournamentPage() {
         return
       }
 
-      const { error } = await updateTournament(id, patch)
-      if (error) { toast.error(error.message); return }
-      toast.success('Tournament updated!')
-      router.push(`/admin/tournaments/${id}`)
+      try {
+        await updateTournament(supabase, id, patch)
+        toast.success('Tournament updated!')
+        router.push(`/admin/tournaments/${id}`)
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Update failed')
+      }
     })
   }
 

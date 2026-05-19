@@ -4,6 +4,7 @@ import { useState, useTransition, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { toast } from '@/components/Toast'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 import { getMatches } from '@/lib/db/matches'
 import { assignScorekeeper, removeScorekeeper } from '@/lib/db/roles'
 import type { MatchWithTeams } from '@/lib/supabase/types'
@@ -16,6 +17,7 @@ interface ScorekeeperRow {
 
 export default function ScorekeepersPage() {
   const { id: tournamentId } = useParams() as { id: string }
+  const supabase = createClient()
   const [scorekeepers, setScorekeepers] = useState<ScorekeeperRow[]>([])
   const [matches, setMatches] = useState<MatchWithTeams[]>([])
   const [loading, setLoading] = useState(true)
@@ -27,7 +29,7 @@ export default function ScorekeepersPage() {
   const load = useCallback(async () => {
     const [skRes, matchesData] = await Promise.all([
       fetch(`/api/admin/scorekeepers?tournamentId=${tournamentId}`),
-      getMatches(tournamentId),
+      getMatches(supabase, tournamentId),
     ])
     if (skRes.ok) setScorekeepers(await skRes.json())
     setMatches(matchesData)
@@ -41,8 +43,12 @@ export default function ScorekeepersPage() {
     e.preventDefault()
     startTransition(async () => {
       const matchId = assignScope === 'match' && assignMatchId ? assignMatchId : null
-      const result = await assignScorekeeper(assignEmail, tournamentId, matchId)
-      if (result.error) { toast.error(result.error.message); return }
+      try {
+        await assignScorekeeper(supabase, assignEmail, tournamentId, matchId)
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Assign failed')
+        return
+      }
       toast.success('Scorekeeper assigned!')
       setAssignEmail('')
       setAssignMatchId('')
@@ -52,8 +58,12 @@ export default function ScorekeepersPage() {
 
   function handleRemove(userId: string, matchId: string | null) {
     startTransition(async () => {
-      const { error } = await removeScorekeeper(userId, tournamentId, matchId)
-      if (error) { toast.error(error.message); return }
+      try {
+        await removeScorekeeper(supabase, userId, tournamentId, matchId)
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Remove failed')
+        return
+      }
       toast.success('Scorekeeper removed.')
       await load()
     })

@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { toast } from '@/components/Toast'
 import { canEditVenueDescription, canEditDates } from '@/lib/lock-rules'
+import { createClient } from '@/lib/supabase/client'
 import { updateTournament } from '@/lib/db/tournaments'
 import type { Tournament } from '@/lib/supabase/types'
 
@@ -25,15 +26,19 @@ export function TournamentSetupCard({ tournament }: { tournament: Tournament }) 
       return
     }
     startTransition(async () => {
-      const patch: Record<string, unknown> = {}
+      const supabase = createClient()
+      const patch: Partial<Tournament> = {}
       if (!venueLocked) patch.location = location || null
       if (!datesLocked) {
         patch.start_date = startDate
         patch.end_date = endDate
       }
-      const { error } = await updateTournament(tournament.id, patch)
-      if (error) toast.error(error.message)
-      else toast.success('Setup saved!')
+      try {
+        await updateTournament(supabase, tournament.id, patch)
+        toast.success('Setup saved!')
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Save failed')
+      }
     })
   }
 

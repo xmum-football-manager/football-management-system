@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import { toast } from '@/components/Toast'
 import Link from 'next/link'
 import { canAddFixture, canDeleteFixture, canEditMatchTime } from '@/lib/lock-rules'
+import { createClient } from '@/lib/supabase/client'
 import { getTeams } from '@/lib/db/teams'
 import { getMatches, createMatch, deleteMatch, updateMatchTime } from '@/lib/db/matches'
 import { getTournamentStatus } from '@/lib/db/teams'
@@ -31,17 +32,18 @@ export default function FixturesPage() {
   const [matches, setMatches] = useState<MatchWithTeams[]>([])
   const [tournamentStatus, setTournamentStatus] = useState<TournamentStatus | null>(null)
   const [loading, setLoading] = useState(true)
-  const [form, setForm] = useState({ home_team_id: '', away_team_id: '', match_time: '' })
+  const [form, setForm] = useState({ home_team_id: '', away_team_id: '', match_date: '', match_time: '' })
   const [formErrors, setFormErrors] = useState<string[]>([])
   const [isPending, startTransition] = useTransition()
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null)
   const [editingTime, setEditingTime] = useState('')
+  const supabase = createClient()
 
   async function load() {
     const [status, teamsData, matchesData] = await Promise.all([
-      getTournamentStatus(tournamentId),
-      getTeams(tournamentId),
-      getMatches(tournamentId),
+      getTournamentStatus(supabase, tournamentId),
+      getTeams(supabase, tournamentId),
+      getMatches(supabase, tournamentId),
     ])
     setTournamentStatus(status)
     setTeams(teamsData)
@@ -57,8 +59,8 @@ export default function FixturesPage() {
     if (form.home_team_id === form.away_team_id) {
       errors.push('A team cannot play against itself.')
     }
-    if (form.home_team_id && form.away_team_id && form.match_time) {
-      const newTime = new Date(form.match_time).getTime()
+    if (form.home_team_id && form.away_team_id && form.match_date && form.match_time) {
+      const newTime = new Date(`${form.match_date}T${form.match_time}`).getTime()
       const clash = matches.some(m => {
         if (m.status !== 'scheduled') return false
         const existing = new Date(m.match_time).getTime()
@@ -78,25 +80,27 @@ export default function FixturesPage() {
     setFormErrors(errors)
     if (errors.length > 0) return
     startTransition(async () => {
-      const { error } = await createMatch(
-        tournamentId,
-        form.home_team_id,
-        form.away_team_id,
-        new Date(form.match_time).toISOString()
-      )
-      if (error) { toast.error(error.message); return }
-      setForm({ home_team_id: '', away_team_id: '', match_time: '' })
-      setFormErrors([])
-      toast.success('Fixture scheduled!')
-      await load()
+      try {
+        await createMatch(supabase, tournamentId, form.home_team_id, form.away_team_id, new Date(`${form.match_date}T${form.match_time}`).toISOString())
+        setForm({ home_team_id: '', away_team_id: '', match_date: '', match_time: '' })
+        setFormErrors([])
+        toast.success('Fixture scheduled!')
+        await load()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Could not schedule fixture.')
+      }
     })
   }
 
   function deleteFixture(matchId: string) {
     startTransition(async () => {
-      await deleteMatch(matchId)
-      toast.success('Fixture removed.')
-      await load()
+      try {
+        await deleteMatch(supabase, matchId)
+        toast.success('Fixture removed.')
+        await load()
+      } catch {
+        toast.error('Could not remove fixture.')
+      }
     })
   }
 
@@ -109,12 +113,15 @@ export default function FixturesPage() {
   async function saveEditTime() {
     if (!editingMatchId) return
     startTransition(async () => {
-      const { error } = await updateMatchTime(editingMatchId, new Date(editingTime).toISOString())
-      if (error) { toast.error(error.message); return }
-      setEditingMatchId(null)
-      setEditingTime('')
-      toast.success('Match time updated.')
-      await load()
+      try {
+        await updateMatchTime(supabase, editingMatchId, new Date(editingTime).toISOString())
+        setEditingMatchId(null)
+        setEditingTime('')
+        toast.success('Match time updated.')
+        await load()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Could not update match time.')
+      }
     })
   }
 
@@ -160,15 +167,16 @@ export default function FixturesPage() {
                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Date & Time</label>
-                  <input type="datetime-local" value={form.match_time} onChange={e => { setForm(f => ({ ...f, match_time: e.target.value })); setFormErrors([]) }} required className={formErrors.length > 0 ? selError : sel} />
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Match Date & Time</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <input type="date" value={form.match_date} onChange={e => { setForm(f => ({ ...f, match_date: e.target.value })); setFormErrors([]) }} required className={formErrors.length > 0 ? selError : sel} />
+                  <input type="time" value={form.match_time} onChange={e => { setForm(f => ({ ...f, match_time: e.target.value })); setFormErrors([]) }} required className={formErrors.length > 0 ? selError : sel} />
                 </div>
-                <button type="submit" disabled={isPending || fixturesLocked} className="bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-semibold py-2.5 px-4 rounded-lg text-sm h-fit sm:self-end">
-                  {isPending ? 'Scheduling…' : 'Schedule Match'}
-                </button>
               </div>
+              <button type="submit" disabled={isPending || fixturesLocked} className="bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-semibold py-2.5 px-4 rounded-lg text-sm">
+                {isPending ? 'Scheduling…' : 'Schedule Match'}
+              </button>
               {formErrors.length > 0 && (
                 <ul className="space-y-1">
                   {formErrors.map((err, i) => (

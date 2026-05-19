@@ -1,51 +1,55 @@
 'use client'
 
-export type TabId = 'overview' | 'teams' | 'fixtures' | 'settings'
+import Link from 'next/link'
+import { useParams, usePathname } from 'next/navigation'
 
 interface TabDef {
-  id: TabId
+  segment: string
   label: string
 }
 
 const TABS: TabDef[] = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'teams', label: 'Teams' },
-  { id: 'fixtures', label: 'Fixtures' },
-  { id: 'settings', label: 'Settings' },
+  { segment: '', label: 'Overview' },
+  { segment: 'setup/teams', label: 'Teams' },
+  { segment: 'setup/fixtures', label: 'Fixtures' },
+  { segment: 'setup/settings', label: 'Settings' },
 ]
 
 interface Props {
-  active: TabId
-  onChange: (id: TabId) => void
-  teamsAlert: boolean
+  teamsAlert?: boolean
 }
 
-export function TabStrip({ active, onChange, teamsAlert }: Props) {
+export function TabStrip({ teamsAlert = false }: Props) {
+  const { id } = useParams() as { id: string }
+  const pathname = usePathname()
+  const basePath = `/admin/tournaments/${id}`
+
   return (
     <nav className="border-b border-slate-200 bg-white">
       <div className="max-w-5xl mx-auto flex">
         {TABS.map(tab => {
-          const isActive = active === tab.id
+          const href = tab.segment ? `${basePath}/${tab.segment}` : basePath
+          const isActive = tab.segment === ''
+            ? pathname === basePath
+            : pathname.endsWith(`/${tab.segment}`)
           return (
-            <button
-              key={tab.id}
-              onClick={() => onChange(tab.id)}
+            <Link
+              key={tab.segment || 'overview'}
+              href={href}
               className={`relative px-5 py-3 text-sm font-medium transition-colors ${
-                isActive
-                  ? 'text-green-600'
-                  : 'text-slate-500 hover:text-slate-700'
+                isActive ? 'text-green-600' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
               <span className="flex items-center gap-1.5">
                 {tab.label}
-                {tab.id === 'teams' && teamsAlert && (
+                {tab.segment === 'setup/teams' && teamsAlert && (
                   <span className="inline-block w-2 h-2 rounded-full bg-red-500" />
                 )}
               </span>
               {isActive && (
                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-600 rounded-full" />
               )}
-            </button>
+            </Link>
           )
         })}
       </div>

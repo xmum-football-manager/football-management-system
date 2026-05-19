@@ -3,14 +3,13 @@
 import { useState, useTransition, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { toast } from '@/components/Toast'
-import Link from 'next/link'
 import { canManageTeams } from '@/lib/lock-rules'
 import { createClient } from '@/lib/supabase/client'
 import { getTeams, getTournamentStatus, createTeam, deleteTeam, renameTeam } from '@/lib/db/teams'
-import { createPlayer, deletePlayer, updatePlayer } from '@/lib/db/players'
-import type { TeamWithPlayers, Player, TournamentStatus } from '@/lib/supabase/types'
+import { createPlayer, deletePlayer } from '@/lib/db/players'
+import type { TeamWithPlayers, TournamentStatus } from '@/lib/supabase/types'
 
-export default function TeamsPage() {
+export default function SetupTeamsPage() {
   const { id: tournamentId } = useParams() as { id: string }
   const [teams, setTeams] = useState<TeamWithPlayers[]>([])
   const [tournamentStatus, setTournamentStatus] = useState<TournamentStatus | null>(null)
@@ -30,7 +29,7 @@ export default function TeamsPage() {
     setLoading(false)
   }
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
+  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
   useEffect(() => { loadTeams() }, [tournamentId])
 
   function addTeam(e: React.FormEvent) {
@@ -61,75 +60,59 @@ export default function TeamsPage() {
     })
   }
 
-  function handleRenameTeam(teamId: string, name: string) {
-    startTransition(async () => {
-      try {
-        await renameTeam(supabase, teamId, name)
-        toast.success('Team renamed.')
-        await loadTeams()
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Could not rename team.')
-      }
-    })
-  }
-
-  if (loading) return <PageShell tournamentId={tournamentId}><div className="text-center py-16 text-slate-400">Loading…</div></PageShell>
+  if (loading) return <div className="text-center py-16 text-slate-400">Loading…</div>
 
   const activeTeam = teams.find(t => t.id === selectedTeam)
   const teamsLocked = tournamentStatus !== null && !canManageTeams(tournamentStatus)
 
   return (
-    <PageShell tournamentId={tournamentId}>
-      <div className="grid md:grid-cols-2 gap-6">
-        <div>
-          <h2 className="text-base font-bold mb-3">Teams ({teams.length})</h2>
-          {teamsLocked && (
-            <p className="text-xs text-amber-600 mb-3">Team and roster changes are locked once the tournament is active.</p>
-          )}
-          <form onSubmit={addTeam} className="flex gap-2 mb-4">
-            <input type="text" value={newTeamName} onChange={e => setNewTeamName(e.target.value)} placeholder="Team name"
-              className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
-            <button type="submit" disabled={isPending || !newTeamName.trim() || teamsLocked}
-              className="bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg">
-              Add
-            </button>
-          </form>
-          {teams.length === 0 ? (
-            <p className="text-center text-slate-400 py-8">No teams yet.</p>
-          ) : (
-            <div className="space-y-2">
-              {teams.map(t => (
-                <button key={t.id} onClick={() => setSelectedTeam(selectedTeam === t.id ? null : t.id)}
-                  className={`w-full text-left bg-white rounded-xl border px-4 py-3 flex items-center justify-between transition-colors ${selectedTeam === t.id ? 'border-green-500 ring-1 ring-green-500' : 'border-slate-200 hover:border-slate-300'}`}>
-                  <div>
-                    <p className="font-medium text-slate-900">{t.name}</p>
-                    <p className="text-xs text-slate-400">{t.players.length} players</p>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {!teamsLocked && (
-                      <>
-                        <button onClick={e => { e.stopPropagation(); handleDeleteTeam(t.id) }}
-                          className="text-red-400 hover:text-red-600 text-xs px-1 py-0.5">🗑️</button>
-                      </>
-                    )}
-                    <span className="text-slate-400 text-sm">{selectedTeam === t.id ? '▲' : '▼'}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-        <div>
-          {activeTeam ? (
-            <RosterEditor supabase={supabase} team={activeTeam} onUpdate={loadTeams} locked={teamsLocked} />
-          ) : (
-            <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-400">
-              <p>Select a team to edit its roster.</p>
-            </div>
-          )}
-        </div>
+    <div className="grid md:grid-cols-2 gap-6">
+      <div>
+        <h2 className="text-base font-bold mb-3">Teams ({teams.length})</h2>
+        {teamsLocked && (
+          <p className="text-xs text-amber-600 mb-3">Team and roster changes are locked once the tournament is active.</p>
+        )}
+        <form onSubmit={addTeam} className="flex gap-2 mb-4">
+          <input type="text" value={newTeamName} onChange={e => setNewTeamName(e.target.value)} placeholder="Team name"
+            className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+          <button type="submit" disabled={isPending || !newTeamName.trim() || teamsLocked}
+            className="bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg">
+            Add
+          </button>
+        </form>
+        {teams.length === 0 ? (
+          <p className="text-center text-slate-400 py-8">No teams yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {teams.map(t => (
+              <button key={t.id} onClick={() => setSelectedTeam(selectedTeam === t.id ? null : t.id)}
+                className={`w-full text-left bg-white rounded-xl border px-4 py-3 flex items-center justify-between transition-colors ${selectedTeam === t.id ? 'border-green-500 ring-1 ring-green-500' : 'border-slate-200 hover:border-slate-300'}`}>
+                <div>
+                  <p className="font-medium text-slate-900">{t.name}</p>
+                  <p className="text-xs text-slate-400">{t.players.length} players</p>
+                </div>
+                <div className="flex items-center gap-1">
+                  {!teamsLocked && (
+                    <button onClick={e => { e.stopPropagation(); handleDeleteTeam(t.id) }}
+                      className="text-red-400 hover:text-red-600 text-xs px-1 py-0.5">🗑️</button>
+                  )}
+                  <span className="text-slate-400 text-sm">{selectedTeam === t.id ? '▲' : '▼'}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
-    </PageShell>
+      <div>
+        {activeTeam ? (
+          <RosterEditor supabase={supabase} team={activeTeam} onUpdate={loadTeams} locked={teamsLocked} />
+        ) : (
+          <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-400">
+            <p>Select a team to edit its roster.</p>
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -213,20 +196,6 @@ function RosterEditor({ supabase, team, onUpdate, locked }: { supabase: ReturnTy
           </table>
         )}
       </div>
-    </div>
-  )
-}
-
-function PageShell({ tournamentId, children }: { tournamentId: string; children: React.ReactNode }) {
-  return (
-    <div className="min-h-screen bg-slate-100">
-      <header className="bg-white border-b border-slate-200 px-4 py-3">
-        <div className="max-w-5xl mx-auto flex items-center gap-4">
-          <Link href={`/admin/tournaments/${tournamentId}`} className="text-slate-500 hover:text-slate-700 text-sm">← Tournament</Link>
-          <span className="font-bold text-slate-900">Teams & Rosters</span>
-        </div>
-      </header>
-      <main className="max-w-5xl mx-auto px-4 py-8">{children}</main>
     </div>
   )
 }
