@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/client'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 export interface CreatePlayerData {
   team_id: string
@@ -7,22 +7,22 @@ export interface CreatePlayerData {
   position: string | null
 }
 
-export async function createPlayer(data: CreatePlayerData) {
-  const supabase = createClient()
-  return supabase.from('players').insert(data)
+export async function createPlayer(supabase: SupabaseClient, data: CreatePlayerData): Promise<void> {
+  const { error } = await supabase.from('players').insert(data)
+  if (error) throw new Error(error.message)
 }
 
-export async function updatePlayer(playerId: string, data: { name: string; jersey_number: number | null; position: string | null }) {
-  const supabase = createClient()
-  return supabase.from('players').update(data).eq('id', playerId)
+export async function updatePlayer(supabase: SupabaseClient, playerId: string, data: { name: string; jersey_number: number | null; position: string | null }): Promise<void> {
+  const { error } = await supabase.from('players').update(data).eq('id', playerId)
+  if (error) throw new Error(error.message)
 }
 
-export async function deletePlayer(playerId: string) {
-  const supabase = createClient()
-  return supabase.from('players').delete().eq('id', playerId)
+export async function deletePlayer(supabase: SupabaseClient, playerId: string): Promise<void> {
+  const { error } = await supabase.from('players').delete().eq('id', playerId)
+  if (error) throw new Error(error.message)
 }
 
-export async function createPlayersBatch(players: CreatePlayerData[]) {
-  const supabase = createClient()
-  return supabase.from('players').insert(players)
+export async function createPlayersBatch(supabase: SupabaseClient, players: CreatePlayerData[]): Promise<void> {
+  const { error } = await supabase.from('players').insert(players)
+  if (error) throw new Error(error.message)
 }

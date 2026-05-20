@@ -2,8 +2,10 @@
 
 import { useTransition } from 'react'
 import { toast } from '@/components/Toast'
+import { createClient } from '@/lib/supabase/client'
 import { goLive } from '@/lib/db/tournaments'
-import type { Tournament, TeamWithPlayers } from '@/lib/supabase/types'
+import { expectedGroupFixtures, expectedFirstRoundKOMatches } from '@/lib/fixture-utils'
+import type { Tournament, TeamWithPlayers, MatchWithTeams } from '@/lib/supabase/types'
 
 interface GoLiveCheck {
   label: string
@@ -11,12 +13,13 @@ interface GoLiveCheck {
   detail?: string
 }
 
-function computeChecks(t: Tournament, teams: TeamWithPlayers[]): GoLiveCheck[] {
+function computeChecks(t: Tournament, teams: TeamWithPlayers[], matches: MatchWithTeams[]): GoLiveCheck[] {
   const checks: GoLiveCheck[] = []
 
-  // 1. Settings configured
   const hasRR = t.format === 'round_robin' || t.format === 'round_robin_knockout'
   const hasKO = t.format === 'knockout' || t.format === 'round_robin_knockout'
+
+  // 1. Settings configured
   const settingsOk = !!(
     t.name && t.start_date && t.end_date &&
     (!hasRR || (t.num_groups && t.teams_per_group)) &&
@@ -30,7 +33,7 @@ function computeChecks(t: Tournament, teams: TeamWithPlayers[]): GoLiveCheck[] {
   checks.push({
     label: `Teams (${teams.length}/${expectedTeams})`,
     ok: teamsOk,
-    detail: teamsOk ? undefined : `Add ${expectedTeams - teams.length} more team${expectedTeams - teams.length !== 1 ? 's' : ''}`,
+    detail: teamsOk ? undefined : `Add ${Math.max(0, expectedTeams - teams.length)} more team${expectedTeams - teams.length !== 1 ? 's' : ''}`,
   })
 
   // 3. All teams rostered
@@ -47,10 +50,32 @@ function computeChecks(t: Tournament, teams: TeamWithPlayers[]): GoLiveCheck[] {
   const today = new Date().toISOString().slice(0, 10)
   const dateOk = today >= t.start_date
   checks.push({
-    label: `Tournament date reached`,
+    label: 'Tournament date reached',
     ok: dateOk,
     detail: dateOk ? undefined : `Wait until ${formatDate(t.start_date)}`,
   })
+
+  // 5. Fixtures scheduled
+  const matchCount = matches.length
+  if (hasRR) {
+    const expected = expectedGroupFixtures(t)
+    const fixturesOk = expected > 0 && matchCount >= expected
+    const diff = Math.max(0, expected - matchCount)
+    checks.push({
+      label: `All group fixtures scheduled (${matchCount}/${expected})`,
+      ok: fixturesOk,
+      detail: fixturesOk ? undefined : `Schedule ${diff} more fixture${diff !== 1 ? 's' : ''}`,
+    })
+  } else {
+    const expected = expectedFirstRoundKOMatches(t.knockout_start_round)
+    const fixturesOk = expected > 0 && matchCount >= expected
+    const diff = Math.max(0, expected - matchCount)
+    checks.push({
+      label: `First-round fixtures scheduled (${matchCount}/${expected})`,
+      ok: fixturesOk,
+      detail: fixturesOk ? undefined : `Schedule ${diff} more fixture${diff !== 1 ? 's' : ''}`,
+    })
+  }
 
   return checks
 }
@@ -63,20 +88,25 @@ function formatDate(dateStr: string): string {
 interface Props {
   tournament: Tournament
   teams: TeamWithPlayers[]
+  matches: MatchWithTeams[]
   onLive: () => void
 }
 
-export function GoLivePanel({ tournament, teams, onLive }: Props) {
+export function GoLivePanel({ tournament, teams, matches, onLive }: Props) {
   const [isPending, startTransition] = useTransition()
-  const checks = computeChecks(tournament, teams)
+  const checks = computeChecks(tournament, teams, matches)
   const allOk = checks.every(c => c.ok)
 
   function handleGoLive() {
     startTransition(async () => {
-      const { error } = await goLive(tournament.id)
-      if (error) { toast.error(error.message); return }
-      toast.success('Tournament is now live!')
-      onLive()
+      const supabase = createClient()
+      try {
+        await goLive(supabase, tournament.id)
+        toast.success('Tournament is now live!')
+        onLive()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Failed to go live')
+      }
     })
   }
 

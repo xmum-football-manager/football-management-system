@@ -1,27 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
-import Link from 'next/link'
 import type { Tournament } from '@/lib/supabase/types'
 import { TournamentCardItem } from '@/components/TournamentCardItem'
 import { statusBadge, statusRail, formatDateRange, formatLabel } from '@/lib/home-utils'
+import { getLiveTournaments } from '@/lib/db/tournaments'
 
 export const revalidate = 60
 
 export default async function HomePage() {
-  let list: Tournament[] = []
-
-  if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
-    const { MOCK_TOURNAMENTS } = await import('@/lib/dev-fixtures')
-    list = MOCK_TOURNAMENTS
-  } else {
-    const supabase = await createClient()
-    const { data: tournaments } = await supabase
-      .from('tournaments')
-      .select('*')
-      .in('status', ['setup', 'active'])
-      .order('start_date', { ascending: true })
-
-    list = (tournaments ?? []) as Tournament[]
-  }
+  const supabase = await createClient()
+  const list: Tournament[] = await getLiveTournaments(supabase)
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--ink-900)', color: 'var(--ink-50)' }}>

@@ -1,7 +1,10 @@
 import type { MatchStatus, TournamentStatus } from '@/lib/supabase/types'
 
-const LOCKED_TOURNAMENT_STATUSES: TournamentStatus[] = ['active', 'finished', 'archived']
+const LOCKED_TOURNAMENT_STATUSES: TournamentStatus[] = [
+  'active', 'bracket_setup', 'knockout', 'finished', 'archived',
+]
 const FULLY_LOCKED: TournamentStatus[] = ['finished', 'archived']
+const FIXTURE_LOCKED: TournamentStatus[] = ['bracket_setup', 'finished', 'archived']
 
 export function canEditDates(tournamentStatus: TournamentStatus): boolean {
   return !LOCKED_TOURNAMENT_STATUSES.includes(tournamentStatus)
@@ -12,11 +15,11 @@ export function canManageTeams(tournamentStatus: TournamentStatus): boolean {
 }
 
 export function canAddFixture(tournamentStatus: TournamentStatus): boolean {
-  return !FULLY_LOCKED.includes(tournamentStatus)
+  return !FIXTURE_LOCKED.includes(tournamentStatus)
 }
 
 export function canDeleteFixture(tournamentStatus: TournamentStatus): boolean {
-  return !FULLY_LOCKED.includes(tournamentStatus)
+  return !FIXTURE_LOCKED.includes(tournamentStatus)
 }
 
 export function canEditMatchTime(
@@ -31,7 +34,6 @@ export function canEditTournamentMeta(tournamentStatus: TournamentStatus): boole
   return !FULLY_LOCKED.includes(tournamentStatus)
 }
 
-// Name is locked 14 days before the tournament start date
 export function canEditTournamentName(
   tournamentStatus: TournamentStatus,
   startDate: string,
@@ -42,7 +44,6 @@ export function canEditTournamentName(
   return new Date() <= deadline
 }
 
-// Venue and description are only editable before the tournament goes live
 export function canEditVenueDescription(tournamentStatus: TournamentStatus): boolean {
   return tournamentStatus === 'setup'
 }

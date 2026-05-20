@@ -3,8 +3,10 @@
 import { useState, useTransition } from 'react'
 import { toast } from '@/components/Toast'
 import { canAddFixture, canDeleteFixture, canEditMatchTime } from '@/lib/lock-rules'
+import { createClient } from '@/lib/supabase/client'
 import { createMatch, deleteMatch, updateMatchTime } from '@/lib/db/matches'
-import type { Team, MatchWithTeams, TournamentStatus } from '@/lib/supabase/types'
+import { useSetup } from '../SetupContext'
+import type { MatchWithTeams } from '@/lib/supabase/types'
 
 function statusPill(status: string) {
   const map: Record<string, { label: string; classes: string }> = {
@@ -15,36 +17,33 @@ function statusPill(status: string) {
   }
   const s = map[status] ?? { label: status, classes: 'bg-slate-100 text-slate-500' }
   return (
-    <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full capitalize ${s.classes}`}>{s.label}</span>
+    <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full capitalize ${s.classes}`}>
+      {s.label}
+    </span>
   )
 }
 
-interface Props {
-  teams: Team[]
-  matches: MatchWithTeams[]
-  tournamentStatus: TournamentStatus
-  tournamentId: string
-  onRefresh: () => void
-}
-
-export function FixturesTab({ teams, matches, tournamentStatus, tournamentId, onRefresh }: Props) {
-  const [form, setForm] = useState({ home_team_id: '', away_team_id: '', match_time: '' })
+export default function SetupFixturesPage() {
+  const { tournament, teams, matches, refresh } = useSetup()
+  const tournamentId = tournament.id
+  const [form, setForm] = useState({ home_team_id: '', away_team_id: '', match_date: '', match_time: '' })
   const [formErrors, setFormErrors] = useState<string[]>([])
   const [isPending, startTransition] = useTransition()
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null)
+  const [editingDate, setEditingDate] = useState('')
   const [editingTime, setEditingTime] = useState('')
+  const supabase = createClient()
 
   function validateForm(): string[] {
     const errors: string[] = []
     if (form.home_team_id === form.away_team_id) errors.push('A team cannot play against itself.')
-    if (form.home_team_id && form.away_team_id && form.match_time) {
-      const newTime = new Date(form.match_time).getTime()
+    if (form.home_team_id && form.away_team_id && form.match_date && form.match_time) {
+      const newTime = new Date(`${form.match_date}T${form.match_time}`).getTime()
       const clash = matches.some(m => {
         if (m.status !== 'scheduled') return false
         const existing = new Date(m.match_time).getTime()
-        return Math.abs(newTime - existing) < 3600000 &&
-          (m.home_team_id === form.home_team_id || m.away_team_id === form.home_team_id ||
-           m.home_team_id === form.away_team_id || m.away_team_id === form.away_team_id)
+        const diff = Math.abs(newTime - existing)
+        return diff < 3600000 && (m.home_team_id === form.home_team_id || m.away_team_id === form.home_team_id || m.home_team_id === form.away_team_id || m.away_team_id === form.away_team_id)
       })
       if (clash) errors.push('One of the selected teams already has a match scheduled within an hour of this time.')
     }
@@ -57,49 +56,57 @@ export function FixturesTab({ teams, matches, tournamentStatus, tournamentId, on
     setFormErrors(errors)
     if (errors.length > 0) return
     startTransition(async () => {
-      const { error } = await createMatch(
-        tournamentId,
-        form.home_team_id,
-        form.away_team_id,
-        new Date(form.match_time).toISOString()
-      )
-      if (error) { toast.error(error.message); return }
-      setForm({ home_team_id: '', away_team_id: '', match_time: '' })
-      setFormErrors([])
-      toast.success('Fixture scheduled!')
-      onRefresh()
+      try {
+        await createMatch(supabase, tournamentId, form.home_team_id, form.away_team_id, new Date(`${form.match_date}T${form.match_time}`).toISOString())
+        setForm({ home_team_id: '', away_team_id: '', match_date: '', match_time: '' })
+        setFormErrors([])
+        toast.success('Fixture scheduled!')
+        await refresh()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Could not schedule fixture.')
+      }
     })
   }
 
-  function handleDeleteFixture(matchId: string) {
+  function deleteFixture(matchId: string) {
     startTransition(async () => {
-      await deleteMatch(matchId)
-      toast.success('Fixture removed.')
-      onRefresh()
+      try {
+        await deleteMatch(supabase, matchId)
+        toast.success('Fixture removed.')
+        await refresh()
+      } catch {
+        toast.error('Could not remove fixture.')
+      }
     })
   }
 
   function startEditTime(match: MatchWithTeams) {
-    if (!canEditMatchTime(tournamentStatus, match.status)) return
+    if (!canEditMatchTime(tournament.status, match.status)) return
     setEditingMatchId(match.id)
-    setEditingTime(new Date(match.match_time).toISOString().slice(0, 16))
+    const iso = new Date(match.match_time).toISOString().slice(0, 16)
+    setEditingDate(iso.slice(0, 10))
+    setEditingTime(iso.slice(11, 16))
   }
 
-  function saveEditTime() {
+  async function saveEditTime() {
     if (!editingMatchId) return
     startTransition(async () => {
-      const { error } = await updateMatchTime(editingMatchId, new Date(editingTime).toISOString())
-      if (error) { toast.error(error.message); return }
-      setEditingMatchId(null)
-      setEditingTime('')
-      toast.success('Match time updated.')
-      onRefresh()
+      try {
+        await updateMatchTime(supabase, editingMatchId, new Date(`${editingDate}T${editingTime}`).toISOString())
+        setEditingMatchId(null)
+        setEditingDate('')
+        setEditingTime('')
+        toast.success('Match time updated.')
+        await refresh()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Could not update match time.')
+      }
     })
   }
 
-  const fixturesLocked = !canAddFixture(tournamentStatus)
   const sel = 'w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500'
   const selError = 'w-full border border-red-400 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 bg-red-50'
+  const fixturesLocked = !canAddFixture(tournament.status)
 
   return (
     <div className="space-y-6">
@@ -128,15 +135,16 @@ export function FixturesTab({ teams, matches, tournamentStatus, tournamentId, on
                 </select>
               </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Date & Time</label>
-                <input type="datetime-local" value={form.match_time} onChange={e => { setForm(f => ({ ...f, match_time: e.target.value })); setFormErrors([]) }} required className={formErrors.length > 0 ? selError : sel} />
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Match Date & Time</label>
+              <div className="grid grid-cols-2 gap-3">
+                <input type="date" value={form.match_date} onChange={e => { setForm(f => ({ ...f, match_date: e.target.value })); setFormErrors([]) }} required className={formErrors.length > 0 ? selError : sel} />
+                <input type="time" value={form.match_time} onChange={e => { setForm(f => ({ ...f, match_time: e.target.value })); setFormErrors([]) }} required className={formErrors.length > 0 ? selError : sel} />
               </div>
-              <button type="submit" disabled={isPending || fixturesLocked} className="bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-semibold py-2.5 px-4 rounded-lg text-sm h-fit sm:self-end">
-                {isPending ? 'Scheduling…' : 'Schedule Match'}
-              </button>
             </div>
+            <button type="submit" disabled={isPending || fixturesLocked} className="w-full bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-semibold py-2.5 px-4 rounded-lg text-sm">
+              {isPending ? 'Scheduling…' : 'Schedule Match'}
+            </button>
             {formErrors.length > 0 && (
               <ul className="space-y-1">
                 {formErrors.map((err, i) => (
@@ -158,19 +166,23 @@ export function FixturesTab({ teams, matches, tournamentStatus, tournamentId, on
         ) : (
           <div className="space-y-2">
             {matches.map(m => {
-              const canDelete = canDeleteFixture(tournamentStatus)
-              const canEdit = canEditMatchTime(tournamentStatus, m.status)
+              const canDelete = canDeleteFixture(tournament.status)
+              const canEdit = canEditMatchTime(tournament.status, m.status)
               const isEditing = editingMatchId === m.id
               return (
                 <div key={m.id} className="bg-white rounded-xl border border-slate-200 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 min-w-0">
                     <p className="font-medium text-sm whitespace-nowrap">{m.home_team.name} vs {m.away_team.name}</p>
                     {isEditing ? (
-                      <div className="flex items-center gap-1">
-                        <input type="datetime-local" value={editingTime} onChange={e => setEditingTime(e.target.value)}
-                          className="w-44 border border-slate-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-green-500" autoFocus />
-                        <button onClick={saveEditTime} disabled={isPending} className="text-green-600 hover:text-green-700 text-xs font-semibold disabled:opacity-30">Save</button>
-                        <button onClick={() => { setEditingMatchId(null); setEditingTime('') }} className="text-slate-400 hover:text-slate-600 text-xs">Cancel</button>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <input type="date" value={editingDate} onChange={e => setEditingDate(e.target.value)}
+                          className="border border-slate-300 rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500" autoFocus />
+                        <input type="time" value={editingTime} onChange={e => setEditingTime(e.target.value)}
+                          className="border border-slate-300 rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500" />
+                        <div className="flex items-center gap-2">
+                          <button onClick={saveEditTime} disabled={isPending} className="text-xs font-semibold text-white bg-green-600 hover:bg-green-500 disabled:opacity-30 px-2.5 py-1 rounded-md">Save</button>
+                          <button onClick={() => { setEditingMatchId(null); setEditingDate(''); setEditingTime('') }} className="text-xs text-slate-400 hover:text-slate-600">Cancel</button>
+                        </div>
                       </div>
                     ) : (
                       <button onClick={() => startEditTime(m)} disabled={!canEdit}
@@ -183,7 +195,7 @@ export function FixturesTab({ teams, matches, tournamentStatus, tournamentId, on
                   <div className="flex items-center gap-3 shrink-0">
                     {statusPill(m.status)}
                     {m.status === 'scheduled' && (
-                      <button onClick={() => handleDeleteFixture(m.id)} disabled={isPending || !canDelete} className="text-red-400 hover:text-red-600 disabled:opacity-30 text-lg leading-none">×</button>
+                      <button onClick={() => deleteFixture(m.id)} disabled={isPending || !canDelete} className="text-red-400 hover:text-red-600 disabled:opacity-30 text-lg leading-none">×</button>
                     )}
                   </div>
                 </div>

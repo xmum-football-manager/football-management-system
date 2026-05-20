@@ -2,12 +2,25 @@
 
 import { useTransition } from 'react'
 import { toast } from '@/components/Toast'
-import { finishTournament } from '@/lib/db/tournaments'
+import { createClient } from '@/lib/supabase/client'
+import { finishTournament, endGroupStage } from '@/lib/db/tournaments'
 import { MatchStatusControls } from './MatchStatusControls'
 import { ScoreEditor } from './ScoreEditor'
 import { OrganizerAssignment } from './OrganizerAssignment'
 import { GoLivePanel } from './GoLivePanel'
-import type { Tournament, MatchWithTeams, TeamWithPlayers } from '@/lib/supabase/types'
+import type { Tournament, MatchWithTeams, TeamWithPlayers, TournamentStatus } from '@/lib/supabase/types'
+
+function statusLabel(status: TournamentStatus): string {
+  const labels: Record<TournamentStatus, string> = {
+    setup: 'Setup',
+    active: 'Active',
+    bracket_setup: 'Bracket Setup',
+    knockout: 'Knockout',
+    finished: 'Finished',
+    archived: 'Archived',
+  }
+  return labels[status]
+}
 
 interface Props {
   tournament: Tournament
@@ -21,11 +34,14 @@ interface Props {
 
 export function OverviewTab({ tournament: t, matches, teams, tournamentId, isAdmin, isOrganizer, onRefresh }: Props) {
   const liveCount = matches.filter(m => m.status === 'live').length
+  // FinishPanel: show during knockout phase, or active phase for non-hybrid formats
+  const showFinishPanel = t.status === 'knockout' ||
+    (t.status === 'active' && t.format !== 'round_robin_knockout')
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard label="Status" value={<span className="capitalize">{t.status}</span>} />
+        <StatCard label="Status" value={statusLabel(t.status)} />
         <StatCard label="Matches" value={matches.length} />
         <StatCard label="Live Now" value={liveCount} highlight={liveCount > 0} />
         <StatCard label="Format" value={
@@ -35,11 +51,15 @@ export function OverviewTab({ tournament: t, matches, teams, tournamentId, isAdm
         } />
       </div>
 
-      <GoLivePanel tournament={t} teams={teams} onLive={onRefresh} />
+      <GoLivePanel tournament={t} teams={teams} matches={matches} onLive={onRefresh} />
+
+      {t.format === 'round_robin_knockout' && t.status === 'active' && (
+        <EndGroupStagePanel matches={matches} tournamentId={tournamentId} onEnded={onRefresh} />
+      )}
 
       {isAdmin && <OrganizerAssignment tournamentId={tournamentId} />}
 
-      {t.status === 'active' && (
+      {showFinishPanel && (
         <FinishPanel tournamentId={tournamentId} onFinished={onRefresh} />
       )}
 
@@ -61,15 +81,67 @@ export function OverviewTab({ tournament: t, matches, teams, tournamentId, isAdm
   )
 }
 
+function EndGroupStagePanel({
+  matches,
+  tournamentId,
+  onEnded,
+}: {
+  matches: MatchWithTeams[]
+  tournamentId: string
+  onEnded: () => void
+}) {
+  const [isPending, startTransition] = useTransition()
+  const allFinished = matches.length > 0 && matches.every(m => m.status === 'finished')
+
+  function handleEnd() {
+    startTransition(async () => {
+      const supabase = createClient()
+      try {
+        await endGroupStage(supabase, tournamentId)
+        toast.success('Group stage ended. Set up the knockout bracket.')
+        onEnded()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Failed to end group stage')
+      }
+    })
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-5">
+      <h3 className="text-base font-bold text-slate-900 mb-2">End Group Stage</h3>
+      <p className="text-sm text-slate-500 mb-4">
+        {allFinished
+          ? 'All group matches are finished. You can now set up the knockout bracket.'
+          : 'All group matches must be finished before ending the group stage.'}
+      </p>
+      <button
+        onClick={handleEnd}
+        disabled={!allFinished || isPending}
+        className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+          allFinished
+            ? 'bg-blue-600 hover:bg-blue-500 text-white'
+            : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+        }`}
+      >
+        {isPending ? 'Processing…' : allFinished ? 'End Group Stage & Set Up Bracket' : 'Complete all group matches first'}
+      </button>
+    </div>
+  )
+}
+
 function FinishPanel({ tournamentId, onFinished }: { tournamentId: string; onFinished: () => void }) {
   const [isPending, startTransition] = useTransition()
 
   function finish() {
     startTransition(async () => {
-      const { error } = await finishTournament(tournamentId)
-      if (error) { toast.error(error.message); return }
-      toast.success('Tournament marked as finished.')
-      onFinished()
+      const supabase = createClient()
+      try {
+        await finishTournament(supabase, tournamentId)
+        toast.success('Tournament marked as finished.')
+        onFinished()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Failed to finish tournament')
+      }
     })
   }
 

@@ -3,6 +3,7 @@
 import { Suspense, useState, useTransition } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { getUserRoles } from '@/lib/db/tournaments'
 
 type Tab = 'admin' | 'organizer' | 'scorekeeper'
 
@@ -39,7 +40,7 @@ function LoginForm() {
     e.preventDefault()
     setError('')
     const config = TAB_CONFIG[tab]
-    const target = redirectTo ?? config.redirect
+    const target = (redirectTo && redirectTo.startsWith('/')) ? redirectTo : config.redirect
 
     startTransition(async () => {
       const supabase = createClient()
@@ -53,16 +54,15 @@ function LoginForm() {
         return
       }
       if (config.requiredRoles !== null) {
-        const { data: roleRows, error: roleError } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', data.user.id)
-        if (roleError) {
+        let roleRows: Awaited<ReturnType<typeof getUserRoles>>
+        try {
+          roleRows = await getUserRoles(supabase, data.user.id)
+        } catch {
           await supabase.auth.signOut()
           setError('Could not verify your role. Please try again.')
           return
         }
-        const userRoles = roleRows?.map(r => r.role) ?? []
+        const userRoles = roleRows.map(r => r.role)
         if (!hasRequiredRole(userRoles, config.requiredRoles)) {
           await supabase.auth.signOut()
           setError("Your account doesn't have access to this area.")
