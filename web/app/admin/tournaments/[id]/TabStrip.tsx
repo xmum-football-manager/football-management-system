@@ -8,26 +8,30 @@ interface TabDef {
   label: string
 }
 
-const TABS: TabDef[] = [
+const BASE_TABS: TabDef[] = [
   { segment: '', label: 'Overview' },
   { segment: 'setup/teams', label: 'Teams' },
   { segment: 'setup/fixtures', label: 'Fixtures' },
   { segment: 'setup/settings', label: 'Settings' },
 ]
 
+const BRACKET_TAB: TabDef = { segment: 'setup/bracket', label: 'Bracket' }
+
 interface Props {
   teamsAlert?: boolean
+  showBracketTab?: boolean
 }
 
-export function TabStrip({ teamsAlert = false }: Props) {
+export function TabStrip({ teamsAlert = false, showBracketTab = false }: Props) {
   const { id } = useParams() as { id: string }
   const pathname = usePathname()
   const basePath = `/admin/tournaments/${id}`
+  const tabs = showBracketTab ? [...BASE_TABS, BRACKET_TAB] : BASE_TABS
 
   return (
     <nav className="border-b border-slate-200 bg-white">
       <div className="max-w-5xl mx-auto flex">
-        {TABS.map(tab => {
+        {tabs.map(tab => {
           const href = tab.segment ? `${basePath}/${tab.segment}` : basePath
           const isActive = tab.segment === ''
             ? pathname === basePath

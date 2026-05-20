@@ -80,7 +80,10 @@ export default function TournamentDetailPage() {
         </div>
       </header>
 
-      <TabStrip teamsAlert={teamsAlert} />
+      <TabStrip
+          teamsAlert={teamsAlert}
+          showBracketTab={tournament.format === 'round_robin_knockout' && tournament.status === 'bracket_setup'}
+        />
 
       <main className="max-w-5xl mx-auto px-4 py-8">
         <OverviewTab
