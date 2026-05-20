@@ -7,6 +7,8 @@ import {
   getTournamentsByIds,
   getAllUserRoles,
   pingTournaments,
+  endGroupStage,
+  startKnockoutPhase,
 } from '../tournaments'
 
 function mockClient(response: { data: unknown; error: unknown }) {
@@ -105,5 +107,29 @@ describe('tournaments DAL list queries', () => {
   it('pingTournaments throws on error', async () => {
     const client = mockListClient({ data: null, error: { message: 'boom' } })
     await expect(pingTournaments(client)).rejects.toThrow('boom')
+  })
+})
+
+describe('endGroupStage', () => {
+  it('calls update with bracket_setup status', async () => {
+    const client = mockClient({ data: null, error: null })
+    await endGroupStage(client, 't1')
+    expect(client.from).toHaveBeenCalledWith('tournaments')
+  })
+  it('throws on error', async () => {
+    const client = mockClient({ data: null, error: { message: 'boom' } })
+    await expect(endGroupStage(client, 't1')).rejects.toThrow('boom')
+  })
+})
+
+describe('startKnockoutPhase', () => {
+  it('calls update with knockout status', async () => {
+    const client = mockClient({ data: null, error: null })
+    await startKnockoutPhase(client, 't1')
+    expect(client.from).toHaveBeenCalledWith('tournaments')
+  })
+  it('throws on error', async () => {
+    const client = mockClient({ data: null, error: { message: 'boom' } })
+    await expect(startKnockoutPhase(client, 't1')).rejects.toThrow('boom')
   })
 })

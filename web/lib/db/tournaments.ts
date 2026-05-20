@@ -45,6 +45,28 @@ export async function finishTournament(
   if (error) throw new Error(error.message)
 }
 
+export async function endGroupStage(
+  supabase: SupabaseClient,
+  tournamentId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('tournaments')
+    .update({ status: 'bracket_setup' })
+    .eq('id', tournamentId)
+  if (error) throw new Error(error.message)
+}
+
+export async function startKnockoutPhase(
+  supabase: SupabaseClient,
+  tournamentId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('tournaments')
+    .update({ status: 'knockout' })
+    .eq('id', tournamentId)
+  if (error) throw new Error(error.message)
+}
+
 export async function getCurrentUser(supabase: SupabaseClient) {
   const {
     data: { user },
@@ -73,7 +95,7 @@ export async function getLiveTournaments(supabase: SupabaseClient): Promise<Tour
   const { data, error } = await supabase
     .from('tournaments')
     .select('*')
-    .eq('status', 'active')
+    .in('status', ['active', 'bracket_setup', 'knockout'])
     .order('start_date', { ascending: true })
   if (error) throw new Error(error.message)
   return (data as Tournament[]) ?? []
