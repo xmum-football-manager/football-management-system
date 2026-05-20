@@ -23,7 +23,7 @@ The standings view is pure SQL — no app-layer aggregation. The points system v
 
 **`tournaments`**
 - `format`: `'round_robin'` | `'knockout'`
-- `status`: `'setup'` | `'active'` | `'finished'` | `'archived'`
+- `status`: `'setup'` | `'active'` | `'bracket_setup'` | `'knockout'` | `'finished'` | `'archived'`
 - `first_match_scheduled_at`: set on the first match creation; locks `format` and points system values after this point
 
 **`matches`**
@@ -44,12 +44,18 @@ The standings view is pure SQL — no app-layer aggregation. The points system v
 
 ### Tournament Lifecycle
 
-A tournament moves through four distinct states: `setup → active → finished → archived`
+**Round-robin / Knockout only:** `setup → active → finished → archived`
 
-- **`setup`**: Being configured by admin. Teams and rosters are being set up; matches can be scheduled. Not shown on the public homepage.
-- **`active`**: Live and in progress. Shown on the public homepage and accessible to all participants. Matches are live or scheduled.
-- **`finished`**: Tournament concluded. Results are final. Not shown on the public homepage.
-- **`archived`**: Retired. Not shown on the public homepage. Archived tournaments can be viewed through the admin dashboard for historical reference.
+**Round-robin + Knockout:** `setup → active → bracket_setup → knockout → finished → archived`
+
+| Status | Meaning |
+|---|---|
+| `setup` | Being configured by admin. Teams and rosters are being set up; matches can be scheduled. Not shown on the public homepage. |
+| `active` | Live and in progress — group stage running. Shown on the public homepage. |
+| `bracket_setup` | Group stage finished; organizer is manually seeding the knockout bracket. Shown on the public homepage. Only applies to `round_robin_knockout` format. |
+| `knockout` | Knockout phase running. Shown on the public homepage. Only applies to `round_robin_knockout` format. |
+| `finished` | Tournament concluded. Results are final. Not shown on the public homepage. |
+| `archived` | Retired. Not shown on the public homepage. |
 
 ### Match Lifecycle
 
