@@ -46,7 +46,7 @@ The standings view is pure SQL — no app-layer aggregation. The points system v
 
 A tournament moves through four distinct states: `setup → active → finished → archived`
 
-- **`setup`**: Being configured by admin. Teams and rosters are locked-in, matches can be scheduled. Not shown on the public homepage.
+- **`setup`**: Being configured by admin. Teams and rosters are being set up; matches can be scheduled. Not shown on the public homepage.
 - **`active`**: Live and in progress. Shown on the public homepage and accessible to all participants. Matches are live or scheduled.
 - **`finished`**: Tournament concluded. Results are final. Not shown on the public homepage.
 - **`archived`**: Retired. Not shown on the public homepage. Archived tournaments can be viewed through the admin dashboard for historical reference.
