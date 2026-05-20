@@ -1,6 +1,6 @@
 export type Role = 'admin' | 'organizer' | 'scorekeeper'
 export type TournamentFormat = 'round_robin' | 'round_robin_knockout' | 'knockout'
-export type TournamentStatus = 'setup' | 'active' | 'finished' | 'archived'
+export type TournamentStatus = 'setup' | 'active' | 'bracket_setup' | 'knockout' | 'finished' | 'archived'
 export type MatchStatus = 'scheduled' | 'live' | 'halftime' | 'finished'
 export type KnockoutStartRound = 'top_32' | 'top_16' | 'top_8' | 'semi' | 'final'
 export type SeedingMethod = 'by_standings' | 'manual' | 'random'
