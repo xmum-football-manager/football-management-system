@@ -30,7 +30,6 @@ Add the following to the **Production** environment on Vercel:
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | (from `.env.production.local`) |
 | `SUPABASE_SERVICE_ROLE_KEY` | (from `.env.production.local`) |
 | `NEXT_PUBLIC_APP_URL` | Vercel auto-generated URL for now |
-| `NEXT_PUBLIC_USE_MOCK_DATA` | `false` |
 | `NEXT_PUBLIC_ROOT_DOMAIN` | `vercel.app` for now |
 
 ### 2. Deploy
