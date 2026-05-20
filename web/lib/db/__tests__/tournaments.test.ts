@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import {
   getTournament,
   updateTournament,
-  getActiveTournaments,
+  getLiveTournaments,
   getAllTournaments,
   getTournamentsByIds,
   getAllUserRoles,
@@ -60,16 +60,16 @@ function mockListClient(response: { data: unknown; error: unknown }) {
 }
 
 describe('tournaments DAL list queries', () => {
-  it('getActiveTournaments returns the rows', async () => {
+  it('getLiveTournaments returns the rows', async () => {
     const rows = [{ id: 't1' }, { id: 't2' }]
     const client = mockListClient({ data: rows, error: null })
-    const result = await getActiveTournaments(client)
+    const result = await getLiveTournaments(client)
     expect(result).toEqual(rows)
   })
 
-  it('getActiveTournaments throws on error', async () => {
+  it('getLiveTournaments throws on error', async () => {
     const client = mockListClient({ data: null, error: { message: 'boom' } })
-    await expect(getActiveTournaments(client)).rejects.toThrow('boom')
+    await expect(getLiveTournaments(client)).rejects.toThrow('boom')
   })
 
   it('getAllTournaments returns the rows ordered', async () => {

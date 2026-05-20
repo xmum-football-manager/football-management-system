@@ -2,13 +2,13 @@ import { createClient } from '@/lib/supabase/server'
 import type { Tournament } from '@/lib/supabase/types'
 import { TournamentCardItem } from '@/components/TournamentCardItem'
 import { statusBadge, statusRail, formatDateRange, formatLabel } from '@/lib/home-utils'
-import { getActiveTournaments } from '@/lib/db/tournaments'
+import { getLiveTournaments } from '@/lib/db/tournaments'
 
 export const revalidate = 60
 
 export default async function HomePage() {
   const supabase = await createClient()
-  const list: Tournament[] = await getActiveTournaments(supabase)
+  const list: Tournament[] = await getLiveTournaments(supabase)
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--ink-900)', color: 'var(--ink-50)' }}>

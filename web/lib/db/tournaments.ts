@@ -69,11 +69,11 @@ export async function getAllUserRoles(supabase: SupabaseClient) {
   return data ?? []
 }
 
-export async function getActiveTournaments(supabase: SupabaseClient): Promise<Tournament[]> {
+export async function getLiveTournaments(supabase: SupabaseClient): Promise<Tournament[]> {
   const { data, error } = await supabase
     .from('tournaments')
     .select('*')
-    .in('status', ['setup', 'active'])
+    .eq('status', 'active')
     .order('start_date', { ascending: true })
   if (error) throw new Error(error.message)
   return (data as Tournament[]) ?? []
