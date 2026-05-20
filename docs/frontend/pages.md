@@ -11,7 +11,7 @@ The entry point for anyone who receives a link to the club's platform.
 ### Sections
 
 **Tournament list**
-- Lists all active tournaments
+- Lists tournaments with `active` status only (setup and finished tournaments are not shown)
 - Each card shows: tournament name, dates, location, format (round-robin / knockout), status badge
 - Each card links to `/t/[id]` for that tournament
 
