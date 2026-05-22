@@ -5,9 +5,6 @@ export type MatchStatus = 'scheduled' | 'live' | 'halftime' | 'finished'
 export type KnockoutStartRound = 'top_32' | 'top_16' | 'top_8' | 'semi' | 'final'
 export type SeedingMethod = 'by_standings' | 'manual' | 'random'
 
-export type KnockoutStartRound = 'top_32' | 'top_16' | 'top_8' | 'semi' | 'final'
-export type SeedingMethod = 'by_standings' | 'manual' | 'random'
-
 export interface Tournament {
   id: string
   name: string
@@ -35,18 +32,6 @@ export interface Tournament {
   min_players_per_team: number
   created_at: string
   updated_at: string
-  halftime_enabled: boolean
-  minutes_per_half: number
-  halftime_minutes: number | null
-  extra_time_minutes: number | null
-  penalty_shootout_enabled: boolean
-  require_goal_player: boolean
-  num_groups: number | null
-  teams_per_group: number | null
-  advance_per_group: number | null
-  knockout_start_round: KnockoutStartRound | null
-  seeding_method: SeedingMethod | null
-  min_players_per_team: number
 }
 
 export interface Team {
@@ -103,7 +88,6 @@ export interface Standing {
   points: number
 }
 
-// Joined types for UI
 export interface MatchWithTeams extends Match {
   home_team: Team
   away_team: Team
