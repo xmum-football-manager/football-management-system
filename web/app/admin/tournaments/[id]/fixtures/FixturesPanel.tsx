@@ -17,7 +17,11 @@ import {
 } from '@/components/ui/dialog'
 import { Loader2, Wand2, Lock, AlertTriangle, CheckCircle2, Trophy } from 'lucide-react'
 import { generateRoundRobin } from '@/lib/round-robin'
-import { bulkAddMatchesAction, seedKnockoutBracketAction } from './actions'
+import {
+  bulkAddMatchesAction,
+  seedDirectKnockoutAction,
+  seedKnockoutBracketAction,
+} from './actions'
 import type { MatchWithTeams, TournamentFormat, TournamentStatus } from '@/lib/supabase/types'
 import { MatchViews } from '@/components/admin/MatchViews'
 
@@ -167,7 +171,15 @@ function FormatSetupCard({
   }
 
   if (tournamentFormat === 'knockout') {
-    if (matches.length === 0) return <KnockoutInitialSetup />
+    if (matches.length === 0) {
+      return (
+        <KnockoutDirectSetup
+          tournamentId={tournamentId}
+          tournamentStart={tournamentStart}
+          teams={teams}
+        />
+      )
+    }
     return null
   }
 
@@ -419,19 +431,78 @@ function KnockoutSeedSetup({
   )
 }
 
-function KnockoutInitialSetup() {
+function KnockoutDirectSetup({
+  tournamentId,
+  tournamentStart,
+  teams,
+}: {
+  tournamentId: string
+  tournamentStart: string
+  teams: TeamRef[]
+}) {
+  const router = useRouter()
+  const [open, setOpen] = useState(false)
+  const [pending, startTransition] = useTransition()
+  const n = teams.length
+  const isPowerOfTwo = n >= 2 && (n & (n - 1)) === 0
+  const firstRoundMatches = isPowerOfTwo ? n / 2 : 0
+
+  function seed(opts: { kickoff: string; slotLength: number; perDay: number }) {
+    startTransition(async () => {
+      const r = await seedDirectKnockoutAction(tournamentId, opts)
+      if ('error' in r) toast.error(r.error)
+      else {
+        toast.success(`Seeded ${r.created} knockout match${r.created === 1 ? '' : 'es'}.`)
+        router.refresh()
+        setOpen(false)
+      }
+    })
+  }
+
   return (
-    <Card className="border-amber-200 bg-amber-50/40">
-      <CardContent className="p-4 space-y-2">
+    <Card className="border-emerald-200 bg-emerald-50/40">
+      <CardContent className="p-4 space-y-3">
         <div className="flex items-center gap-2">
-          <Trophy className="h-4 w-4 text-amber-700" />
-          <h3 className="font-semibold text-sm">Knockout draw not set up yet</h3>
+          <Trophy className="h-4 w-4 text-emerald-600" />
+          <h3 className="font-semibold text-sm">Seed the knockout bracket</h3>
         </div>
         <p className="text-xs text-muted-foreground">
-          The bracket-seeding flow ships next. For now, knockout fixtures need to be created
-          manually (this option will return).
+          Pairs teams alphabetically into the first round. You can rearrange matchups by dragging
+          team names between fixtures in the Board view.
         </p>
+
+        {n < 2 ? (
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 flex items-center gap-2 text-xs text-amber-900">
+            <AlertTriangle className="h-3.5 w-3.5" /> Add at least 2 teams to seed the bracket.
+          </div>
+        ) : !isPowerOfTwo ? (
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 flex items-center gap-2 text-xs text-amber-900">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            Knockout needs a power-of-2 team count (2, 4, 8, 16…). You have {n} teams.
+          </div>
+        ) : (
+          <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 flex items-center gap-2 text-xs text-emerald-900">
+            <CheckCircle2 className="h-3.5 w-3.5" /> Ready to seed {n} teams →{' '}
+            {firstRoundMatches} first-round match{firstRoundMatches === 1 ? '' : 'es'}.
+          </div>
+        )}
+
+        <Button onClick={() => setOpen(true)} disabled={!isPowerOfTwo || pending}>
+          <Trophy className="h-4 w-4" /> Seed knockout bracket
+        </Button>
       </CardContent>
+      {open && (
+        <GenerateFixturesDialog
+          title="Seed knockout bracket"
+          summary={`Creates ${firstRoundMatches} first-round match${firstRoundMatches === 1 ? '' : 'es'} from your ${n} teams (alphabetical pairing). Later rounds fill in as matches finish.`}
+          warning="Once a match goes live, fixture generation is locked. You can still reschedule scheduled matches or swap teams between fixtures."
+          defaultStart={tournamentStart}
+          submitLabel="Seed bracket"
+          pending={pending}
+          onCancel={() => setOpen(false)}
+          onSubmit={seed}
+        />
+      )}
     </Card>
   )
 }

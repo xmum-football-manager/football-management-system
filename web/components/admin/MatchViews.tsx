@@ -15,10 +15,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Loader2, GripVertical, CalendarClock } from 'lucide-react'
+import {
+  Loader2,
+  GripVertical,
+  CalendarClock,
+  LayoutGrid,
+  List as ListIcon,
+  Network,
+} from 'lucide-react'
 import { MatchStatusBadge } from '@/components/admin/MatchStatusBadge'
-import { MatchStateStepper } from '@/components/admin/MatchStateStepper'
-import { AdminBracketView, type BracketGroupColumn } from '@/components/admin/AdminBracketView'
+import {
+  AdminBracketView,
+  type BracketGroupColumn,
+  type BracketGroupStanding,
+} from '@/components/admin/AdminBracketView'
 import { MatchRow } from '@/app/admin/tournaments/[id]/MatchRow'
 import {
   rescheduleMatchAction,
@@ -28,7 +38,6 @@ import { setTeamGroupAction } from '@/app/admin/tournaments/[id]/teams/actions'
 import { usePersistedView } from '@/lib/hooks/use-persisted-view'
 import { formatClock } from '@/lib/format'
 import type {
-  MatchStatus,
   MatchWithTeams,
   TournamentFormat,
   TournamentStatus,
@@ -78,19 +87,44 @@ export function MatchViews({
   const [view, setView] = usePersistedView<ViewKey>(VIEW_STORAGE_KEY, initialDefault, allowed)
   const effectiveView = allowed.includes(view) ? view : initialDefault
 
+  const [reschedulingMatch, setReschedulingMatch] = useState<MatchWithTeams | null>(null)
+  const handleMatchClick = (m: MatchWithTeams) => {
+    if (m.status !== 'scheduled' || !canManageFixtures) return
+    setReschedulingMatch(m)
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-end">
-        <div className="inline-flex rounded-md border bg-white p-0.5 text-xs">
+        <div
+          role="tablist"
+          aria-label="Match view"
+          className="inline-flex items-center gap-0.5 rounded-lg p-1"
+          style={{
+            background: 'var(--admin-surface-2)',
+            border: '1px solid var(--admin-rule)',
+          }}
+        >
           {supportsStructure && (
             <ViewTab
+              icon={<Network className="h-3.5 w-3.5" />}
               label="Structure"
               active={effectiveView === 'structure'}
               onClick={() => setView('structure')}
             />
           )}
-          <ViewTab label="Board" active={effectiveView === 'board'} onClick={() => setView('board')} />
-          <ViewTab label="List" active={effectiveView === 'list'} onClick={() => setView('list')} />
+          <ViewTab
+            icon={<LayoutGrid className="h-3.5 w-3.5" />}
+            label="Board"
+            active={effectiveView === 'board'}
+            onClick={() => setView('board')}
+          />
+          <ViewTab
+            icon={<ListIcon className="h-3.5 w-3.5" />}
+            label="List"
+            active={effectiveView === 'list'}
+            onClick={() => setView('list')}
+          />
         </div>
       </div>
 
@@ -99,10 +133,11 @@ export function MatchViews({
           format={tournamentFormat}
           teams={teams}
           matches={matches}
-          tournamentId={tournamentId}
           canAssignGroups={canAssignGroups}
           numGroups={numGroups ?? null}
           advancePerGroup={advancePerGroup ?? null}
+          onMatchClick={handleMatchClick}
+          tournamentId={tournamentId}
         />
       ) : matches.length === 0 ? (
         <Card>
@@ -118,19 +153,36 @@ export function MatchViews({
           matches={matches}
           canEdit={canManageFixtures}
           tournamentId={tournamentId}
+          onMatchClick={handleMatchClick}
         />
       ) : (
-        <ListView matches={matches} tournamentStatus={tournamentStatus} isAdmin={isAdmin} />
+        <ListView
+          matches={matches}
+          tournamentStatus={tournamentStatus}
+          isAdmin={isAdmin}
+          onMatchClick={canManageFixtures ? handleMatchClick : undefined}
+        />
+      )}
+
+      {reschedulingMatch && (
+        <RescheduleDialog
+          match={reschedulingMatch}
+          initialTime={reschedulingMatch.match_time}
+          tournamentId={tournamentId}
+          onClose={() => setReschedulingMatch(null)}
+        />
       )}
     </div>
   )
 }
 
 function ViewTab({
+  icon,
   label,
   active,
   onClick,
 }: {
+  icon: React.ReactNode
   label: string
   active: boolean
   onClick: () => void
@@ -138,11 +190,25 @@ function ViewTab({
   return (
     <button
       type="button"
+      role="tab"
+      aria-selected={active}
       onClick={onClick}
-      className={`px-2.5 py-1 rounded ${
-        active ? 'bg-emerald-600 text-white' : 'text-muted-foreground hover:text-foreground'
-      }`}
+      className="admin-tab inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[11px] transition-colors"
+      style={
+        active
+          ? {
+              background: 'var(--admin-lime-wash)',
+              color: 'var(--admin-lime)',
+              border: '1px solid color-mix(in srgb, var(--admin-lime) 35%, transparent)',
+              boxShadow: '0 1px 0 rgba(0,0,0,0.02)',
+            }
+          : {
+              color: 'var(--muted-foreground)',
+              border: '1px solid transparent',
+            }
+      }
     >
+      {icon}
       {label}
     </button>
   )
@@ -170,10 +236,12 @@ function ListView({
   matches,
   tournamentStatus,
   isAdmin,
+  onMatchClick,
 }: {
   matches: MatchWithTeams[]
   tournamentStatus: TournamentStatus
   isAdmin: boolean
+  onMatchClick?: (m: MatchWithTeams) => void
 }) {
   return (
     <ul
@@ -185,7 +253,12 @@ function ListView({
           key={m.id}
           style={{ borderTop: i > 0 ? '1px solid var(--admin-rule-soft)' : 'none' }}
         >
-          <MatchRow match={m} tournamentStatus={tournamentStatus} isAdmin={isAdmin} />
+          <MatchRow
+            match={m}
+            tournamentStatus={tournamentStatus}
+            isAdmin={isAdmin}
+            onMatchClick={onMatchClick}
+          />
         </li>
       ))}
     </ul>
@@ -204,6 +277,7 @@ function StructureView({
   canAssignGroups,
   numGroups,
   advancePerGroup,
+  onMatchClick,
 }: {
   format: TournamentFormat
   teams: TeamRef[]
@@ -212,23 +286,12 @@ function StructureView({
   canAssignGroups: boolean
   numGroups: number | null
   advancePerGroup: number | null
+  onMatchClick: (m: MatchWithTeams) => void
 }) {
   const ko = useMemo(() => knockoutMatches(matches), [matches])
-  const [reschedulingMatch, setReschedulingMatch] = useState<MatchWithTeams | null>(null)
-
-  function handleMatchClick(m: MatchWithTeams) {
-    if (m.status !== 'scheduled') return
-    setReschedulingMatch(m)
-  }
 
   if (format === 'round_robin') {
-    return (
-      <LeagueStandingsTable
-        teams={teams}
-        matches={matches}
-        title="League standings"
-      />
-    )
+    return <LeagueFlowView teams={teams} matches={matches} onMatchClick={onMatchClick} />
   }
 
   if (format === 'knockout') {
@@ -245,16 +308,9 @@ function StructureView({
         <AdminBracketView
           matches={ko}
           bracketTeamCount={bracketTeamCount}
-          onMatchClick={handleMatchClick}
+          sidebar={teams.length > 0 ? <TeamsListCard teams={teams} /> : undefined}
+          onMatchClick={onMatchClick}
         />
-        {reschedulingMatch && (
-          <RescheduleDialog
-            match={reschedulingMatch}
-            initialTime={reschedulingMatch.match_time}
-            tournamentId={tournamentId}
-            onClose={() => setReschedulingMatch(null)}
-          />
-        )}
       </div>
     )
   }
@@ -270,18 +326,24 @@ function StructureView({
 
   // Build group columns for inline rendering inside the bracket.
   const groupColumns: BracketGroupColumn[] = groupLabels.map((label) => {
-    const standings = computeGroupStandings(label, teams, matches).map((s) => ({
-      team_id: s.team_id,
-      team_name: s.team_name,
-      pts: s.pts,
-      gd: s.gd,
-    }))
+    const standings: BracketGroupStanding[] = computeGroupStandings(label, teams, matches).map(
+      (s) => ({
+        team_id: s.team_id,
+        team_name: s.team_name,
+        played: s.played,
+        wins: s.wins,
+        draws: s.draws,
+        losses: s.losses,
+        gd: s.gd,
+        pts: s.pts,
+      }),
+    )
     const groupMatches = matches
       .filter(
         (m) => m.home_team.group_label === label && m.away_team.group_label === label,
       )
       .sort((a, b) => a.match_time.localeCompare(b.match_time))
-    return { label, standings, matches: groupMatches }
+    return { label: `Group ${label}`, standings, matches: groupMatches }
   })
 
   return (
@@ -301,23 +363,6 @@ function StructureView({
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="admin-eyebrow">Group standings</h3>
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {groupLabels.map((label) => (
-            <GroupDetailCard
-              key={label}
-              groupLabel={label}
-              teams={teams}
-              matches={matches}
-              onMatchClick={handleMatchClick}
-            />
-          ))}
-        </div>
-      </section>
-
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
           <h3 className="admin-eyebrow">Tournament flow</h3>
           <span className="admin-mono text-[11px] text-muted-foreground">
             {effectiveNumGroups} groups · top {effectiveAdvance} advance · {bracketTeamCount}-team
@@ -329,146 +374,349 @@ function StructureView({
           bracketTeamCount={bracketTeamCount}
           firstRoundSourceLabels={firstRoundLabels}
           groupColumns={groupColumns}
-          onMatchClick={handleMatchClick}
+          onMatchClick={onMatchClick}
         />
       </section>
+    </div>
+  )
+}
 
-      {reschedulingMatch && (
-        <RescheduleDialog
-          match={reschedulingMatch}
-          initialTime={reschedulingMatch.match_time}
-          tournamentId={tournamentId}
-          onClose={() => setReschedulingMatch(null)}
-        />
+/* ============================================================
+ * League flow (round_robin) — standings card + matchday columns
+ * ========================================================== */
+
+function LeagueFlowView({
+  teams,
+  matches,
+  onMatchClick,
+}: {
+  teams: TeamRef[]
+  matches: MatchWithTeams[]
+  onMatchClick: (m: MatchWithTeams) => void
+}) {
+  const standings = useMemo(() => computeLeagueStandings(teams, matches), [teams, matches])
+  const matchdays = useMemo(() => groupByDay(matches), [matches])
+  const played = matches.filter((m) => m.status === 'finished').length
+
+  if (teams.length === 0 && matches.length === 0) {
+    return (
+      <div
+        className="rounded-xl border bg-card py-16 text-center text-sm text-muted-foreground"
+        style={{ borderColor: 'var(--admin-rule)' }}
+      >
+        Add teams and generate fixtures to see the league flow.
+      </div>
+    )
+  }
+
+  const minWidth = 320 + matchdays.length * 240 + 24
+
+  return (
+    <div
+      className="rounded-xl border bg-card p-6 overflow-x-auto"
+      style={{ borderColor: 'var(--admin-rule)' }}
+    >
+      <div className="flex gap-6 items-start" style={{ minWidth }}>
+        <div style={{ width: 320, flexShrink: 0 }}>
+          <StandingsCard
+            label="League standings"
+            played={played}
+            total={matches.length}
+            standings={standings}
+          />
+        </div>
+        {matchdays.map((md, i) => (
+          <MatchdayColumn
+            key={md.key}
+            index={i + 1}
+            label={md.label}
+            matches={md.matches}
+            onMatchClick={onMatchClick}
+          />
+        ))}
+        {matchdays.length === 0 && teams.length >= 2 && (
+          <div className="text-xs italic text-muted-foreground py-6 px-3">
+            No matches generated yet. Use the panel above to generate the round-robin schedule.
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function StandingsCard({
+  label,
+  played,
+  total,
+  standings,
+}: {
+  label: string
+  played: number
+  total: number
+  standings: MiniStanding[]
+}) {
+  return (
+    <div
+      className="rounded-lg border bg-card overflow-hidden"
+      style={{ borderColor: 'var(--admin-rule)' }}
+    >
+      <div
+        className="flex items-center justify-between px-3 py-2"
+        style={{
+          background: 'var(--admin-surface-2)',
+          borderBottom: '1px solid var(--admin-rule)',
+        }}
+      >
+        <span
+          className="admin-tab"
+          style={{ fontSize: 11, letterSpacing: '0.12em', color: 'var(--admin-lime)' }}
+        >
+          {label}
+        </span>
+        <span className="admin-mono text-[10px] text-muted-foreground">
+          {played}/{total} played
+        </span>
+      </div>
+      {standings.length === 0 ? (
+        <div className="px-3 py-4 text-[11px] italic text-muted-foreground">
+          No teams yet.
+        </div>
+      ) : (
+        <table className="w-full text-[11px]">
+          <thead>
+            <tr
+              className="admin-tab text-[9px] tracking-wider"
+              style={{
+                color: 'var(--muted-foreground)',
+                borderBottom: '1px solid var(--admin-rule-soft)',
+              }}
+            >
+              <th className="text-left px-2 py-1.5">#</th>
+              <th className="text-left px-2 py-1.5">Team</th>
+              <th className="text-right px-1 py-1.5">P</th>
+              <th className="text-right px-1 py-1.5">W</th>
+              <th className="text-right px-1 py-1.5">D</th>
+              <th className="text-right px-1 py-1.5">L</th>
+              <th className="text-right px-1 py-1.5">GD</th>
+              <th className="text-right px-2 py-1.5">Pts</th>
+            </tr>
+          </thead>
+          <tbody>
+            {standings.map((s, i) => (
+              <tr
+                key={s.team_id}
+                style={{
+                  borderTop: i > 0 ? '1px solid var(--admin-rule-soft)' : 'none',
+                  background: i === 0 ? 'var(--admin-lime-wash)' : 'transparent',
+                }}
+              >
+                <td className="px-2 py-1.5 admin-mono text-muted-foreground">{i + 1}</td>
+                <td className="px-2 py-1.5 font-medium truncate">{s.team_name}</td>
+                <td className="px-1 py-1.5 text-right admin-mono">{s.played}</td>
+                <td className="px-1 py-1.5 text-right admin-mono">{s.wins}</td>
+                <td className="px-1 py-1.5 text-right admin-mono">{s.draws}</td>
+                <td className="px-1 py-1.5 text-right admin-mono">{s.losses}</td>
+                <td className="px-1 py-1.5 text-right admin-mono">
+                  {s.gd > 0 ? `+${s.gd}` : s.gd}
+                </td>
+                <td className="px-2 py-1.5 text-right admin-mono font-bold">{s.pts}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   )
 }
 
-function LeagueStandingsTable({
-  teams,
+function MatchdayColumn({
+  index,
+  label,
   matches,
-  title,
+  onMatchClick,
 }: {
-  teams: TeamRef[]
+  index: number
+  label: string
   matches: MatchWithTeams[]
-  title: string
+  onMatchClick: (m: MatchWithTeams) => void
 }) {
-  const standings = useMemo(() => {
-    // Treat the whole tournament as one "group" for round-robin standings.
-    const acc = new Map<string, MiniStanding>()
-    for (const t of teams) {
-      acc.set(t.id, {
-        team_id: t.id,
-        team_name: t.name,
-        played: 0,
-        wins: 0,
-        draws: 0,
-        losses: 0,
-        gf: 0,
-        ga: 0,
-        gd: 0,
-        pts: 0,
-      })
-    }
-    for (const m of matches) {
-      if (m.status !== 'finished') continue
-      const home = acc.get(m.home_team.id)
-      const away = acc.get(m.away_team.id)
-      if (!home || !away) continue
-      home.played++
-      away.played++
-      home.gf += m.home_score
-      home.ga += m.away_score
-      away.gf += m.away_score
-      away.ga += m.home_score
-      if (m.home_score > m.away_score) {
-        home.wins++
-        away.losses++
-        home.pts += 3
-      } else if (m.home_score < m.away_score) {
-        away.wins++
-        home.losses++
-        away.pts += 3
-      } else {
-        home.draws++
-        away.draws++
-        home.pts += 1
-        away.pts += 1
-      }
-    }
-    for (const s of acc.values()) s.gd = s.gf - s.ga
-    return [...acc.values()].sort(
-      (a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf || a.team_name.localeCompare(b.team_name),
-    )
-  }, [teams, matches])
-
-  if (standings.length === 0) {
-    return (
-      <Card>
-        <CardContent className="py-10 text-center text-sm text-muted-foreground">
-          Add teams to see the league table.
-        </CardContent>
-      </Card>
-    )
-  }
-
+  const played = matches.filter((m) => m.status === 'finished').length
   return (
-    <Card>
-      <CardContent className="p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-sm">{title}</h3>
-          <span className="text-[11px] text-muted-foreground">
-            {standings.length} team{standings.length === 1 ? '' : 's'}
-          </span>
-        </div>
-        <div className="overflow-hidden rounded-md border" style={{ borderColor: 'var(--admin-rule)' }}>
-          <table className="w-full text-xs">
-            <thead>
-              <tr
-                className="admin-tab text-[10px] tracking-wider"
-                style={{ background: 'var(--admin-surface-2)', color: 'var(--muted-foreground)' }}
-              >
-                <th className="text-left px-2 py-1.5">#</th>
-                <th className="text-left px-2 py-1.5">Team</th>
-                <th className="text-right px-1.5 py-1.5">P</th>
-                <th className="text-right px-1.5 py-1.5">W</th>
-                <th className="text-right px-1.5 py-1.5">D</th>
-                <th className="text-right px-1.5 py-1.5">L</th>
-                <th className="text-right px-1.5 py-1.5">GF</th>
-                <th className="text-right px-1.5 py-1.5">GA</th>
-                <th className="text-right px-1.5 py-1.5">GD</th>
-                <th className="text-right px-2 py-1.5">Pts</th>
-              </tr>
-            </thead>
-            <tbody>
-              {standings.map((s, i) => (
-                <tr
-                  key={s.team_id}
-                  style={{
-                    borderTop: i > 0 ? '1px solid var(--admin-rule-soft)' : 'none',
-                    background: i === 0 ? 'var(--admin-lime-wash)' : 'transparent',
-                  }}
-                >
-                  <td className="px-2 py-1.5 admin-mono text-muted-foreground">{i + 1}</td>
-                  <td className="px-2 py-1.5 font-medium truncate">{s.team_name}</td>
-                  <td className="px-1.5 py-1.5 text-right admin-mono">{s.played}</td>
-                  <td className="px-1.5 py-1.5 text-right admin-mono">{s.wins}</td>
-                  <td className="px-1.5 py-1.5 text-right admin-mono">{s.draws}</td>
-                  <td className="px-1.5 py-1.5 text-right admin-mono">{s.losses}</td>
-                  <td className="px-1.5 py-1.5 text-right admin-mono">{s.gf}</td>
-                  <td className="px-1.5 py-1.5 text-right admin-mono">{s.ga}</td>
-                  <td className="px-1.5 py-1.5 text-right admin-mono">
-                    {s.gd > 0 ? `+${s.gd}` : s.gd}
-                  </td>
-                  <td className="px-2 py-1.5 text-right admin-mono font-bold">{s.pts}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </CardContent>
-    </Card>
+    <div className="flex flex-col" style={{ width: 220, flexShrink: 0 }}>
+      <div
+        className="admin-tab text-center"
+        style={{
+          fontSize: 11,
+          letterSpacing: '0.12em',
+          color: 'var(--muted-foreground)',
+          marginBottom: 4,
+        }}
+      >
+        DAY {index}
+      </div>
+      <div
+        className="text-center mb-3"
+        style={{ fontSize: 10, color: 'var(--muted-foreground)' }}
+      >
+        {label} · {played}/{matches.length}
+      </div>
+      <div className="flex flex-col gap-2">
+        {matches.map((m) => (
+          <MatchdayCard key={m.id} match={m} onMatchClick={onMatchClick} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function MatchdayCard({
+  match,
+  onMatchClick,
+}: {
+  match: MatchWithTeams
+  onMatchClick: (m: MatchWithTeams) => void
+}) {
+  const clickable = match.status === 'scheduled'
+  const isLive = match.status === 'live' || match.status === 'halftime'
+  const isFinished = match.status === 'finished'
+  const homeWon = isFinished && match.home_score > match.away_score
+  const awayWon = isFinished && match.away_score > match.home_score
+  return (
+    <button
+      type="button"
+      disabled={!clickable}
+      onClick={() => clickable && onMatchClick(match)}
+      className="rounded-md overflow-hidden bg-card text-left disabled:cursor-default"
+      style={{
+        border: `1px solid ${isLive ? '#DC2626' : 'var(--admin-rule)'}`,
+        boxShadow: isLive ? '0 0 0 3px rgba(220,38,38,0.10)' : 'none',
+        cursor: clickable ? 'pointer' : 'default',
+      }}
+      title={
+        clickable
+          ? 'Click to reschedule'
+          : isFinished
+            ? 'Match finished'
+            : isLive
+              ? 'Match in progress'
+              : undefined
+      }
+    >
+      <div
+        className="flex items-center justify-between px-2 py-1 text-[10px] text-muted-foreground"
+        style={{ background: 'var(--admin-surface-2)' }}
+      >
+        <span className="admin-mono">{formatClock(match.match_time)}</span>
+        <MatchStatusBadge status={match.status} />
+      </div>
+      <MatchdayTeamRow
+        name={match.home_team.name}
+        score={match.status === 'scheduled' ? null : match.home_score}
+        winner={homeWon}
+        loser={awayWon}
+      />
+      <div style={{ height: 1, background: 'var(--admin-rule-soft)' }} />
+      <MatchdayTeamRow
+        name={match.away_team.name}
+        score={match.status === 'scheduled' ? null : match.away_score}
+        winner={awayWon}
+        loser={homeWon}
+      />
+    </button>
+  )
+}
+
+function MatchdayTeamRow({
+  name,
+  score,
+  winner,
+  loser,
+}: {
+  name: string
+  score: number | null
+  winner: boolean
+  loser: boolean
+}) {
+  return (
+    <div
+      className="grid items-center gap-2 px-2.5 py-1.5"
+      style={{
+        gridTemplateColumns: '1fr auto',
+        background: winner ? 'var(--admin-lime-wash)' : 'transparent',
+      }}
+    >
+      <span
+        className="truncate text-xs"
+        style={{
+          fontWeight: winner ? 700 : 500,
+          color: loser ? 'var(--muted-foreground)' : 'var(--foreground)',
+        }}
+      >
+        {name}
+      </span>
+      <span
+        className="admin-mono tabular-nums"
+        style={{
+          fontSize: 13,
+          fontWeight: 700,
+          color: winner
+            ? 'var(--admin-lime)'
+            : loser
+              ? 'var(--muted-foreground)'
+              : 'var(--foreground)',
+        }}
+      >
+        {score == null ? '—' : score}
+      </span>
+    </div>
+  )
+}
+
+/* ============================================================
+ * Teams list card — sidebar for pure knockout flow
+ * ========================================================== */
+
+function TeamsListCard({ teams }: { teams: TeamRef[] }) {
+  const ordered = useMemo(() => [...teams].sort((a, b) => a.name.localeCompare(b.name)), [teams])
+  return (
+    <div
+      className="rounded-lg border bg-card overflow-hidden"
+      style={{ borderColor: 'var(--admin-rule)' }}
+    >
+      <div
+        className="flex items-center justify-between px-3 py-2"
+        style={{
+          background: 'var(--admin-surface-2)',
+          borderBottom: '1px solid var(--admin-rule)',
+        }}
+      >
+        <span
+          className="admin-tab"
+          style={{ fontSize: 11, letterSpacing: '0.12em', color: 'var(--admin-lime)' }}
+        >
+          Teams
+        </span>
+        <span className="admin-mono text-[10px] text-muted-foreground">
+          {ordered.length} entered
+        </span>
+      </div>
+      <ol className="divide-y" style={{ borderColor: 'var(--admin-rule-soft)' }}>
+        {ordered.map((t, i) => (
+          <li
+            key={t.id}
+            className="flex items-center gap-2 px-3 py-2 text-xs"
+            style={{
+              borderTop: i > 0 ? '1px solid var(--admin-rule-soft)' : 'none',
+            }}
+          >
+            <span className="admin-mono text-[10px] text-muted-foreground w-5 text-right">
+              {i + 1}
+            </span>
+            <span className="font-medium truncate">{t.name}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
   )
 }
 
@@ -580,158 +828,59 @@ function computeGroupStandings(
   )
 }
 
-/* ============================================================
- * Group detail card — full standings + clickable matches
- * ========================================================== */
-
-function GroupDetailCard({
-  groupLabel,
-  teams,
-  matches,
-  onMatchClick,
-}: {
-  groupLabel: string
-  teams: TeamRef[]
-  matches: MatchWithTeams[]
-  onMatchClick?: (m: MatchWithTeams) => void
-}) {
-  const standings = useMemo(
-    () => computeGroupStandings(groupLabel, teams, matches),
-    [groupLabel, teams, matches],
-  )
-  const groupMatches = useMemo(
-    () =>
-      matches
-        .filter(
-          (m) =>
-            m.home_team.group_label === groupLabel && m.away_team.group_label === groupLabel,
-        )
-        .sort((a, b) => a.match_time.localeCompare(b.match_time)),
-    [groupLabel, matches],
-  )
-  const totalToPlay = (standings.length * (standings.length - 1)) / 2
-  const played = groupMatches.filter((m) => m.status === 'finished').length
-
-  return (
-    <Card>
-      <CardContent className="p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <span
-            className="admin-display inline-flex h-8 w-8 items-center justify-center rounded-full text-sm"
-            style={{
-              background: 'var(--admin-lime-wash)',
-              color: 'var(--admin-lime)',
-              border: '1px solid color-mix(in srgb, var(--admin-lime) 35%, transparent)',
-            }}
-          >
-            {groupLabel}
-          </span>
-          <div className="flex-1">
-            <div className="font-semibold text-sm">Group {groupLabel}</div>
-            <div className="text-[11px] text-muted-foreground">
-              {standings.length} team{standings.length === 1 ? '' : 's'} · {played}/
-              {totalToPlay || 0} played
-            </div>
-          </div>
-        </div>
-
-        {standings.length === 0 ? (
-          <p className="text-xs italic text-muted-foreground py-3">No teams assigned.</p>
-        ) : (
-          <div
-            className="overflow-hidden rounded-md border"
-            style={{ borderColor: 'var(--admin-rule)' }}
-          >
-            <table className="w-full text-xs">
-              <thead>
-                <tr
-                  className="admin-tab text-[10px] tracking-wider"
-                  style={{ background: 'var(--admin-surface-2)', color: 'var(--muted-foreground)' }}
-                >
-                  <th className="text-left px-2 py-1.5">#</th>
-                  <th className="text-left px-2 py-1.5">Team</th>
-                  <th className="text-right px-1.5 py-1.5">P</th>
-                  <th className="text-right px-1.5 py-1.5">W</th>
-                  <th className="text-right px-1.5 py-1.5">D</th>
-                  <th className="text-right px-1.5 py-1.5">L</th>
-                  <th className="text-right px-1.5 py-1.5">GD</th>
-                  <th className="text-right px-2 py-1.5">Pts</th>
-                </tr>
-              </thead>
-              <tbody>
-                {standings.map((s, i) => (
-                  <tr
-                    key={s.team_id}
-                    style={{
-                      borderTop: i > 0 ? '1px solid var(--admin-rule-soft)' : 'none',
-                      background: i === 0 ? 'var(--admin-lime-wash)' : 'transparent',
-                    }}
-                  >
-                    <td className="px-2 py-1.5 admin-mono text-muted-foreground">{i + 1}</td>
-                    <td className="px-2 py-1.5 font-medium truncate">{s.team_name}</td>
-                    <td className="px-1.5 py-1.5 text-right admin-mono">{s.played}</td>
-                    <td className="px-1.5 py-1.5 text-right admin-mono">{s.wins}</td>
-                    <td className="px-1.5 py-1.5 text-right admin-mono">{s.draws}</td>
-                    <td className="px-1.5 py-1.5 text-right admin-mono">{s.losses}</td>
-                    <td className="px-1.5 py-1.5 text-right admin-mono">
-                      {s.gd > 0 ? `+${s.gd}` : s.gd}
-                    </td>
-                    <td className="px-2 py-1.5 text-right admin-mono font-bold">{s.pts}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {groupMatches.length > 0 && (
-          <div className="space-y-1.5">
-            <div className="admin-eyebrow">Matches</div>
-            <div className="space-y-1">
-              {groupMatches.map((m) => (
-                <GroupDetailMatchRow key={m.id} match={m} onMatchClick={onMatchClick} />
-              ))}
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
-function GroupDetailMatchRow({
-  match,
-  onMatchClick,
-}: {
-  match: MatchWithTeams
-  onMatchClick?: (m: MatchWithTeams) => void
-}) {
-  const clickable = match.status === 'scheduled' && !!onMatchClick
-  const isScheduled = match.status === 'scheduled'
-  return (
-    <button
-      type="button"
-      disabled={!clickable}
-      onClick={() => clickable && onMatchClick?.(match)}
-      className="grid items-center gap-2 rounded-md border px-3 py-1.5 text-xs w-full text-left disabled:cursor-default hover:enabled:bg-accent/40 transition-colors"
-      style={{
-        borderColor: 'var(--admin-rule-soft)',
-        gridTemplateColumns: '70px 1fr 64px 1fr auto',
-        cursor: clickable ? 'pointer' : 'default',
-      }}
-      title={clickable ? 'Click to reschedule' : undefined}
-    >
-      <span className="admin-mono text-muted-foreground">{formatClock(match.match_time)}</span>
-      <span className="text-right truncate font-medium">{match.home_team.name}</span>
-      <span
-        className="admin-mono tabular-nums text-center font-bold rounded px-2 py-0.5"
-        style={{ background: 'var(--admin-surface-2)' }}
-      >
-        {isScheduled ? '— : —' : `${match.home_score} : ${match.away_score}`}
-      </span>
-      <span className="text-left truncate font-medium">{match.away_team.name}</span>
-      <MatchStateStepper status={match.status} />
-    </button>
+function computeLeagueStandings(
+  teams: TeamRef[],
+  matches: MatchWithTeams[],
+  pointsWin = 3,
+  pointsDraw = 1,
+  pointsLoss = 0,
+): MiniStanding[] {
+  const acc = new Map<string, MiniStanding>()
+  for (const t of teams) {
+    acc.set(t.id, {
+      team_id: t.id,
+      team_name: t.name,
+      played: 0,
+      wins: 0,
+      draws: 0,
+      losses: 0,
+      gf: 0,
+      ga: 0,
+      gd: 0,
+      pts: 0,
+    })
+  }
+  for (const m of matches) {
+    if (m.status !== 'finished') continue
+    const home = acc.get(m.home_team.id)
+    const away = acc.get(m.away_team.id)
+    if (!home || !away) continue
+    home.played++
+    away.played++
+    home.gf += m.home_score
+    home.ga += m.away_score
+    away.gf += m.away_score
+    away.ga += m.home_score
+    if (m.home_score > m.away_score) {
+      home.wins++
+      away.losses++
+      home.pts += pointsWin
+      away.pts += pointsLoss
+    } else if (m.home_score < m.away_score) {
+      away.wins++
+      home.losses++
+      away.pts += pointsWin
+      home.pts += pointsLoss
+    } else {
+      home.draws++
+      away.draws++
+      home.pts += pointsDraw
+      away.pts += pointsDraw
+    }
+  }
+  for (const s of acc.values()) s.gd = s.gf - s.ga
+  return [...acc.values()].sort(
+    (a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf || a.team_name.localeCompare(b.team_name),
   )
 }
 
@@ -925,10 +1074,12 @@ function BoardView({
   matches,
   canEdit,
   tournamentId,
+  onMatchClick,
 }: {
   matches: MatchWithTeams[]
   canEdit: boolean
   tournamentId: string
+  onMatchClick?: (m: MatchWithTeams) => void
 }) {
   const byDay = useMemo(() => groupByDay(matches), [matches])
   const [reschedule, setReschedule] = useState<{
@@ -977,8 +1128,12 @@ function BoardView({
       {canEdit && (
         <p className="text-[11px] text-muted-foreground flex flex-wrap items-center gap-3">
           <span className="inline-flex items-center gap-1.5">
+            <CalendarClock className="h-3 w-3" />
+            Click a card → reschedule.
+          </span>
+          <span className="inline-flex items-center gap-1.5">
             <GripVertical className="h-3 w-3" />
-            Drag a fixture card onto another → reschedule.
+            Drag a fixture card onto another → reschedule to that slot.
           </span>
           <span className="inline-flex items-center gap-1.5">
             <GripVertical className="h-3 w-3" />
@@ -994,17 +1149,30 @@ function BoardView({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {day.matches.map((m) => {
               const draggable = canEdit && m.status === 'scheduled'
+              const clickable = !!onMatchClick && m.status === 'scheduled'
               const isDragging = dragId === m.id
               return (
                 <Card
                   key={m.id}
-                  className={`overflow-hidden transition-shadow ${isDragging ? 'opacity-50' : ''}`}
+                  className={`overflow-hidden transition-shadow ${isDragging ? 'opacity-50' : ''} ${
+                    clickable ? 'hover:shadow-md hover:border-emerald-300' : ''
+                  }`}
                   draggable={draggable}
                   onDragStart={(e) => onCardDragStart(e, m)}
                   onDragEnd={onCardDragEnd}
                   onDragOver={(e) => onCardDragOver(e, m)}
                   onDrop={(e) => onCardDrop(e, m)}
-                  style={{ cursor: draggable ? 'grab' : 'default' }}
+                  onClick={(e) => {
+                    if (!clickable) return
+                    const tgt = e.target as HTMLElement
+                    if (tgt.closest('[data-no-card-click]')) return
+                    onMatchClick?.(m)
+                  }}
+                  title={clickable ? 'Click to reschedule · drag to swap' : undefined}
+                  style={{
+                    cursor: clickable ? 'pointer' : draggable ? 'grab' : 'default',
+                    borderColor: 'var(--admin-rule)',
+                  }}
                 >
                   <div
                     className={
@@ -1113,7 +1281,9 @@ function TeamSlot({
 
   return (
     <div
+      data-no-card-click
       draggable={draggable}
+      onClick={(e) => e.stopPropagation()}
       onDragStart={(e) => {
         if (!draggable) return
         e.stopPropagation()

@@ -25,16 +25,19 @@ interface Props {
   match: MatchWithTeams
   tournamentStatus: TournamentStatus
   isAdmin: boolean
+  onMatchClick?: (m: MatchWithTeams) => void
 }
 
-export function MatchRow({ match, tournamentStatus, isAdmin }: Props) {
+export function MatchRow({ match, tournamentStatus, isAdmin, onMatchClick }: Props) {
   const router = useRouter()
   const [busy, setBusy] = useState(false)
 
   const live = match.status === 'live'
   const halftime = match.status === 'halftime'
   const finished = match.status === 'finished'
+  const scheduled = match.status === 'scheduled'
   const tournamentLocked = tournamentStatus === 'finished' || tournamentStatus === 'archived'
+  const clickable = scheduled && !!onMatchClick && !tournamentLocked
 
   async function revertToLive() {
     setBusy(true)
@@ -49,7 +52,19 @@ export function MatchRow({ match, tournamentStatus, isAdmin }: Props) {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-4 px-5 py-3.5">
+    <div
+      className={`flex flex-wrap items-center gap-4 px-5 py-3.5 ${
+        clickable ? 'hover:bg-accent/40 transition-colors' : ''
+      }`}
+      style={{ cursor: clickable ? 'pointer' : 'default' }}
+      onClick={(e) => {
+        if (!clickable) return
+        const tgt = e.target as HTMLElement
+        if (tgt.closest('[data-no-row-click]')) return
+        onMatchClick?.(match)
+      }}
+      title={clickable ? 'Click to reschedule' : undefined}
+    >
       <div className="admin-mono w-14 shrink-0 text-[11px] text-muted-foreground">
         {live || halftime ? (
           <span
@@ -86,7 +101,11 @@ export function MatchRow({ match, tournamentStatus, isAdmin }: Props) {
 
       <MatchStateStepper status={match.status} />
 
-      <div className="flex flex-wrap items-center justify-end gap-2">
+      <div
+        data-no-row-click
+        className="flex flex-wrap items-center justify-end gap-2"
+        onClick={(e) => e.stopPropagation()}
+      >
         {isAdmin && finished && !tournamentLocked && (
           <AlertDialog>
             <AlertDialogTrigger asChild>

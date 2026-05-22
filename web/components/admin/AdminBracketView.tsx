@@ -1,3 +1,6 @@
+'use client'
+
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import type { MatchWithTeams } from '@/lib/supabase/types'
 
 export interface BracketGroupStanding {
@@ -18,13 +21,15 @@ export interface BracketGroupColumn {
 }
 
 interface Props {
-  matches: MatchWithTeams[]
+  matches?: MatchWithTeams[]
   /** Expected first-round size (number of teams entering the bracket). Drives placeholder layout. */
   bracketTeamCount?: number | null
   /** First-round source labels (e.g. ["1A", "2B", ...]). Used in placeholder mode. */
   firstRoundSourceLabels?: string[] | null
   /** Optional group columns rendered before the knockout rounds. */
   groupColumns?: BracketGroupColumn[]
+  /** Optional left sidebar card (e.g. teams list) rendered before bracket columns. */
+  sidebar?: ReactNode
   /** Called when a scheduled match is clicked (in group matches OR bracket matches). */
   onMatchClick?: (match: MatchWithTeams) => void
 }
@@ -112,12 +117,17 @@ function totalMatchesBefore(rounds: PlaceholderSlot[][]): number {
 }
 
 export function AdminBracketView({
-  matches,
+  matches = [],
   bracketTeamCount,
   firstRoundSourceLabels,
   groupColumns,
+  sidebar,
   onMatchClick,
 }: Props) {
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const groupsColumnRef = useRef<HTMLDivElement | null>(null)
+  const [measuredGroupsHeight, setMeasuredGroupsHeight] = useState(0)
+
   const hasValidMatches = matches.length > 0 && isValidBracketCount(matches.length)
   const matchRounds = hasValidMatches ? bucketRounds(matches) : []
   const placeholderRounds =
@@ -128,17 +138,6 @@ export function AdminBracketView({
   const hasGroupColumns = (groupColumns?.length ?? 0) > 0
   const hasAnything = totalRounds > 0 || hasGroupColumns
 
-  if (!hasAnything) {
-    return (
-      <div
-        className="rounded-xl border bg-card py-16 text-center text-sm text-muted-foreground"
-        style={{ borderColor: 'var(--admin-rule)' }}
-      >
-        No bracket structure yet.
-      </div>
-    )
-  }
-
   const firstRoundSize = hasValidMatches
     ? matchRounds[0]?.length ?? 1
     : placeholderRounds[0]?.length ?? 1
@@ -146,21 +145,6 @@ export function AdminBracketView({
     totalRounds > 0
       ? Math.max(1, firstRoundSize) * CARD_HEIGHT + Math.max(0, firstRoundSize - 1) * ROW_GAP
       : 0
-
-  // Each group column = compact standings table + vertical list of match cards.
-  // Estimated heights: standings header 24 + row 22 each; match card CARD_HEIGHT + ROW_GAP.
-  const groupColumnHeight = hasGroupColumns
-    ? Math.max(
-        ...(groupColumns?.map((g) => {
-          const standingsH = 28 + g.standings.length * 26
-          const matchesH = g.matches.length * (CARD_HEIGHT + 8)
-          return standingsH + 12 + matchesH
-        }) ?? [0]),
-        bracketColumnHeight,
-      )
-    : 0
-
-  const columnHeight = Math.max(bracketColumnHeight, groupColumnHeight, 120)
 
   const finalMatch = hasValidMatches ? matchRounds[matchRounds.length - 1]?.[0] : undefined
   const champion =
@@ -173,10 +157,43 @@ export function AdminBracketView({
       : null
 
   const minWidth =
-    (groupColumns?.length ?? 0) * 260 + totalRounds * 240 + (totalRounds > 0 ? 220 : 0)
+    (sidebar ? GROUP_COLUMN_WIDTH + 24 : 0) +
+    (hasGroupColumns ? GROUP_COLUMN_WIDTH + 24 : 0) +
+    totalRounds * 240 +
+    (totalRounds > 0 ? 220 : 0)
 
   const showStrayMatchesWarning =
     matches.length > 0 && !hasValidMatches && (bracketTeamCount ?? 0) >= 2
+
+  useLayoutEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+    function compute() {
+      const groupsCol = groupsColumnRef.current
+      setMeasuredGroupsHeight(groupsCol ? groupsCol.offsetHeight : 0)
+    }
+    compute()
+    const ro = new ResizeObserver(compute)
+    ro.observe(container)
+    if (groupsColumnRef.current) ro.observe(groupsColumnRef.current)
+    return () => ro.disconnect()
+  }, [hasGroupColumns, hasValidMatches, totalRounds])
+
+  const effectiveColumnHeight =
+    hasGroupColumns && measuredGroupsHeight > 0
+      ? Math.max(bracketColumnHeight, measuredGroupsHeight)
+      : bracketColumnHeight
+
+  if (!hasAnything) {
+    return (
+      <div
+        className="rounded-xl border bg-card py-16 text-center text-sm text-muted-foreground"
+        style={{ borderColor: 'var(--admin-rule)' }}
+      >
+        No bracket structure yet.
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-2">
@@ -191,149 +208,157 @@ export function AdminBracketView({
         className="rounded-xl border bg-card p-6 overflow-x-auto"
         style={{ borderColor: 'var(--admin-rule)' }}
       >
-        <div className="flex gap-6" style={{ minWidth }}>
-          {groupColumns?.map((g) => (
-            <GroupColumn
-              key={g.label}
-              column={g}
-              columnHeight={columnHeight}
-              onMatchClick={onMatchClick}
-            />
-          ))}
+        <div ref={containerRef} style={{ minWidth }}>
+          <div className="flex gap-6 items-start">
+            {sidebar && (
+              <div style={{ width: GROUP_COLUMN_WIDTH, flexShrink: 0 }}>{sidebar}</div>
+            )}
+            {hasGroupColumns && (
+              <div
+                ref={groupsColumnRef}
+                className="flex flex-col gap-5"
+                style={{ width: GROUP_COLUMN_WIDTH, flexShrink: 0 }}
+              >
+                {groupColumns?.map((g) => (
+                  <GroupCard key={g.label} column={g} onMatchClick={onMatchClick} />
+                ))}
+              </div>
+            )}
 
-          {hasValidMatches
-            ? matchRounds.map((round, i) => (
-                <BracketColumn
-                  key={i}
-                  label={roundLabel(round.length)}
-                  matches={round}
-                  placeholders={null}
-                  columnHeight={columnHeight}
-                  isFinal={i === matchRounds.length - 1}
-                  onMatchClick={onMatchClick}
-                />
-              ))
-            : placeholderRounds.map((round, i) => (
-                <BracketColumn
-                  key={i}
-                  label={roundLabel(round.length)}
-                  matches={null}
-                  placeholders={round}
-                  columnHeight={columnHeight}
-                  isFinal={i === placeholderRounds.length - 1}
-                  onMatchClick={undefined}
-                />
-              ))}
+            {hasValidMatches
+              ? matchRounds.map((round, i) => (
+                  <BracketColumn
+                    key={i}
+                    label={roundLabel(round.length)}
+                    matches={round}
+                    placeholders={null}
+                    columnHeight={effectiveColumnHeight}
+                    isFinal={i === matchRounds.length - 1}
+                    onMatchClick={onMatchClick}
+                  />
+                ))
+              : placeholderRounds.map((round, i) => (
+                  <BracketColumn
+                    key={i}
+                    label={roundLabel(round.length)}
+                    matches={null}
+                    placeholders={round}
+                    columnHeight={effectiveColumnHeight}
+                    isFinal={i === placeholderRounds.length - 1}
+                    onMatchClick={undefined}
+                  />
+                ))}
 
-          {totalRounds > 0 && (
-            <ChampionColumn
-              champion={champion}
-              columnHeight={columnHeight}
-              hasFinal={!!finalMatch || placeholderRounds.length > 0}
-            />
-          )}
+            {totalRounds > 0 && (
+              <ChampionColumn
+                champion={champion}
+                columnHeight={effectiveColumnHeight}
+                hasFinal={!!finalMatch || placeholderRounds.length > 0}
+              />
+            )}
+          </div>
         </div>
       </div>
     </div>
   )
 }
 
-function GroupColumn({
+const GROUP_COLUMN_WIDTH = 300
+
+function GroupCard({
   column,
-  columnHeight,
   onMatchClick,
 }: {
   column: BracketGroupColumn
-  columnHeight: number
   onMatchClick?: (m: MatchWithTeams) => void
 }) {
   const played = column.matches.filter((m) => m.status === 'finished').length
   return (
-    <div className="flex flex-col" style={{ width: 250, flexShrink: 0 }}>
+    <div
+      className="rounded-lg border bg-card overflow-hidden"
+      style={{ borderColor: 'var(--admin-rule)' }}
+    >
       <div
-        className="admin-tab text-center"
+        className="flex items-center justify-between px-3 py-2"
         style={{
-          fontSize: 11,
-          letterSpacing: '0.12em',
-          color: 'var(--muted-foreground)',
-          marginBottom: 16,
-          height: 16,
+          background: 'var(--admin-surface-2)',
+          borderBottom: '1px solid var(--admin-rule)',
         }}
       >
-        GROUP {column.label}
-      </div>
-      <div className="flex flex-col gap-3" style={{ minHeight: columnHeight }}>
-        {/* Compact standings table */}
-        <div
-          className="rounded-md border overflow-hidden"
-          style={{ borderColor: 'var(--admin-rule)' }}
+        <span
+          className="admin-tab"
+          style={{
+            fontSize: 11,
+            letterSpacing: '0.12em',
+            color: 'var(--admin-lime)',
+          }}
         >
-          <div
-            className="flex items-center justify-between px-2 py-1"
-            style={{ background: 'var(--admin-surface-2)', color: 'var(--muted-foreground)' }}
-          >
-            <span className="admin-tab text-[10px] tracking-wider">Standings</span>
-            <span className="text-[10px]">
-              {played}/{column.matches.length}
-            </span>
-          </div>
-          {column.standings.length === 0 ? (
-            <div className="px-2 py-3 text-[11px] italic text-muted-foreground">
-              No teams in this group
-            </div>
-          ) : (
-            <table className="w-full text-[11px]">
-              <thead>
-                <tr
-                  className="admin-tab text-[9px] tracking-wider"
-                  style={{
-                    background: 'var(--admin-surface-2)',
-                    color: 'var(--muted-foreground)',
-                  }}
-                >
-                  <th className="text-left px-1.5 py-1">#</th>
-                  <th className="text-left px-1.5 py-1">Team</th>
-                  <th className="text-right px-1 py-1">P</th>
-                  <th className="text-right px-1 py-1">W</th>
-                  <th className="text-right px-1 py-1">D</th>
-                  <th className="text-right px-1 py-1">L</th>
-                  <th className="text-right px-1 py-1">GD</th>
-                  <th className="text-right px-1.5 py-1">Pts</th>
-                </tr>
-              </thead>
-              <tbody>
-                {column.standings.map((s, i) => (
-                  <tr
-                    key={s.team_id}
-                    style={{
-                      borderTop: i > 0 ? '1px solid var(--admin-rule-soft)' : 'none',
-                      background: i === 0 ? 'var(--admin-lime-wash)' : 'transparent',
-                    }}
-                  >
-                    <td className="px-1.5 py-1 admin-mono text-muted-foreground">{i + 1}</td>
-                    <td className="px-1.5 py-1 font-medium truncate">{s.team_name}</td>
-                    <td className="px-1 py-1 text-right admin-mono">{s.played}</td>
-                    <td className="px-1 py-1 text-right admin-mono">{s.wins}</td>
-                    <td className="px-1 py-1 text-right admin-mono">{s.draws}</td>
-                    <td className="px-1 py-1 text-right admin-mono">{s.losses}</td>
-                    <td className="px-1 py-1 text-right admin-mono">
-                      {s.gd > 0 ? `+${s.gd}` : s.gd}
-                    </td>
-                    <td className="px-1.5 py-1 text-right admin-mono font-bold">{s.pts}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+          {column.label}
+        </span>
+        <span className="admin-mono text-[10px] text-muted-foreground">
+          {played}/{column.matches.length} played
+        </span>
+      </div>
 
-        {/* Vertical stack of match cards */}
-        <div className="flex flex-col gap-2">
-          {column.matches.length === 0 ? (
-            <div
-              className="rounded-md border border-dashed flex items-center justify-center text-[11px] italic text-muted-foreground"
-              style={{ borderColor: 'var(--admin-rule)', height: CARD_HEIGHT }}
+      {column.standings.length === 0 ? (
+        <div className="px-3 py-4 text-[11px] italic text-muted-foreground">
+          No teams in this group
+        </div>
+      ) : (
+        <table className="w-full text-[11px]">
+          <thead>
+            <tr
+              className="admin-tab text-[9px] tracking-wider"
+              style={{
+                color: 'var(--muted-foreground)',
+                borderBottom: '1px solid var(--admin-rule-soft)',
+              }}
             >
+              <th className="text-left px-2 py-1.5">#</th>
+              <th className="text-left px-2 py-1.5">Team</th>
+              <th className="text-right px-1 py-1.5">P</th>
+              <th className="text-right px-1 py-1.5">W</th>
+              <th className="text-right px-1 py-1.5">D</th>
+              <th className="text-right px-1 py-1.5">L</th>
+              <th className="text-right px-1 py-1.5">GD</th>
+              <th className="text-right px-2 py-1.5">Pts</th>
+            </tr>
+          </thead>
+          <tbody>
+            {column.standings.map((s, i) => (
+              <tr
+                key={s.team_id}
+                style={{
+                  borderTop: i > 0 ? '1px solid var(--admin-rule-soft)' : 'none',
+                  background: i === 0 ? 'var(--admin-lime-wash)' : 'transparent',
+                }}
+              >
+                <td className="px-2 py-1.5 admin-mono text-muted-foreground">{i + 1}</td>
+                <td className="px-2 py-1.5 font-medium truncate">{s.team_name}</td>
+                <td className="px-1 py-1.5 text-right admin-mono">{s.played}</td>
+                <td className="px-1 py-1.5 text-right admin-mono">{s.wins}</td>
+                <td className="px-1 py-1.5 text-right admin-mono">{s.draws}</td>
+                <td className="px-1 py-1.5 text-right admin-mono">{s.losses}</td>
+                <td className="px-1 py-1.5 text-right admin-mono">
+                  {s.gd > 0 ? `+${s.gd}` : s.gd}
+                </td>
+                <td className="px-2 py-1.5 text-right admin-mono font-bold">{s.pts}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      <div
+        className="px-3 py-2"
+        style={{ borderTop: '1px solid var(--admin-rule-soft)' }}
+      >
+        <div className="admin-tab text-[9px] tracking-wider text-muted-foreground mb-1.5">
+          Matches
+        </div>
+        <div className="flex flex-col gap-1.5">
+          {column.matches.length === 0 ? (
+            <div className="text-[11px] italic text-muted-foreground py-1">
               No matches yet
             </div>
           ) : (

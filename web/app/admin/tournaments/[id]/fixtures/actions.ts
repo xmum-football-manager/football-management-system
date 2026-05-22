@@ -361,6 +361,60 @@ function buildCrossPoolPairings(
   return pairings
 }
 
+export async function seedDirectKnockoutAction(
+  tournamentId: string,
+  opts: { kickoff: string; slotLength: number; perDay: number },
+): Promise<{ created: number } | { error: string }> {
+  try {
+    await ensureOrganizer(tournamentId)
+    const [tournament, teams, matches] = await Promise.all([
+      getTournament(tournamentId),
+      listTeams(tournamentId),
+      listMatches(tournamentId),
+    ])
+    if (!tournament) return { error: 'Tournament not found.' }
+    if (tournament.format !== 'knockout') {
+      return { error: 'Direct seeding is only available for pure knockout tournaments.' }
+    }
+    if (matches.length > 0) return { error: 'Knockout fixtures already exist.' }
+    const n = teams.length
+    if (n < 2) return { error: 'Need at least 2 teams to seed a bracket.' }
+    if ((n & (n - 1)) !== 0) {
+      return {
+        error: `Team count must be a power of 2 (2, 4, 8, 16…). You have ${n} team${n === 1 ? '' : 's'}.`,
+      }
+    }
+    const start = new Date(opts.kickoff)
+    if (Number.isNaN(start.getTime())) return { error: 'Invalid kickoff date.' }
+    const ordered = [...teams].sort((a, b) => a.name.localeCompare(b.name))
+    const inserts: { home_team_id: string; away_team_id: string; match_time: string }[] = []
+    for (let i = 0; i < ordered.length; i += 2) {
+      const matchIndex = i / 2
+      const dayIndex = Math.floor(matchIndex / opts.perDay)
+      const slotIndex = matchIndex % opts.perDay
+      const t = new Date(start)
+      t.setDate(t.getDate() + dayIndex)
+      t.setMinutes(t.getMinutes() + opts.slotLength * slotIndex)
+      inserts.push({
+        home_team_id: ordered[i].id,
+        away_team_id: ordered[i + 1].id,
+        match_time: t.toISOString(),
+      })
+    }
+    let created = 0
+    for (const f of inserts) {
+      const r = await createMatch({ tournament_id: tournamentId, ...f })
+      if ('id' in r) created++
+    }
+    revalidatePath(`/admin/tournaments/${tournamentId}/fixtures`)
+    revalidatePath(`/admin/tournaments/${tournamentId}`)
+    revalidatePath(`/t/${tournamentId}`)
+    return { created }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed.' }
+  }
+}
+
 export async function deleteMatchAction(
   matchId: string,
   tournamentId: string,
