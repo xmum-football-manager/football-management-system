@@ -3,14 +3,23 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { MatchStatusBadge } from '@/components/admin/MatchStatusBadge'
-import { getAvailableTransitions } from '@/lib/match-lifecycle'
-import { transitionMatchAction, updateScoreAction } from './actions'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+import { MatchStateStepper } from '@/components/admin/MatchStateStepper'
+import { transitionMatchAction } from './actions'
 import { formatClock } from '@/lib/format'
-import { Loader2, Plus, Minus, RotateCcw } from 'lucide-react'
-import type { MatchStatus, MatchWithTeams, TournamentStatus } from '@/lib/supabase/types'
+import { Loader2, RotateCcw } from 'lucide-react'
+import type { MatchWithTeams, TournamentStatus } from '@/lib/supabase/types'
 
 interface Props {
   match: MatchWithTeams
@@ -21,125 +30,102 @@ interface Props {
 export function MatchRow({ match, tournamentStatus, isAdmin }: Props) {
   const router = useRouter()
   const [busy, setBusy] = useState(false)
-  const [home, setHome] = useState(match.home_score)
-  const [away, setAway] = useState(match.away_score)
 
-  const transitions = getAvailableTransitions(match.status, isAdmin ? 'admin' : 'organizer')
   const live = match.status === 'live'
+  const halftime = match.status === 'halftime'
   const finished = match.status === 'finished'
+  const tournamentLocked = tournamentStatus === 'finished' || tournamentStatus === 'archived'
 
-  async function transition(next: MatchStatus, label: string) {
+  async function revertToLive() {
     setBusy(true)
-    const r = await transitionMatchAction(match.id, next, isAdmin)
+    const r = await transitionMatchAction(match.id, 'live', isAdmin)
     setBusy(false)
     if ('error' in r) {
       toast.error(r.error)
       return
     }
-    toast.success(label)
+    toast.success('Reverted to live.')
     router.refresh()
   }
 
-  async function bumpScore(side: 'home' | 'away', delta: number) {
-    if (!live) return
-    const newHome = side === 'home' ? Math.max(0, home + delta) : home
-    const newAway = side === 'away' ? Math.max(0, away + delta) : away
-    setHome(newHome)
-    setAway(newAway)
-    const r = await updateScoreAction(match.id, newHome, newAway)
-    if ('error' in r) {
-      toast.error(r.error)
-      setHome(match.home_score)
-      setAway(match.away_score)
-    }
-  }
-
   return (
-    <Card className="p-4">
-      <div className="flex items-center gap-4 flex-wrap">
-        <div className="text-xs text-muted-foreground font-mono w-12 shrink-0">
-          {live ? <span className="text-emerald-600 font-semibold">LIVE</span> : formatClock(match.match_time)}
-        </div>
-
-        <div className="flex-1 min-w-[200px] flex items-center gap-3">
-          <div className="flex-1 text-right truncate font-medium">{match.home_team.name}</div>
-          <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-100 rounded font-mono font-bold text-lg tabular-nums">
-            <span>{home}</span>
-            <span className="text-muted-foreground">:</span>
-            <span>{away}</span>
-          </div>
-          <div className="flex-1 text-left truncate font-medium">{match.away_team.name}</div>
-        </div>
-
-        <MatchStatusBadge status={match.status} />
-
-        <div className="flex items-center gap-2 flex-wrap justify-end">
-          {live && (
-            <div className="flex items-center gap-1">
-              <ScoreButton onClick={() => bumpScore('home', -1)} disabled={busy || home === 0}>
-                <Minus className="h-3 w-3" /> H
-              </ScoreButton>
-              <ScoreButton onClick={() => bumpScore('home', 1)} disabled={busy}>
-                <Plus className="h-3 w-3" /> H
-              </ScoreButton>
-              <ScoreButton onClick={() => bumpScore('away', -1)} disabled={busy || away === 0}>
-                <Minus className="h-3 w-3" /> A
-              </ScoreButton>
-              <ScoreButton onClick={() => bumpScore('away', 1)} disabled={busy}>
-                <Plus className="h-3 w-3" /> A
-              </ScoreButton>
-            </div>
-          )}
-
-          {transitions.map((t) =>
-            t.action === 'Revert to Live' ? null : (
-              <Button
-                key={t.action}
-                size="sm"
-                variant={t.action === 'Full Time' ? 'destructive' : 'default'}
-                onClick={() => transition(t.nextStatus, t.action)}
-                disabled={busy || tournamentStatus === 'finished' || tournamentStatus === 'archived'}
-              >
-                {busy && <Loader2 className="h-3 w-3 animate-spin" />}
-                {t.action}
-              </Button>
-            ),
-          )}
-
-          {isAdmin && finished && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="text-red-700 border-red-200 hover:bg-red-50"
-              onClick={() => transition('live', 'Reverted to Live')}
-              disabled={busy}
-            >
-              <RotateCcw className="h-3 w-3" /> Revert
-            </Button>
-          )}
-        </div>
+    <div className="flex flex-wrap items-center gap-4 px-5 py-3.5">
+      <div className="admin-mono w-14 shrink-0 text-[11px] text-muted-foreground">
+        {live || halftime ? (
+          <span
+            className="admin-tab text-[10px] tracking-[0.12em]"
+            style={{ color: live ? 'var(--admin-lime)' : '#B45309' }}
+          >
+            {live ? 'LIVE' : 'HT'}
+          </span>
+        ) : (
+          formatClock(match.match_time)
+        )}
       </div>
-    </Card>
-  )
-}
 
-function ScoreButton({
-  children,
-  onClick,
-  disabled,
-}: {
-  children: React.ReactNode
-  onClick: () => void
-  disabled?: boolean
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="inline-flex items-center justify-center gap-0.5 h-7 px-2 rounded text-xs font-semibold bg-slate-100 hover:bg-slate-200 disabled:opacity-40 disabled:pointer-events-none"
-    >
-      {children}
-    </button>
+      <div className="flex min-w-[220px] flex-1 items-center gap-3">
+        <div className="flex-1 truncate text-right font-semibold">{match.home_team.name}</div>
+        <div
+          className="admin-mono inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-base font-bold tabular-nums"
+          style={{
+            background: live ? 'var(--admin-lime-wash)' : 'var(--admin-surface-2)',
+            border: live
+              ? '1px solid color-mix(in srgb, var(--admin-lime) 35%, transparent)'
+              : '1px solid var(--admin-rule)',
+            color: live ? 'var(--admin-lime)' : 'var(--foreground)',
+            minWidth: 84,
+            justifyContent: 'center',
+          }}
+        >
+          <span>{match.status === 'scheduled' ? '—' : match.home_score}</span>
+          <span style={{ color: 'var(--muted-foreground)' }}>:</span>
+          <span>{match.status === 'scheduled' ? '—' : match.away_score}</span>
+        </div>
+        <div className="flex-1 truncate text-left font-semibold">{match.away_team.name}</div>
+      </div>
+
+      <MatchStateStepper status={match.status} />
+
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {isAdmin && finished && !tournamentLocked && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                size="sm"
+                variant="outline"
+                className="admin-tab tracking-wider text-[11px]"
+                style={{ color: '#DC2626', borderColor: 'rgba(220,38,38,0.4)' }}
+                disabled={busy}
+              >
+                {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+                Revert
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Revert match to live?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  <span className="block mb-2 text-foreground font-medium">
+                    {match.home_team.name} {match.home_score} : {match.away_score}{' '}
+                    {match.away_team.name}
+                  </span>
+                  Unlocks the result and lets scorekeepers update the score again. Standings will
+                  recalculate.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={revertToLive}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Revert
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
+      </div>
+    </div>
   )
 }

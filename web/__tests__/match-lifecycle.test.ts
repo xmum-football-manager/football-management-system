@@ -50,10 +50,10 @@ describe('isValidTransition — illegal jumps', () => {
 })
 
 describe('getAvailableTransitions', () => {
-  it('organizer on scheduled gets only Start Match', () => {
+  it('organizer on scheduled gets only Kickoff', () => {
     const t = getAvailableTransitions('scheduled', 'organizer')
     expect(t).toHaveLength(1)
-    expect(t[0]).toEqual({ action: 'Start Match', nextStatus: 'live' })
+    expect(t[0]).toEqual({ action: 'Kickoff', nextStatus: 'live' })
   })
   it('organizer on live gets Half Time and Full Time', () => {
     const t = getAvailableTransitions('live', 'organizer')

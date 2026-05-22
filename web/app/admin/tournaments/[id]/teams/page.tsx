@@ -21,6 +21,7 @@ export default async function TeamsPage({ params }: Props) {
       initialTeams={teams.map((t) => ({
         id: t.id,
         name: t.name,
+        group_label: t.group_label,
         players: t.players.map((p) => ({
           id: p.id,
           name: p.name,
@@ -30,6 +31,7 @@ export default async function TeamsPage({ params }: Props) {
       }))}
       canEdit={canEdit}
       minPlayersPerTeam={tournament.min_players_per_team}
+      format={tournament.format}
     />
   )
 }

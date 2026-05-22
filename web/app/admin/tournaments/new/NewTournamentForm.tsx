@@ -40,23 +40,65 @@ export function NewTournamentForm() {
   const [pointsWin, setPointsWin] = useState(3)
   const [pointsDraw, setPointsDraw] = useState(1)
   const [pointsLoss, setPointsLoss] = useState(0)
+  const [minutesPerHalf, setMinutesPerHalf] = useState(45)
+  const [halftimeEnabled, setHalftimeEnabled] = useState(true)
+  const [halftimeMinutes, setHalftimeMinutes] = useState(15)
+  const [numGroups, setNumGroups] = useState(4)
+  const [teamsPerGroup, setTeamsPerGroup] = useState(4)
+  const [advancePerGroup, setAdvancePerGroup] = useState(2)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+    if (!name.trim()) {
+      setError('Name is required.')
+      return
+    }
+    if (endDate < startDate) {
+      setError('End date must be on or after the start date.')
+      return
+    }
+    if (!Number.isFinite(minutesPerHalf) || minutesPerHalf < 1) {
+      setError('Minutes per half must be at least 1.')
+      return
+    }
+    if (halftimeEnabled && (!Number.isFinite(halftimeMinutes) || halftimeMinutes < 1)) {
+      setError('Halftime length must be at least 1 minute.')
+      return
+    }
+    if (format === 'round_robin_knockout') {
+      if (numGroups < 2 || numGroups > 16) {
+        setError('Number of groups must be between 2 and 16.')
+        return
+      }
+      if (teamsPerGroup < 2 || teamsPerGroup > 16) {
+        setError('Teams per group must be between 2 and 16.')
+        return
+      }
+      if (advancePerGroup < 1 || advancePerGroup >= teamsPerGroup) {
+        setError('Teams advancing must be at least 1 and fewer than teams per group.')
+        return
+      }
+    }
     setLoading(true)
     const result = await createTournamentAction({
-      name,
-      description: description || null,
-      location: location || null,
+      name: name.trim(),
+      description: description.trim() || null,
+      location: location.trim() || null,
       start_date: startDate,
       end_date: endDate,
       format,
       points_win: pointsWin,
       points_draw: pointsDraw,
       points_loss: pointsLoss,
+      minutes_per_half: minutesPerHalf,
+      halftime_enabled: halftimeEnabled,
+      halftime_minutes: halftimeEnabled ? halftimeMinutes : null,
+      num_groups: format === 'round_robin_knockout' ? numGroups : null,
+      teams_per_group: format === 'round_robin_knockout' ? teamsPerGroup : null,
+      advance_per_group: format === 'round_robin_knockout' ? advancePerGroup : null,
     })
     setLoading(false)
     if ('error' in result) {
@@ -143,6 +185,93 @@ export function NewTournamentForm() {
             </label>
           ))}
         </div>
+      </fieldset>
+
+      {format === 'round_robin_knockout' && (
+        <fieldset className="space-y-2">
+          <legend className="text-sm font-medium">Group stage</legend>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="num-groups" className="text-xs">Number of groups</Label>
+              <Input
+                id="num-groups"
+                type="number"
+                min={2}
+                max={16}
+                required
+                value={numGroups}
+                onChange={(e) => setNumGroups(Number(e.target.value))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="teams-per-group" className="text-xs">Teams per group</Label>
+              <Input
+                id="teams-per-group"
+                type="number"
+                min={2}
+                max={16}
+                required
+                value={teamsPerGroup}
+                onChange={(e) => setTeamsPerGroup(Number(e.target.value))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="advance-per-group" className="text-xs">Advance per group</Label>
+              <Input
+                id="advance-per-group"
+                type="number"
+                min={1}
+                max={Math.max(1, teamsPerGroup - 1)}
+                required
+                value={advancePerGroup}
+                onChange={(e) => setAdvancePerGroup(Number(e.target.value))}
+              />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {numGroups} group{numGroups === 1 ? '' : 's'} × {teamsPerGroup} team
+            {teamsPerGroup === 1 ? '' : 's'} = {numGroups * teamsPerGroup} teams total · top{' '}
+            {advancePerGroup} per group advance ({numGroups * advancePerGroup} into knockout).
+          </p>
+        </fieldset>
+      )}
+
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-medium">Match timing</legend>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="mph" className="text-xs">Minutes per half</Label>
+            <Input
+              id="mph"
+              type="number"
+              min={1}
+              max={120}
+              required
+              value={minutesPerHalf}
+              onChange={(e) => setMinutesPerHalf(Number(e.target.value))}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="htm" className="text-xs">Halftime length (min)</Label>
+            <Input
+              id="htm"
+              type="number"
+              min={1}
+              max={60}
+              disabled={!halftimeEnabled}
+              value={halftimeMinutes}
+              onChange={(e) => setHalftimeMinutes(Number(e.target.value))}
+            />
+          </div>
+        </div>
+        <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={halftimeEnabled}
+            onChange={(e) => setHalftimeEnabled(e.target.checked)}
+          />
+          Include halftime break
+        </label>
       </fieldset>
 
       <fieldset className="space-y-2">

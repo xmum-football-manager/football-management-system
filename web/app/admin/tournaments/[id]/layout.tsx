@@ -33,16 +33,18 @@ export default async function TournamentLayout({ params, children }: Props) {
       <div>
         <Link
           href="/admin"
-          className="inline-flex items-center text-xs text-muted-foreground hover:text-foreground gap-1 mb-1"
+          className="admin-eyebrow inline-flex items-center gap-1 hover:text-foreground"
+          style={{ color: 'var(--muted-foreground)' }}
         >
           <ArrowLeft className="h-3 w-3" /> Dashboard
         </Link>
-        <div className="flex items-center gap-3 flex-wrap">
-          <h1 className="text-2xl font-bold tracking-tight truncate">{tournament.name}</h1>
+        <p className="admin-eyebrow mt-3">Tournament</p>
+        <div className="mt-1 flex flex-wrap items-end gap-3">
+          <h1 className="admin-display text-[40px] leading-none truncate">{tournament.name}</h1>
           <TournamentStatusBadge status={tournament.status} />
         </div>
         {tournament.location && (
-          <p className="text-sm text-muted-foreground mt-0.5">{tournament.location}</p>
+          <p className="mt-2 text-sm text-muted-foreground">{tournament.location}</p>
         )}
       </div>
 

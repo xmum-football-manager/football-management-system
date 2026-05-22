@@ -4,6 +4,7 @@ export const mockTeamHome: Team = {
   id: 'team-home-1',
   tournament_id: 'tournament-1',
   name: 'Red Lions FC',
+  group_label: null,
   created_at: '2026-01-01T00:00:00Z',
 }
 
@@ -11,6 +12,7 @@ export const mockTeamAway: Team = {
   id: 'team-away-1',
   tournament_id: 'tournament-1',
   name: 'Blue Eagles United',
+  group_label: null,
   created_at: '2026-01-01T00:00:00Z',
 }
 

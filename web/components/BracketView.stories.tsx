@@ -10,7 +10,7 @@ export default meta
 type Story = StoryObj<typeof BracketView>
 
 function makeTeam(id: string, name: string) {
-  return { id, tournament_id: 'tour-1', name, created_at: '2026-05-01T00:00:00Z' }
+  return { id, tournament_id: 'tour-1', name, group_label: null, created_at: '2026-05-01T00:00:00Z' }
 }
 
 function makeMatch(id: string, homeId: string, homeName: string, awayId: string, awayName: string, overrides: Partial<MatchWithTeams> = {}): MatchWithTeams {

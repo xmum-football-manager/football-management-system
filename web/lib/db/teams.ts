@@ -53,3 +53,13 @@ export async function renameTeam(id: string, name: string): Promise<{ error?: st
   if (error) return { error: error.message }
   return {}
 }
+
+export async function setTeamGroup(
+  id: string,
+  group_label: string | null,
+): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { error } = await supabase.from('teams').update({ group_label }).eq('id', id)
+  if (error) return { error: error.message }
+  return {}
+}

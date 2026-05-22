@@ -26,6 +26,7 @@ import {
   addPlayerAction,
   deletePlayerAction,
 } from './actions'
+import type { TournamentFormat } from '@/lib/supabase/types'
 
 interface PlayerData {
   id: string
@@ -37,6 +38,7 @@ interface PlayerData {
 interface TeamData {
   id: string
   name: string
+  group_label: string | null
   players: PlayerData[]
 }
 
@@ -45,9 +47,16 @@ interface Props {
   initialTeams: TeamData[]
   canEdit: boolean
   minPlayersPerTeam: number
+  format: TournamentFormat
 }
 
-export function TeamsPanel({ tournamentId, initialTeams, canEdit, minPlayersPerTeam }: Props) {
+export function TeamsPanel({
+  tournamentId,
+  initialTeams,
+  canEdit,
+  minPlayersPerTeam,
+  format,
+}: Props) {
   const router = useRouter()
   const [newTeam, setNewTeam] = useState('')
   const [open, setOpen] = useState<Set<string>>(new Set())
@@ -86,11 +95,22 @@ export function TeamsPanel({ tournamentId, initialTeams, canEdit, minPlayersPerT
     })
   }
 
+  const showGroups = format === 'round_robin_knockout'
+
   return (
     <div className="space-y-5">
       {!canEdit && (
         <div className="rounded-md border bg-amber-50 border-amber-200 px-3 py-2 text-xs text-amber-900 flex items-center gap-2">
           <Lock className="h-3 w-3" /> Teams are locked — a match has gone live or the tournament is finished.
+        </div>
+      )}
+
+      {showGroups && (
+        <div
+          className="rounded-md border bg-emerald-50/60 border-emerald-200 px-3 py-2 text-xs text-emerald-900"
+        >
+          Group assignment now lives on the <span className="font-semibold">Fixtures</span> tab →
+          Groups view.
         </div>
       )}
 
@@ -137,6 +157,11 @@ export function TeamsPanel({ tournamentId, initialTeams, canEdit, minPlayersPerT
                 >
                   {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                   <span className="font-semibold flex-1 truncate">{t.name}</span>
+                  {showGroups && t.group_label && (
+                    <Badge variant="outline" className="text-[10px]">
+                      Group {t.group_label}
+                    </Badge>
+                  )}
                   <span className="text-xs text-muted-foreground">
                     {t.players.length} player{t.players.length === 1 ? '' : 's'}
                   </span>
@@ -304,3 +329,4 @@ function AddPlayerForm({ teamId, tournamentId }: { teamId: string; tournamentId:
     </form>
   )
 }
+

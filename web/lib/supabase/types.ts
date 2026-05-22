@@ -38,6 +38,7 @@ export interface Team {
   id: string
   tournament_id: string
   name: string
+  group_label: string | null
   created_at: string
 }
 

@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { cn } from '@/lib/utils'
 
 interface Props {
   tournamentId: string
@@ -21,20 +20,24 @@ export function TournamentNav({ tournamentId }: Props) {
   ]
 
   return (
-    <nav className="border-b -mx-2 px-2 overflow-x-auto">
-      <ul className="flex gap-1 min-w-max">
+    <nav
+      className="-mx-2 overflow-x-auto px-2"
+      style={{ borderBottom: '1px solid var(--admin-rule)' }}
+    >
+      <ul className="flex gap-0 min-w-max">
         {tabs.map((t) => {
           const active = pathname === t.href
           return (
             <li key={t.href}>
               <Link
                 href={t.href}
-                className={cn(
-                  'inline-block px-3 py-2.5 text-sm border-b-2 -mb-px transition-colors',
-                  active
-                    ? 'border-emerald-600 text-foreground font-medium'
-                    : 'border-transparent text-muted-foreground hover:text-foreground',
-                )}
+                className="admin-tab inline-block px-4 py-2.5 text-[12px] transition-colors -mb-px"
+                style={{
+                  color: active ? 'var(--admin-lime)' : 'var(--muted-foreground)',
+                  borderBottom: active
+                    ? '2px solid var(--admin-lime)'
+                    : '2px solid transparent',
+                }}
               >
                 {t.label}
               </Link>

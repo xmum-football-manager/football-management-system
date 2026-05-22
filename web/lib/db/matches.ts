@@ -80,6 +80,20 @@ export async function updateMatchTime(id: string, match_time: string): Promise<{
   return {}
 }
 
+export async function updateMatchTeams(
+  id: string,
+  home_team_id: string,
+  away_team_id: string,
+): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('matches')
+    .update({ home_team_id, away_team_id })
+    .eq('id', id)
+  if (error) return { error: error.message }
+  return {}
+}
+
 export async function deleteMatch(id: string): Promise<{ error?: string }> {
   const supabase = await createClient()
   const { error } = await supabase.from('matches').delete().eq('id', id)

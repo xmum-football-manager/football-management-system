@@ -3,8 +3,8 @@ import { listTeams } from '@/lib/db/teams'
 import { getTournament } from '@/lib/db/tournaments'
 import { requireUser } from '@/lib/auth'
 import { isAdmin } from '@/lib/db/roles'
-import { Card, CardContent } from '@/components/ui/card'
-import { MatchRow } from './MatchRow'
+import { canAddFixture } from '@/lib/lock-rules'
+import { MatchViews } from '@/components/admin/MatchViews'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -22,60 +22,71 @@ export default async function OverviewPage({ params }: Props) {
   const played = matches.filter((m) => m.status === 'finished').length
   const live = matches.filter((m) => m.status === 'live' || m.status === 'halftime').length
   const remaining = matches.length - played
+  const canManageFixtures = canAddFixture(tournament.status)
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-7">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label="Teams" value={teams.length} />
-        <StatCard label="Matches" value={matches.length} />
-        <StatCard label="Played" value={played} />
-        <StatCard label="Live now" value={live} accent={live > 0 ? 'live' : undefined} />
+        <StatTile label="Teams" value={teams.length} />
+        <StatTile label="Matches" value={matches.length} />
+        <StatTile label="Played" value={played} />
+        <StatTile label="Live now" value={live} live={live > 0} />
       </div>
 
       <div>
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-          Matches ({matches.length})
-        </h2>
-        {matches.length === 0 ? (
-          <Card>
-            <CardContent className="py-10 text-center text-sm text-muted-foreground">
-              No matches yet. Add teams, then schedule fixtures.
-            </CardContent>
-          </Card>
-        ) : (
-          <ul className="space-y-2">
-            {matches.map((m) => (
-              <li key={m.id}>
-                <MatchRow match={m} tournamentStatus={tournament.status} isAdmin={admin} />
-              </li>
-            ))}
-          </ul>
-        )}
-        <p className="text-xs text-muted-foreground mt-3">
-          {remaining} match{remaining === 1 ? '' : 'es'} remaining.
-        </p>
+        <div className="mb-2 flex items-center justify-between">
+          <p className="admin-eyebrow">Matches</p>
+          <span className="admin-mono text-[11px] text-muted-foreground">
+            {matches.length} total · {remaining} remaining
+          </span>
+        </div>
+        <MatchViews
+          tournamentId={id}
+          tournamentFormat={tournament.format}
+          tournamentStatus={tournament.status}
+          isAdmin={admin}
+          canManageFixtures={canManageFixtures}
+          numGroups={tournament.num_groups}
+          advancePerGroup={tournament.advance_per_group}
+          teams={teams.map((t) => ({ id: t.id, name: t.name, group_label: t.group_label }))}
+          matches={matches}
+        />
       </div>
     </div>
   )
 }
 
-function StatCard({
+function StatTile({
   label,
   value,
-  accent,
+  live,
 }: {
   label: string
   value: number
-  accent?: 'live'
+  live?: boolean
 }) {
   return (
-    <Card>
-      <CardContent className="py-4 px-4">
-        <div className="text-xs text-muted-foreground uppercase tracking-wide">{label}</div>
-        <div className={`text-2xl font-bold ${accent === 'live' ? 'text-emerald-600' : ''}`}>
-          {value}
-        </div>
-      </CardContent>
-    </Card>
+    <div
+      className="rounded-xl border bg-card p-4"
+      style={{ borderColor: 'var(--admin-rule)' }}
+    >
+      <div className="admin-eyebrow">{label}</div>
+      <div
+        className="admin-display admin-mono mt-2 flex items-center gap-2.5"
+        style={{
+          fontSize: 36,
+          lineHeight: 1,
+          color: live ? 'var(--admin-lime)' : 'var(--foreground)',
+        }}
+      >
+        {value}
+        {live ? (
+          <span
+            className="inline-block h-2.5 w-2.5 rounded-full bg-[#DC2626]"
+            style={{ boxShadow: '0 0 0 4px rgba(220,38,38,0.18)' }}
+          />
+        ) : null}
+      </div>
+    </div>
   )
 }

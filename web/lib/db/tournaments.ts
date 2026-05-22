@@ -69,12 +69,19 @@ export interface CreateTournamentInput {
   points_win: number
   points_draw: number
   points_loss: number
+  minutes_per_half: number
+  halftime_enabled: boolean
+  halftime_minutes: number | null
+  num_groups?: number | null
+  teams_per_group?: number | null
+  advance_per_group?: number | null
 }
 
 export async function createTournament(
   input: CreateTournamentInput,
 ): Promise<{ id: string } | { error: string }> {
   const supabase = await createClient()
+  const isGroupFormat = input.format === 'round_robin_knockout'
   const { data, error } = await supabase
     .from('tournaments')
     .insert({
@@ -87,6 +94,12 @@ export async function createTournament(
       points_win: input.points_win,
       points_draw: input.points_draw,
       points_loss: input.points_loss,
+      minutes_per_half: input.minutes_per_half,
+      halftime_enabled: input.halftime_enabled,
+      halftime_minutes: input.halftime_enabled ? input.halftime_minutes : null,
+      num_groups: isGroupFormat ? (input.num_groups ?? null) : null,
+      teams_per_group: isGroupFormat ? (input.teams_per_group ?? null) : null,
+      advance_per_group: isGroupFormat ? (input.advance_per_group ?? null) : null,
     })
     .select('id')
     .single()
