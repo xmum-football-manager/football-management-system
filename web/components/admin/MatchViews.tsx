@@ -1365,7 +1365,6 @@ function RescheduleDialog({
 
   const minDatetime = `${tournamentStart}T00:00`
   const maxDatetime = `${tournamentEnd}T23:59`
-  const isOutOfRange = time < minDatetime || time > maxDatetime
 
   function submit() {
     startTransition(async () => {
@@ -1407,24 +1406,16 @@ function RescheduleDialog({
             max={maxDatetime}
             onChange={(e) => setTime(e.target.value)}
             disabled={pending}
-            className={isOutOfRange ? 'border-destructive' : ''}
           />
-          {isOutOfRange && (
-            <p className="text-[11px] text-destructive">
-              Date must be within the tournament period ({tournamentStart} – {tournamentEnd}).
-            </p>
-          )}
-          {!isOutOfRange && (
-            <p className="text-[11px] text-muted-foreground">
-              Currently scheduled for {new Date(match.match_time).toLocaleString()}.
-            </p>
-          )}
+          <p className="text-[11px] text-muted-foreground">
+            Currently scheduled for {new Date(match.match_time).toLocaleString()}. Must be within {tournamentStart} – {tournamentEnd}.
+          </p>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={pending}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={pending || !time || isOutOfRange}>
+          <Button onClick={submit} disabled={pending || !time}>
             {pending && <Loader2 className="h-4 w-4 animate-spin" />}
             Move fixture
           </Button>
