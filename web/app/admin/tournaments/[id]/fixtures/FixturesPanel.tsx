@@ -34,6 +34,7 @@ interface TeamRef {
 interface Props {
   tournamentId: string
   tournamentStart: string
+  tournamentEnd: string
   tournamentFormat: TournamentFormat
   tournamentStatus: TournamentStatus
   isAdmin: boolean
@@ -50,6 +51,7 @@ interface Props {
 export function FixturesPanel({
   tournamentId,
   tournamentStart,
+  tournamentEnd,
   tournamentFormat,
   tournamentStatus,
   isAdmin,
@@ -97,6 +99,8 @@ export function FixturesPanel({
 
       <MatchViews
         tournamentId={tournamentId}
+        tournamentStart={tournamentStart}
+        tournamentEnd={tournamentEnd}
         tournamentFormat={tournamentFormat}
         tournamentStatus={tournamentStatus}
         isAdmin={isAdmin}
