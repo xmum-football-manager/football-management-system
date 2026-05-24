@@ -29,6 +29,7 @@ export default async function FixturesPage({ params }: Props) {
     <FixturesPanel
       tournamentId={id}
       tournamentStart={tournament.start_date}
+      tournamentEnd={tournament.end_date}
       tournamentFormat={tournament.format}
       tournamentStatus={tournament.status}
       isAdmin={admin}

@@ -31,6 +31,14 @@ export async function addMatchAction(input: {
       return { error: 'Home and away must be different teams.' }
     }
     await ensureOrganizer(input.tournament_id)
+    const tournament = await getTournament(input.tournament_id)
+    if (!tournament) return { error: 'Tournament not found.' }
+    const matchDay = new Date(input.match_time).toISOString().split('T')[0]
+    if (matchDay < tournament.start_date || matchDay > tournament.end_date) {
+      return {
+        error: `Match must be scheduled within the tournament period (${tournament.start_date} – ${tournament.end_date}).`,
+      }
+    }
     const result = await createMatch(input)
     if ('id' in result) {
       revalidatePath(`/admin/tournaments/${input.tournament_id}/fixtures`)
@@ -56,9 +64,17 @@ export async function bulkAddMatchesAction(
           'A match has already gone live — fixture generation is locked. Create a new tournament if you need a fresh draw.',
       }
     }
+    const tournament = await getTournament(tournamentId)
+    if (!tournament) return { error: 'Tournament not found.' }
     let created = 0
     for (const f of fixtures) {
       if (f.home_team_id === f.away_team_id) continue
+      const matchDay = new Date(f.match_time).toISOString().split('T')[0]
+      if (matchDay < tournament.start_date || matchDay > tournament.end_date) {
+        return {
+          error: `Match must be scheduled within the tournament period (${tournament.start_date} – ${tournament.end_date}).`,
+        }
+      }
       const r = await createMatch({ tournament_id: tournamentId, ...f })
       if ('id' in r) created++
     }
@@ -82,6 +98,14 @@ export async function rescheduleMatchAction(
     if (!existing) return { error: 'Match not found.' }
     if (existing.status !== 'scheduled') {
       return { error: 'Only scheduled matches can be rescheduled.' }
+    }
+    const tournament = await getTournament(tournamentId)
+    if (!tournament) return { error: 'Tournament not found.' }
+    const matchDay = new Date(newTime).toISOString().split('T')[0]
+    if (matchDay < tournament.start_date || matchDay > tournament.end_date) {
+      return {
+        error: `Match must be scheduled within the tournament period (${tournament.start_date} – ${tournament.end_date}).`,
+      }
     }
     const result = await updateMatchTime(matchId, newTime)
     if (result.error) return { error: result.error }
@@ -226,6 +250,12 @@ export async function seedKnockoutBracketAction(
     if (!tournament) return { error: 'Tournament not found.' }
     if (tournament.format !== 'round_robin_knockout') {
       return { error: 'Bracket seeding is only available for Group → Knockout tournaments.' }
+    }
+    const kickoffDay = new Date(opts.kickoff).toISOString().split('T')[0]
+    if (kickoffDay < tournament.start_date || kickoffDay > tournament.end_date) {
+      return {
+        error: `Kickoff must be within the tournament period (${tournament.start_date} – ${tournament.end_date}).`,
+      }
     }
 
     // Bucket teams by group
@@ -382,6 +412,12 @@ export async function seedDirectKnockoutAction(
     if ((n & (n - 1)) !== 0) {
       return {
         error: `Team count must be a power of 2 (2, 4, 8, 16…). You have ${n} team${n === 1 ? '' : 's'}.`,
+      }
+    }
+    const kickoffDay = new Date(opts.kickoff).toISOString().split('T')[0]
+    if (kickoffDay < tournament.start_date || kickoffDay > tournament.end_date) {
+      return {
+        error: `Kickoff must be within the tournament period (${tournament.start_date} – ${tournament.end_date}).`,
       }
     }
     const start = new Date(opts.kickoff)
