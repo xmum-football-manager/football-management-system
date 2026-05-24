@@ -50,6 +50,8 @@ export default async function OverviewPage({ params }: Props) {
           advancePerGroup={tournament.advance_per_group}
           teams={teams.map((t) => ({ id: t.id, name: t.name, group_label: t.group_label }))}
           matches={matches}
+          tournamentStart={tournament.start_date}
+          tournamentEnd={tournament.end_date}
         />
       </div>
     </div>

@@ -50,6 +50,8 @@ const VIEW_STORAGE_KEY = 'admin-matches-view'
 
 interface MatchViewsProps {
   tournamentId: string
+  tournamentStart: string
+  tournamentEnd: string
   tournamentFormat: TournamentFormat
   tournamentStatus: TournamentStatus
   isAdmin: boolean
@@ -63,6 +65,8 @@ interface MatchViewsProps {
 
 export function MatchViews({
   tournamentId,
+  tournamentStart,
+  tournamentEnd,
   tournamentFormat,
   tournamentStatus,
   isAdmin,
@@ -153,6 +157,8 @@ export function MatchViews({
           matches={matches}
           canEdit={canManageFixtures}
           tournamentId={tournamentId}
+          tournamentStart={tournamentStart}
+          tournamentEnd={tournamentEnd}
           onMatchClick={handleMatchClick}
         />
       ) : (
@@ -169,6 +175,8 @@ export function MatchViews({
           match={reschedulingMatch}
           initialTime={reschedulingMatch.match_time}
           tournamentId={tournamentId}
+          tournamentStart={tournamentStart}
+          tournamentEnd={tournamentEnd}
           onClose={() => setReschedulingMatch(null)}
         />
       )}
@@ -1074,11 +1082,15 @@ function BoardView({
   matches,
   canEdit,
   tournamentId,
+  tournamentStart,
+  tournamentEnd,
   onMatchClick,
 }: {
   matches: MatchWithTeams[]
   canEdit: boolean
   tournamentId: string
+  tournamentStart: string
+  tournamentEnd: string
   onMatchClick?: (m: MatchWithTeams) => void
 }) {
   const byDay = useMemo(() => groupByDay(matches), [matches])
@@ -1238,6 +1250,8 @@ function BoardView({
           match={reschedule.match}
           initialTime={reschedule.targetTime}
           tournamentId={tournamentId}
+          tournamentStart={tournamentStart}
+          tournamentEnd={tournamentEnd}
           onClose={() => setReschedule(null)}
         />
       )}
@@ -1334,16 +1348,23 @@ function RescheduleDialog({
   match,
   initialTime,
   tournamentId,
+  tournamentStart,
+  tournamentEnd,
   onClose,
 }: {
   match: MatchWithTeams
   initialTime: string
   tournamentId: string
+  tournamentStart: string
+  tournamentEnd: string
   onClose: () => void
 }) {
   const router = useRouter()
   const [time, setTime] = useState(() => toLocalDatetime(initialTime))
   const [pending, startTransition] = useTransition()
+
+  const minDatetime = `${tournamentStart}T00:00`
+  const maxDatetime = `${tournamentEnd}T23:59`
 
   function submit() {
     startTransition(async () => {
@@ -1381,11 +1402,13 @@ function RescheduleDialog({
             id="rs-time"
             type="datetime-local"
             value={time}
+            min={minDatetime}
+            max={maxDatetime}
             onChange={(e) => setTime(e.target.value)}
             disabled={pending}
           />
           <p className="text-[11px] text-muted-foreground">
-            Currently scheduled for {new Date(match.match_time).toLocaleString()}.
+            Currently scheduled for {new Date(match.match_time).toLocaleString()}. Must be within {tournamentStart} – {tournamentEnd}.
           </p>
         </div>
         <DialogFooter>

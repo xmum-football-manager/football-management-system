@@ -28,6 +28,7 @@ export const MOCK_TOURNAMENTS: Tournament[] = [
     knockout_start_round: null,
     seeding_method: null,
     min_players_per_team: 11,
+    knockout_qualifiers: null,
   },
   {
     id: 'dev-2',
@@ -56,5 +57,6 @@ export const MOCK_TOURNAMENTS: Tournament[] = [
     knockout_start_round: null,
     seeding_method: null,
     min_players_per_team: 11,
+    knockout_qualifiers: null,
   },
 ]
