@@ -178,7 +178,7 @@ function FormatSetupCard({
     }
     if (!knockoutExists) {
       return (
-        <KnockoutSeedSetup tournamentId={tournamentId} tournamentStart={tournamentStart} />
+        <KnockoutSeedSetup tournamentId={tournamentId} />
       )
     }
     return null
@@ -393,23 +393,19 @@ function GroupStageInProgress({ finished, total }: { finished: number; total: nu
 
 function KnockoutSeedSetup({
   tournamentId,
-  tournamentStart,
 }: {
   tournamentId: string
-  tournamentStart: string
 }) {
   const router = useRouter()
-  const [open, setOpen] = useState(false)
   const [pending, startTransition] = useTransition()
 
-  function seed(opts: { kickoff: string; slotLength: number; perDay: number }) {
+  function seed() {
     startTransition(async () => {
-      const r = await seedKnockoutBracketAction(tournamentId, opts)
+      const r = await seedKnockoutBracketAction(tournamentId)
       if ('error' in r) toast.error(r.error)
       else {
-        toast.success(`Seeded ${r.created} knockout match${r.created === 1 ? '' : 'es'}.`)
+        toast.success(`Seeded ${r.seeded} knockout match${r.seeded === 1 ? '' : 'es'}.`)
         router.refresh()
-        setOpen(false)
       }
     })
   }
@@ -422,25 +418,12 @@ function KnockoutSeedSetup({
           <h3 className="font-semibold text-sm">Seed the knockout bracket</h3>
         </div>
         <p className="text-xs text-muted-foreground">
-          Group stage is complete. Seed the bracket using current group standings — top finishers
-          cross-paired (e.g., 1A v 2B, 2A v 1B).
+          Seeds the bracket using the qualifiers assigned above.
         </p>
-        <Button onClick={() => setOpen(true)} disabled={pending}>
+        <Button onClick={seed} disabled={pending}>
           <Trophy className="h-4 w-4" /> Seed knockout bracket
         </Button>
       </CardContent>
-      {open && (
-        <GenerateFixturesDialog
-          title="Seed knockout bracket"
-          summary="Creates the first knockout round from current group standings. Later rounds (semis, final) will fill in as matches finish."
-          warning="Bracket matchups are derived from the final group table. They won't update if you revert a finished group match later."
-          defaultStart={tournamentStart}
-          submitLabel="Seed bracket"
-          pending={pending}
-          onCancel={() => setOpen(false)}
-          onSubmit={seed}
-        />
-      )}
     </Card>
   )
 }

@@ -18,6 +18,8 @@ const baseMatch = {
   home_team_id: 'team-1',
   away_team_id: 'team-2',
   match_time: '2026-05-15T10:00:00+08:00',
+  phase: 'group' as const,
+  knockout_round: null,
   created_at: '2026-05-01T00:00:00Z',
   updated_at: '2026-05-15T10:00:00Z',
   home_team: homeTeam,

@@ -31,6 +31,8 @@ export const mockMatchLive: MatchWithTeams = {
   status: 'live',
   home_score: 2,
   away_score: 1,
+  phase: 'group',
+  knockout_round: null,
   match_started_at: new Date(Date.now() - 37 * 60000).toISOString(),
   match_finished_at: null,
   created_at: '2026-01-01T00:00:00Z',
@@ -92,6 +94,7 @@ export const mockTournament: Tournament = {
   knockout_start_round: null,
   seeding_method: null,
   min_players_per_team: 11,
+  knockout_qualifiers: null,
 }
 
 export const mockBracketMatches: MatchWithTeams[] = [
