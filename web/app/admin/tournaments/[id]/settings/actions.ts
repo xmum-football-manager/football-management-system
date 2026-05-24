@@ -75,7 +75,10 @@ export async function assignOrganizerAction(
       role: 'organizer',
       tournament_id: tournamentId,
     })
-    if ('id' in result) revalidatePath(`/admin/tournaments/${tournamentId}/settings`)
+    if ('id' in result) {
+      revalidatePath(`/admin/tournaments/${tournamentId}`)
+      revalidatePath(`/admin/tournaments/${tournamentId}/settings`)
+    }
     return result
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed.' }
@@ -90,6 +93,7 @@ export async function removeOrganizerAction(
     await requireAdmin()
     const r = await removeRole(roleId)
     if (r.error) return { error: r.error }
+    revalidatePath(`/admin/tournaments/${tournamentId}`)
     revalidatePath(`/admin/tournaments/${tournamentId}/settings`)
     return { ok: true }
   } catch (e) {

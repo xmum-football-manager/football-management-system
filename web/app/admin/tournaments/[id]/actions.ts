@@ -37,6 +37,7 @@ export async function transitionMatchAction(
       await logMatchRevert(user.id, matchId, match.tournament_id, 'finished')
     }
     revalidatePath(`/admin/tournaments/${match.tournament_id}`)
+    revalidatePath(`/admin/tournaments/${match.tournament_id}/fixtures`)
     revalidatePath(`/t/${match.tournament_id}`)
     return { ok: true }
   } catch (e) {
@@ -54,6 +55,7 @@ export async function updateScoreAction(
     const result = await updateMatchScore(matchId, home_score, away_score)
     if (result.error) return { error: result.error }
     revalidatePath(`/admin/tournaments/${match.tournament_id}`)
+    revalidatePath(`/admin/tournaments/${match.tournament_id}/fixtures`)
     revalidatePath(`/t/${match.tournament_id}`)
     return { ok: true }
   } catch (e) {
