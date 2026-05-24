@@ -1,69 +1,102 @@
-import { createClient } from '@/lib/supabase/client'
-import type { MatchWithTeams, MatchStatus } from '@/lib/supabase/types'
+import { createClient } from '@/lib/supabase/server'
+import type { Match, MatchStatus, MatchWithTeams } from '@/lib/supabase/types'
 
-export async function getMatches(tournamentId: string): Promise<MatchWithTeams[]> {
-  const supabase = createClient()
+export async function listMatches(tournamentId: string): Promise<MatchWithTeams[]> {
+  const supabase = await createClient()
   const { data, error } = await supabase
     .from('matches')
     .select('*, home_team:teams!matches_home_team_id_fkey(*), away_team:teams!matches_away_team_id_fkey(*)')
     .eq('tournament_id', tournamentId)
     .order('match_time', { ascending: true })
   if (error) throw error
-  return (data as MatchWithTeams[]) ?? []
+  return (data ?? []) as unknown as MatchWithTeams[]
 }
 
-export async function createMatch(tournamentId: string, homeTeamId: string, awayTeamId: string, matchTime: string) {
-  const supabase = createClient()
-  return supabase.from('matches').insert({
-    tournament_id: tournamentId,
-    home_team_id: homeTeamId,
-    away_team_id: awayTeamId,
-    match_time: matchTime,
-  })
+export async function getMatch(id: string): Promise<Match | null> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.from('matches').select('*').eq('id', id).maybeSingle()
+  if (error) throw error
+  return (data as Match) ?? null
 }
 
-export async function deleteMatch(matchId: string) {
-  const supabase = createClient()
-  return supabase.from('matches').delete().eq('id', matchId)
+export interface CreateMatchInput {
+  tournament_id: string
+  home_team_id: string
+  away_team_id: string
+  match_time: string
 }
 
-export async function updateMatchTime(matchId: string, matchTime: string) {
-  const supabase = createClient()
-  return supabase.from('matches').update({ match_time: matchTime }).eq('id', matchId)
-}
-
-export async function updateMatchScore(matchId: string, homeScore: number, awayScore: number) {
-  const supabase = createClient()
-  return supabase
+export async function createMatch(input: CreateMatchInput): Promise<{ id: string } | { error: string }> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
     .from('matches')
-    .update({ home_score: homeScore, away_score: awayScore })
-    .eq('id', matchId)
-    .eq('status', 'live')
+    .insert({
+      tournament_id: input.tournament_id,
+      home_team_id: input.home_team_id,
+      away_team_id: input.away_team_id,
+      match_time: input.match_time,
+    })
+    .select('id')
+    .single()
+  if (error) return { error: error.message }
+  return { id: data.id }
 }
 
-export async function transitionMatchStatus(
-  matchId: string,
-  currentStatus: MatchStatus,
-  nextStatus: MatchStatus,
-  timestamps?: { match_started_at?: string | null; match_finished_at?: string | null }
-) {
-  const supabase = createClient()
-  const update: Record<string, string | null> = { status: nextStatus }
-  if (timestamps) Object.assign(update, timestamps)
-  return supabase
+export async function updateMatchScore(
+  id: string,
+  home_score: number,
+  away_score: number,
+): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { error } = await supabase.from('matches').update({ home_score, away_score }).eq('id', id)
+  if (error) return { error: error.message }
+  return {}
+}
+
+export async function updateMatchStatus(
+  id: string,
+  status: MatchStatus,
+): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const patch: Record<string, unknown> = { status }
+  if (status === 'live') {
+    const existing = await getMatch(id)
+    if (existing && !existing.match_started_at) {
+      patch.match_started_at = new Date().toISOString()
+    }
+  }
+  if (status === 'finished') {
+    patch.match_finished_at = new Date().toISOString()
+  }
+  const { error } = await supabase.from('matches').update(patch).eq('id', id)
+  if (error) return { error: error.message }
+  return {}
+}
+
+export async function updateMatchTime(id: string, match_time: string): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { error } = await supabase.from('matches').update({ match_time }).eq('id', id)
+  if (error) return { error: error.message }
+  return {}
+}
+
+export async function updateMatchTeams(
+  id: string,
+  home_team_id: string,
+  away_team_id: string,
+): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { error } = await supabase
     .from('matches')
-    .update(update)
-    .eq('id', matchId)
-    .eq('status', currentStatus)
+    .update({ home_team_id, away_team_id })
+    .eq('id', id)
+  if (error) return { error: error.message }
+  return {}
 }
 
-export async function logRevertAudit(matchId: string, tournamentId: string) {
-  const supabase = createClient()
-  return supabase.from('admin_audit_log').insert({
-    action: 'revert_finished_to_live',
-    match_id: matchId,
-    tournament_id: tournamentId,
-    previous_status: 'finished',
-    new_status: 'live',
-  })
+export async function deleteMatch(id: string): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { error } = await supabase.from('matches').delete().eq('id', id)
+  if (error) return { error: error.message }
+  return {}
 }

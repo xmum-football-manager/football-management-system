@@ -1,130 +1,92 @@
-'use client'
-
-import { useState, useEffect, useCallback } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { TabStrip, type TabId } from './TabStrip'
-import { OverviewTab } from './OverviewTab'
-import { TeamsTab } from './TeamsTab'
-import { FixturesTab } from './FixturesTab'
-import { SettingsTab } from './SettingsTab'
+import { listMatches } from '@/lib/db/matches'
+import { listTeams } from '@/lib/db/teams'
 import { getTournament } from '@/lib/db/tournaments'
-import { getTeams } from '@/lib/db/teams'
-import { getMatches } from '@/lib/db/matches'
-import { getCurrentUser, getUserRoles } from '@/lib/db/tournaments'
-import type { Tournament, MatchWithTeams, TeamWithPlayers } from '@/lib/supabase/types'
+import { requireUser } from '@/lib/auth'
+import { isAdmin } from '@/lib/db/roles'
+import { canAddFixture } from '@/lib/lock-rules'
+import { MatchViews } from '@/components/admin/MatchViews'
 
-interface RoleInfo { role: string; tournament_id: string | null }
+interface Props {
+  params: Promise<{ id: string }>
+}
 
-export default function TournamentDetailPage() {
-  const { id } = useParams() as { id: string }
-  const router = useRouter()
-  const [activeTab, setActiveTab] = useState<TabId>('overview')
-  const [loading, setLoading] = useState(true)
-  const [tournament, setTournament] = useState<Tournament | null>(null)
-  const [teams, setTeams] = useState<TeamWithPlayers[]>([])
-  const [matches, setMatches] = useState<MatchWithTeams[]>([])
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [isOrganizer, setIsOrganizer] = useState(false)
+export default async function OverviewPage({ params }: Props) {
+  const { id } = await params
+  const user = await requireUser()
+  const tournament = await getTournament(id)
+  if (!tournament) return null
+  const admin = await isAdmin(user.id)
 
-  const load = useCallback(async () => {
-    const user = await getCurrentUser()
-    if (!user) { window.location.href = '/login'; return }
+  const [matches, teams] = await Promise.all([listMatches(id), listTeams(id)])
 
-    const [t, teamsData, matchesData, roles] = await Promise.all([
-      getTournament(id),
-      getTeams(id),
-      getMatches(id),
-      getUserRoles(user.id),
-    ])
-
-    if (!t) { router.push('/admin'); return }
-
-    const admin = roles.some((r: RoleInfo) => r.role === 'admin') ?? false
-    const organizer = admin || (roles.some((r: RoleInfo) => r.role === 'organizer' && r.tournament_id === id) ?? false)
-
-    if (!organizer) { router.push('/admin'); return }
-
-    setTournament(t)
-    setTeams(teamsData)
-    setMatches(matchesData)
-    setIsAdmin(admin)
-    setIsOrganizer(organizer)
-    setLoading(false)
-  }, [id, router])
-
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { load() }, [load])
-
-  if (loading || !tournament) {
-    return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
-        <p className="text-slate-400">Loading…</p>
-      </div>
-    )
-  }
-
-  const teamsAlert = teams.some(t => t.players.length < tournament.min_players_per_team) ||
-    (tournament.num_groups != null && tournament.teams_per_group != null &&
-     teams.length < tournament.num_groups * tournament.teams_per_group)
-
-  const publicUrl = `${process.env.NEXT_PUBLIC_APP_URL}/t/${id}`
+  const played = matches.filter((m) => m.status === 'finished').length
+  const live = matches.filter((m) => m.status === 'live' || m.status === 'halftime').length
+  const remaining = matches.length - played
+  const canManageFixtures = canAddFixture(tournament.status)
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      <header className="bg-white border-b border-slate-200 px-4 py-3">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <Link href="/admin" className="text-slate-500 hover:text-slate-700 text-sm">← Dashboard</Link>
-          <span className="font-bold text-slate-900 truncate max-w-xs">{tournament.name}</span>
-          <a href={publicUrl} target="_blank" rel="noopener noreferrer"
-            className="text-xs text-green-600 hover:text-green-500 font-medium">
-            Public View →
-          </a>
+    <div className="space-y-7">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <StatTile label="Teams" value={teams.length} />
+        <StatTile label="Matches" value={matches.length} />
+        <StatTile label="Played" value={played} />
+        <StatTile label="Live now" value={live} live={live > 0} />
+      </div>
+
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <p className="admin-eyebrow">Matches</p>
+          <span className="admin-mono text-[11px] text-muted-foreground">
+            {matches.length} total · {remaining} remaining
+          </span>
         </div>
-      </header>
+        <MatchViews
+          tournamentId={id}
+          tournamentFormat={tournament.format}
+          tournamentStatus={tournament.status}
+          isAdmin={admin}
+          canManageFixtures={canManageFixtures}
+          numGroups={tournament.num_groups}
+          advancePerGroup={tournament.advance_per_group}
+          teams={teams.map((t) => ({ id: t.id, name: t.name, group_label: t.group_label }))}
+          matches={matches}
+        />
+      </div>
+    </div>
+  )
+}
 
-      <TabStrip active={activeTab} onChange={setActiveTab} teamsAlert={teamsAlert} />
-
-      <main className="max-w-5xl mx-auto px-4 py-8">
-        {activeTab === 'overview' && (
-          <OverviewTab
-            tournament={tournament}
-            matches={matches}
-            teams={teams}
-            tournamentId={id}
-            isAdmin={isAdmin}
-            isOrganizer={isOrganizer}
-            onRefresh={load}
+function StatTile({
+  label,
+  value,
+  live,
+}: {
+  label: string
+  value: number
+  live?: boolean
+}) {
+  return (
+    <div
+      className="rounded-xl border bg-card p-4"
+      style={{ borderColor: 'var(--admin-rule)' }}
+    >
+      <div className="admin-eyebrow">{label}</div>
+      <div
+        className="admin-display admin-mono mt-2 flex items-center gap-2.5"
+        style={{
+          fontSize: 36,
+          lineHeight: 1,
+          color: live ? 'var(--admin-lime)' : 'var(--foreground)',
+        }}
+      >
+        {value}
+        {live ? (
+          <span
+            className="inline-block h-2.5 w-2.5 rounded-full bg-[#DC2626]"
+            style={{ boxShadow: '0 0 0 4px rgba(220,38,38,0.18)' }}
           />
-        )}
-        {activeTab === 'teams' && (
-          <TeamsTab
-            teams={teams}
-            tournamentStatus={tournament.status}
-            tournamentId={id}
-            minPlayers={tournament.min_players_per_team}
-            onRefresh={load}
-          />
-        )}
-        {activeTab === 'fixtures' && (
-          <FixturesTab
-            teams={teams}
-            matches={matches}
-            tournamentStatus={tournament.status}
-            tournamentId={id}
-            onRefresh={load}
-          />
-        )}
-        {activeTab === 'settings' && (
-          <SettingsTab
-            tournament={tournament}
-            matches={matches}
-            tournamentId={id}
-            isAdmin={isAdmin}
-            onRefresh={load}
-          />
-        )}
-      </main>
+        ) : null}
+      </div>
     </div>
   )
 }

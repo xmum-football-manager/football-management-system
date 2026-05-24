@@ -57,7 +57,7 @@ export async function proxy(request: NextRequest) {
       const { data: { user } } = await supabase.auth.getUser()
 
       if (!user) {
-        const loginUrl = new URL('/login', request.url)
+        const loginUrl = new URL(`/${surface}/login`, request.url)
         loginUrl.searchParams.set('redirectTo', url.pathname)
         return NextResponse.redirect(loginUrl)
       }

@@ -1,252 +1,45 @@
-'use client'
+import { getTournament } from '@/lib/db/tournaments'
+import { listTeams } from '@/lib/db/teams'
+import { listMatches } from '@/lib/db/matches'
+import { canAddFixture, canCreateFixtures, canManageTeams } from '@/lib/lock-rules'
+import { requireUser } from '@/lib/auth'
+import { isAdmin } from '@/lib/db/roles'
+import { FixturesPanel } from './FixturesPanel'
 
-import { useState, useTransition, useEffect } from 'react'
-import { useParams } from 'next/navigation'
-import { toast } from '@/components/Toast'
-import Link from 'next/link'
-import { canAddFixture, canDeleteFixture, canEditMatchTime } from '@/lib/lock-rules'
-import { getTeams } from '@/lib/db/teams'
-import { getMatches, createMatch, deleteMatch, updateMatchTime } from '@/lib/db/matches'
-import { getTournamentStatus } from '@/lib/db/teams'
-import type { Team, MatchWithTeams, TournamentStatus } from '@/lib/supabase/types'
-
-function statusPill(status: string) {
-  const map: Record<string, { label: string; classes: string }> = {
-    scheduled: { label: 'Scheduled', classes: 'bg-slate-100 text-slate-600' },
-    live: { label: 'Live', classes: 'bg-green-100 text-green-700' },
-    halftime: { label: 'Halftime', classes: 'bg-amber-100 text-amber-700' },
-    finished: { label: 'Finished', classes: 'bg-blue-50 text-blue-600' },
-  }
-  const s = map[status] ?? { label: status, classes: 'bg-slate-100 text-slate-500' }
-  return (
-    <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full capitalize ${s.classes}`}>
-      {s.label}
-    </span>
-  )
+interface Props {
+  params: Promise<{ id: string }>
 }
 
-export default function FixturesPage() {
-  const { id: tournamentId } = useParams() as { id: string }
-  const [teams, setTeams] = useState<Team[]>([])
-  const [matches, setMatches] = useState<MatchWithTeams[]>([])
-  const [tournamentStatus, setTournamentStatus] = useState<TournamentStatus | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [form, setForm] = useState({ home_team_id: '', away_team_id: '', match_time: '' })
-  const [formErrors, setFormErrors] = useState<string[]>([])
-  const [isPending, startTransition] = useTransition()
-  const [editingMatchId, setEditingMatchId] = useState<string | null>(null)
-  const [editingTime, setEditingTime] = useState('')
-
-  async function load() {
-    const [status, teamsData, matchesData] = await Promise.all([
-      getTournamentStatus(tournamentId),
-      getTeams(tournamentId),
-      getMatches(tournamentId),
-    ])
-    setTournamentStatus(status)
-    setTeams(teamsData)
-    setMatches(matchesData)
-    setLoading(false)
-  }
-
-  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
-  useEffect(() => { load() }, [tournamentId])
-
-  function validateForm(): string[] {
-    const errors: string[] = []
-    if (form.home_team_id === form.away_team_id) {
-      errors.push('A team cannot play against itself.')
-    }
-    if (form.home_team_id && form.away_team_id && form.match_time) {
-      const newTime = new Date(form.match_time).getTime()
-      const clash = matches.some(m => {
-        if (m.status !== 'scheduled') return false
-        const existing = new Date(m.match_time).getTime()
-        const diff = Math.abs(newTime - existing)
-        return diff < 3600000 && (m.home_team_id === form.home_team_id || m.away_team_id === form.home_team_id || m.home_team_id === form.away_team_id || m.away_team_id === form.away_team_id)
-      })
-      if (clash) {
-        errors.push('One of the selected teams already has a match scheduled within an hour of this time.')
-      }
-    }
-    return errors
-  }
-
-  function addFixture(e: React.FormEvent) {
-    e.preventDefault()
-    const errors = validateForm()
-    setFormErrors(errors)
-    if (errors.length > 0) return
-    startTransition(async () => {
-      const { error } = await createMatch(
-        tournamentId,
-        form.home_team_id,
-        form.away_team_id,
-        new Date(form.match_time).toISOString()
-      )
-      if (error) { toast.error(error.message); return }
-      setForm({ home_team_id: '', away_team_id: '', match_time: '' })
-      setFormErrors([])
-      toast.success('Fixture scheduled!')
-      await load()
-    })
-  }
-
-  function deleteFixture(matchId: string) {
-    startTransition(async () => {
-      await deleteMatch(matchId)
-      toast.success('Fixture removed.')
-      await load()
-    })
-  }
-
-  function startEditTime(match: MatchWithTeams) {
-    if (!canEditMatchTime(tournamentStatus ?? 'setup', match.status)) return
-    setEditingMatchId(match.id)
-    setEditingTime(new Date(match.match_time).toISOString().slice(0, 16))
-  }
-
-  async function saveEditTime() {
-    if (!editingMatchId) return
-    startTransition(async () => {
-      const { error } = await updateMatchTime(editingMatchId, new Date(editingTime).toISOString())
-      if (error) { toast.error(error.message); return }
-      setEditingMatchId(null)
-      setEditingTime('')
-      toast.success('Match time updated.')
-      await load()
-    })
-  }
-
-  function cancelEditTime() {
-    setEditingMatchId(null)
-    setEditingTime('')
-  }
-
-  if (loading) return <PageShell tournamentId={tournamentId}><div className="text-center py-16 text-slate-400">Loading…</div></PageShell>
-
-  const sel = 'w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500'
-  const selError = 'w-full border border-red-400 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 bg-red-50'
-  const fixturesLocked = tournamentStatus !== null && !canAddFixture(tournamentStatus)
+export default async function FixturesPage({ params }: Props) {
+  const { id } = await params
+  const user = await requireUser()
+  const tournament = await getTournament(id)
+  if (!tournament) return null
+  const [teams, matches, admin] = await Promise.all([
+    listTeams(id),
+    listMatches(id),
+    isAdmin(user.id),
+  ])
+  const canEdit = canAddFixture(tournament.status)
+  const anyMatchActive = matches.some((m) => m.status !== 'scheduled')
+  const canCreate = canCreateFixtures(tournament.status, anyMatchActive)
+  const canAssignGroups = canManageTeams(tournament.status) && !anyMatchActive
 
   return (
-    <PageShell tournamentId={tournamentId}>
-      <div className="space-y-6">
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <h2 className="text-base font-bold mb-4">Schedule a Match</h2>
-          {fixturesLocked && (
-            <p className="text-xs text-amber-600 mb-3">Fixture changes are locked once the tournament is finished.</p>
-          )}
-          {teams.length < 2 ? (
-            <p className="text-slate-500 text-sm">
-              Add at least 2 teams first.{' '}
-              <Link href={`/admin/tournaments/${tournamentId}/teams`} className="text-green-600 font-medium">Manage teams →</Link>
-            </p>
-          ) : (
-            <form onSubmit={addFixture} className={`space-y-3 ${fixturesLocked ? 'opacity-50 pointer-events-none' : ''}`}>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Home Team</label>
-                  <select value={form.home_team_id} onChange={e => { setForm(f => ({ ...f, home_team_id: e.target.value })); setFormErrors([]) }} required className={formErrors.length > 0 ? selError : sel}>
-                    <option value="">Select…</option>
-                    {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Away Team</label>
-                  <select value={form.away_team_id} onChange={e => { setForm(f => ({ ...f, away_team_id: e.target.value })); setFormErrors([]) }} required className={formErrors.length > 0 ? selError : sel}>
-                    <option value="">Select…</option>
-                    {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Date & Time</label>
-                  <input type="datetime-local" value={form.match_time} onChange={e => { setForm(f => ({ ...f, match_time: e.target.value })); setFormErrors([]) }} required className={formErrors.length > 0 ? selError : sel} />
-                </div>
-                <button type="submit" disabled={isPending || fixturesLocked} className="bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-semibold py-2.5 px-4 rounded-lg text-sm h-fit sm:self-end">
-                  {isPending ? 'Scheduling…' : 'Schedule Match'}
-                </button>
-              </div>
-              {formErrors.length > 0 && (
-                <ul className="space-y-1">
-                  {formErrors.map((err, i) => (
-                    <li key={i} className="text-xs text-red-600 flex items-center gap-1">
-                      <span className="inline-block w-1 h-1 rounded-full bg-red-600 shrink-0" />
-                      {err}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </form>
-          )}
-        </div>
-
-        <div>
-          <h2 className="text-base font-bold mb-3">All Matches ({matches.length})</h2>
-          {matches.length === 0 ? (
-            <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-400">No fixtures yet.</div>
-          ) : (
-            <div className="space-y-2">
-              {matches.map(m => {
-                const canDelete = canDeleteFixture(tournamentStatus ?? 'setup')
-                const canEdit = canEditMatchTime(tournamentStatus ?? 'setup', m.status)
-                const isEditing = editingMatchId === m.id
-                return (
-                  <div key={m.id} className="bg-white rounded-xl border border-slate-200 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 min-w-0">
-                      <p className="font-medium text-sm whitespace-nowrap">{m.home_team.name} vs {m.away_team.name}</p>
-                      {isEditing ? (
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="datetime-local"
-                            value={editingTime}
-                            onChange={e => setEditingTime(e.target.value)}
-                            className="w-44 border border-slate-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-green-500"
-                            autoFocus
-                          />
-                          <button onClick={saveEditTime} disabled={isPending} className="text-green-600 hover:text-green-700 text-xs font-semibold disabled:opacity-30">Save</button>
-                          <button onClick={cancelEditTime} className="text-slate-400 hover:text-slate-600 text-xs">Cancel</button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => startEditTime(m)}
-                          disabled={!canEdit}
-                          className={`text-xs text-left ${canEdit ? 'text-slate-400 hover:text-green-600 cursor-pointer' : 'text-slate-300'} disabled:cursor-default`}
-                        >
-                          {new Date(m.match_time).toLocaleString('en-MY', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}
-                          {canEdit && <span className="ml-1 text-[10px] opacity-60">(edit)</span>}
-                        </button>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      {statusPill(m.status)}
-                      {m.status === 'scheduled' && (
-                        <button onClick={() => deleteFixture(m.id)} disabled={isPending || !canDelete} className="text-red-400 hover:text-red-600 disabled:opacity-30 text-lg leading-none">×</button>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-    </PageShell>
-  )
-}
-
-function PageShell({ tournamentId, children }: { tournamentId: string; children: React.ReactNode }) {
-  return (
-    <div className="min-h-screen bg-slate-100">
-      <header className="bg-white border-b border-slate-200 px-4 py-3">
-        <div className="max-w-5xl mx-auto flex items-center gap-4">
-          <Link href={`/admin/tournaments/${tournamentId}`} className="text-slate-500 hover:text-slate-700 text-sm">← Tournament</Link>
-          <span className="font-bold text-slate-900">Fixtures</span>
-        </div>
-      </header>
-      <main className="max-w-5xl mx-auto px-4 py-8">{children}</main>
-    </div>
+    <FixturesPanel
+      tournamentId={id}
+      tournamentStart={tournament.start_date}
+      tournamentFormat={tournament.format}
+      tournamentStatus={tournament.status}
+      isAdmin={admin}
+      teams={teams.map((t) => ({ id: t.id, name: t.name, group_label: t.group_label }))}
+      matches={matches}
+      canEdit={canEdit}
+      canCreateFixtures={canCreate}
+      canAssignGroups={canAssignGroups}
+      numGroups={tournament.num_groups}
+      teamsPerGroup={tournament.teams_per_group}
+      advancePerGroup={tournament.advance_per_group}
+    />
   )
 }

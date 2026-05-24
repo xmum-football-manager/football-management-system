@@ -19,6 +19,16 @@ export function canDeleteFixture(tournamentStatus: TournamentStatus): boolean {
   return !FULLY_LOCKED.includes(tournamentStatus)
 }
 
+/** Stricter than canAddFixture: once any match has gone live, fixture creation/generation
+ *  is locked even though the tournament is still 'active'. Reschedule of remaining scheduled
+ *  fixtures is still allowed (governed by canEditMatchTime). */
+export function canCreateFixtures(
+  tournamentStatus: TournamentStatus,
+  anyMatchLive: boolean,
+): boolean {
+  return !FULLY_LOCKED.includes(tournamentStatus) && !anyMatchLive
+}
+
 export function canEditMatchTime(
   tournamentStatus: TournamentStatus,
   matchStatus: MatchStatus,

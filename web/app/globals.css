@@ -1,7 +1,65 @@
 @import url("https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,400..900;1,400..900&family=Archivo+Narrow:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:wght@400..700&display=swap");
 @import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm-shadcn: calc(var(--radius-shadcn) - 4px);
+  --radius-md-shadcn: calc(var(--radius-shadcn) - 2px);
+  --radius-lg-shadcn: var(--radius-shadcn);
+  --radius-xl-shadcn: calc(var(--radius-shadcn) + 4px);
+}
 
 :root {
+  /* shadcn/ui tokens — Pitch Console (light). Overridden inside .surface-admin.dark. */
+  --background: #F4F7EE;
+  --foreground: #0E1A12;
+  --card: #FFFFFF;
+  --card-foreground: #0E1A12;
+  --popover: #FFFFFF;
+  --popover-foreground: #0E1A12;
+  --primary: #0E1A12;
+  --primary-foreground: #A3E635;
+  --secondary: #EDFAD3;
+  --secondary-foreground: #1C2419;
+  --muted: #F4F7EE;
+  --muted-foreground: #4A5443;
+  --accent: #EDFAD3;
+  --accent-foreground: #0E1A12;
+  --destructive: #DC2626;
+  --destructive-foreground: #FFFFFF;
+  --border: #D9DFD0;
+  --input: #D9DFD0;
+  --ring: #65A30D;
+  --radius-shadcn: 0.625rem;
+
+  /* Admin accent tokens — flip light↔dark inside .surface-admin */
+  --admin-lime: #65A30D;
+  --admin-lime-wash: #EDFAD3;
+  --admin-rule: #D9DFD0;
+  --admin-rule-soft: #E8ECE0;
+  --admin-surface-2: #F4F7EE;
+
   /* Brand */
   --brand-pitch:        #0E1A12;
   --brand-lime:         #A3E635;
@@ -49,6 +107,10 @@
 
 * { box-sizing: border-box; }
 
+button:not(:disabled),
+[role="button"]:not(:disabled),
+a[href] { cursor: pointer; }
+
 body {
   background: var(--ink-900);
   color: var(--ink-50);
@@ -58,6 +120,78 @@ body {
   padding: 0;
   overflow-x: hidden;
 }
+
+/* Admin surface — Pitch Console (light). Adds .dark variant below. */
+.surface-admin {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+}
+.surface-admin * { box-sizing: border-box; }
+
+.surface-admin.dark {
+  --background: #0E1A12;
+  --foreground: #F4F7EE;
+  --card: #131A11;
+  --card-foreground: #F4F7EE;
+  --popover: #131A11;
+  --popover-foreground: #F4F7EE;
+  --primary: #A3E635;
+  --primary-foreground: #0E1A12;
+  --secondary: #1C2419;
+  --secondary-foreground: #F4F7EE;
+  --muted: #131A11;
+  --muted-foreground: #A2AE96;
+  --accent: #1C2419;
+  --accent-foreground: #F4F7EE;
+  --destructive: #DC2626;
+  --destructive-foreground: #FFFFFF;
+  --border: #1C2419;
+  --input: #1C2419;
+  --ring: #A3E635;
+
+  --admin-lime: #A3E635;
+  --admin-lime-wash: rgba(163, 230, 53, 0.10);
+  --admin-rule: #1C2419;
+  --admin-rule-soft: #131A11;
+  --admin-surface-2: #131A11;
+}
+
+/* Brand utilities used across the admin surface */
+.admin-display {
+  font-family: var(--font-display);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+}
+.admin-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted-foreground);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-weight: 700;
+}
+.admin-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.admin-tab {
+  font-family: var(--font-display);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+}
+
+/* Scorekeeper surface — dark pitch bg, big tap targets, sunny-day legible */
+.surface-score {
+  background: #0f172a;
+  color: #f8fafc;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  min-height: 100vh;
+}
+.surface-score * { box-sizing: border-box; }
 
 /* Reveal on scroll */
 .reveal {

@@ -1,28 +1,43 @@
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/supabase/server'
+import type { Player } from '@/lib/supabase/types'
 
-export interface CreatePlayerData {
+export async function listPlayers(teamId: string): Promise<Player[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('players')
+    .select('*')
+    .eq('team_id', teamId)
+    .order('jersey_number', { ascending: true, nullsFirst: false })
+  if (error) throw error
+  return (data ?? []) as Player[]
+}
+
+export interface CreatePlayerInput {
   team_id: string
   name: string
-  jersey_number: number | null
-  position: string | null
+  jersey_number?: number | null
+  position?: string | null
 }
 
-export async function createPlayer(data: CreatePlayerData) {
-  const supabase = createClient()
-  return supabase.from('players').insert(data)
+export async function createPlayer(input: CreatePlayerInput): Promise<{ id: string } | { error: string }> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('players')
+    .insert({
+      team_id: input.team_id,
+      name: input.name,
+      jersey_number: input.jersey_number ?? null,
+      position: input.position ?? null,
+    })
+    .select('id')
+    .single()
+  if (error) return { error: error.message }
+  return { id: data.id }
 }
 
-export async function updatePlayer(playerId: string, data: { name: string; jersey_number: number | null; position: string | null }) {
-  const supabase = createClient()
-  return supabase.from('players').update(data).eq('id', playerId)
-}
-
-export async function deletePlayer(playerId: string) {
-  const supabase = createClient()
-  return supabase.from('players').delete().eq('id', playerId)
-}
-
-export async function createPlayersBatch(players: CreatePlayerData[]) {
-  const supabase = createClient()
-  return supabase.from('players').insert(players)
+export async function deletePlayer(id: string): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { error } = await supabase.from('players').delete().eq('id', id)
+  if (error) return { error: error.message }
+  return {}
 }

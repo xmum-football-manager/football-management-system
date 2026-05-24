@@ -28,7 +28,7 @@ export function getAvailableTransitions(
   const results: { action: string; nextStatus: MatchStatus }[] = []
 
   const labels: Partial<Record<MatchStatus, { to: MatchStatus; action: string }[]>> = {
-    scheduled: [{ to: 'live', action: 'Start Match' }],
+    scheduled: [{ to: 'live', action: 'Kickoff' }],
     live: [
       { to: 'halftime', action: 'Half Time' },
       { to: 'finished', action: 'Full Time' },

@@ -21,6 +21,7 @@ const team: Team & { players: Player[] } = {
   id: 'team-1',
   tournament_id: 'tour-1',
   name: 'Red Lions',
+  group_label: null,
   created_at: '2026-05-01T00:00:00Z',
   players,
 }
