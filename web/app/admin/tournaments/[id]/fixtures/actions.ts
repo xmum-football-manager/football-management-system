@@ -12,7 +12,7 @@ import {
   listMatches,
 } from '@/lib/db/matches'
 import { listTeams } from '@/lib/db/teams'
-import { getTournament } from '@/lib/db/tournaments'
+import { getTournament, updateKnockoutQualifiers } from '@/lib/db/tournaments'
 
 async function ensureOrganizer(tournamentId: string) {
   const user = await requireUser()
@@ -167,86 +167,21 @@ export async function swapTeamSlotsAction(
   }
 }
 
-interface GroupStanding {
-  team_id: string
-  played: number
-  wins: number
-  draws: number
-  losses: number
-  gf: number
-  ga: number
-  gd: number
-  pts: number
-}
-
-function computeStandings(
-  groupLabel: string,
-  teamsInGroup: string[],
-  matches: { home_team_id: string; away_team_id: string; home_score: number; away_score: number; status: string }[],
-  pointsWin: number,
-  pointsDraw: number,
-  pointsLoss: number,
-): GroupStanding[] {
-  const acc = new Map<string, GroupStanding>()
-  for (const id of teamsInGroup) {
-    acc.set(id, {
-      team_id: id,
-      played: 0,
-      wins: 0,
-      draws: 0,
-      losses: 0,
-      gf: 0,
-      ga: 0,
-      gd: 0,
-      pts: 0,
-    })
-  }
-  for (const m of matches) {
-    if (m.status !== 'finished') continue
-    const home = acc.get(m.home_team_id)
-    const away = acc.get(m.away_team_id)
-    if (!home || !away) continue
-    home.played++
-    away.played++
-    home.gf += m.home_score
-    home.ga += m.away_score
-    away.gf += m.away_score
-    away.ga += m.home_score
-    if (m.home_score > m.away_score) {
-      home.wins++
-      away.losses++
-      home.pts += pointsWin
-      away.pts += pointsLoss
-    } else if (m.home_score < m.away_score) {
-      away.wins++
-      home.losses++
-      away.pts += pointsWin
-      home.pts += pointsLoss
-    } else {
-      home.draws++
-      away.draws++
-      home.pts += pointsDraw
-      away.pts += pointsDraw
-    }
-  }
-  for (const s of acc.values()) s.gd = s.gf - s.ga
-  void groupLabel
-  return [...acc.values()].sort(
-    (a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf || a.team_id.localeCompare(b.team_id),
-  )
+function knockoutRoundFromCount(count: number): string {
+  if (count <= 2) return 'Final'
+  if (count <= 4) return 'SF'
+  if (count <= 8) return 'QF'
+  if (count <= 16) return 'R16'
+  return 'R32'
 }
 
 export async function seedKnockoutBracketAction(
   tournamentId: string,
-  opts: { kickoff: string; slotLength: number; perDay: number },
-): Promise<{ created: number } | { error: string }> {
+): Promise<{ seeded: number } | { error: string }> {
   try {
     await ensureOrganizer(tournamentId)
-    const [tournament, teams, matches] = await Promise.all([
-      getTournament(tournamentId),
-      listTeams(tournamentId),
-      listMatches(tournamentId),
-    ])
+
+    const tournament = await getTournament(tournamentId)
     if (!tournament) return { error: 'Tournament not found.' }
     if (tournament.format !== 'round_robin_knockout') {
       return { error: 'Bracket seeding is only available for Group → Knockout tournaments.' }
@@ -258,137 +193,46 @@ export async function seedKnockoutBracketAction(
       }
     }
 
-    // Bucket teams by group
-    const groupLabels = new Set<string>()
-    const teamsByGroup = new Map<string, string[]>()
-    for (const t of teams) {
-      if (!t.group_label) continue
-      groupLabels.add(t.group_label)
-      const arr = teamsByGroup.get(t.group_label) ?? []
-      arr.push(t.id)
-      teamsByGroup.set(t.group_label, arr)
-    }
-    const sortedLabels = [...groupLabels].sort()
-    if (sortedLabels.length === 0) {
-      return { error: 'No groups assigned. Assign teams to groups first.' }
-    }
-
-    // Verify all group-stage matches finished
-    const groupMatches = matches.filter((m) => {
-      const hg = teams.find((t) => t.id === m.home_team_id)?.group_label
-      const ag = teams.find((t) => t.id === m.away_team_id)?.group_label
-      return hg && ag && hg === ag
-    })
-    if (groupMatches.length === 0) {
-      return { error: 'No group-stage matches found. Generate them first.' }
-    }
-    if (groupMatches.some((m) => m.status !== 'finished')) {
-      return { error: 'All group-stage matches must finish before seeding the bracket.' }
-    }
-
-    // Verify no knockout already
-    const knockoutExists = matches.some((m) => {
-      const hg = teams.find((t) => t.id === m.home_team_id)?.group_label
-      const ag = teams.find((t) => t.id === m.away_team_id)?.group_label
-      return !(hg && ag && hg === ag)
-    })
-    if (knockoutExists) {
-      return { error: 'Knockout matches already exist.' }
-    }
-
-    const advance = Math.max(1, tournament.advance_per_group ?? 2)
-    // Compute standings per group and pick top N
-    const seedsByGroup = new Map<string, string[]>() // label → ordered team_ids
-    for (const label of sortedLabels) {
-      const teamIds = teamsByGroup.get(label) ?? []
-      if (teamIds.length < advance) {
-        return {
-          error: `Group ${label} has only ${teamIds.length} team${teamIds.length === 1 ? '' : 's'} but needs ${advance} to advance.`,
-        }
+    const qualifiers = tournament.knockout_qualifiers
+    if (!qualifiers || qualifiers.length === 0) {
+      return {
+        error:
+          'No qualifiers assigned yet. Use the Qualifiers section above the bracket to select which teams advance.',
       }
-      const standings = computeStandings(
-        label,
-        teamIds,
-        groupMatches.map((m) => ({
-          home_team_id: m.home_team_id,
-          away_team_id: m.away_team_id,
-          home_score: m.home_score,
-          away_score: m.away_score,
-          status: m.status,
-        })),
-        Number(tournament.points_win),
-        Number(tournament.points_draw),
-        Number(tournament.points_loss),
-      )
-      seedsByGroup.set(label, standings.slice(0, advance).map((s) => s.team_id))
     }
 
-    // Pair teams using cross-pool seeding
-    const pairings = buildCrossPoolPairings(sortedLabels, seedsByGroup, advance)
-    if (pairings.length === 0) {
-      return { error: 'Could not build bracket pairings with the current group configuration.' }
+    if (qualifiers.length % 2 !== 0) {
+      return { error: `Cannot seed bracket: ${qualifiers.length} qualifiers is odd. Select an even number of teams.` }
     }
 
-    // Schedule and insert
-    const start = new Date(opts.kickoff)
-    if (Number.isNaN(start.getTime())) return { error: 'Invalid kickoff date.' }
-    const inserts: { home_team_id: string; away_team_id: string; match_time: string }[] = []
-    pairings.forEach((p, i) => {
-      const dayIndex = Math.floor(i / opts.perDay)
-      const slotIndex = i % opts.perDay
-      const t = new Date(start)
-      t.setDate(t.getDate() + dayIndex)
-      t.setMinutes(t.getMinutes() + opts.slotLength * slotIndex)
-      inserts.push({
-        home_team_id: p.home,
-        away_team_id: p.away,
-        match_time: t.toISOString(),
+    const existingMatches = await listMatches(tournamentId)
+    const knockoutMatches = existingMatches.filter((m) => m.phase === 'knockout')
+    if (knockoutMatches.some((m) => m.status !== 'scheduled')) {
+      return { error: 'Knockout matches are already in progress — cannot re-seed.' }
+    }
+
+    const knockoutRound = knockoutRoundFromCount(qualifiers.length)
+
+    // Pair qualifiers into first-round matches: slot[0] vs slot[1], slot[2] vs slot[3], etc.
+    let seeded = 0
+    for (let i = 0; i < qualifiers.length; i += 2) {
+      const r = await createMatch({
+        tournament_id: tournamentId,
+        home_team_id: qualifiers[i],
+        away_team_id: qualifiers[i + 1],
+        match_time: tournament.start_date + 'T12:00:00Z',
+        phase: 'knockout',
+        knockout_round: knockoutRound,
       })
-    })
-
-    let created = 0
-    for (const f of inserts) {
-      if (f.home_team_id === f.away_team_id) continue
-      const r = await createMatch({ tournament_id: tournamentId, ...f })
-      if ('id' in r) created++
+      if ('id' in r) seeded++
     }
+
     revalidatePath(`/admin/tournaments/${tournamentId}/fixtures`)
     revalidatePath(`/admin/tournaments/${tournamentId}`)
-    revalidatePath(`/t/${tournamentId}`)
-    return { created }
+    return { seeded }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed.' }
   }
-}
-
-function buildCrossPoolPairings(
-  groupLabels: string[],
-  seedsByGroup: Map<string, string[]>,
-  advance: number,
-): { home: string; away: string }[] {
-  const pairings: { home: string; away: string }[] = []
-  if (advance === 2 && groupLabels.length % 2 === 0) {
-    // FIFA cross-pool: for each (G1, G2) pair → (1G1 v 2G2), (2G1 v 1G2)
-    for (let i = 0; i < groupLabels.length; i += 2) {
-      const g1 = seedsByGroup.get(groupLabels[i])!
-      const g2 = seedsByGroup.get(groupLabels[i + 1])!
-      pairings.push({ home: g1[0], away: g2[1] })
-      pairings.push({ home: g2[0], away: g1[1] })
-    }
-    return pairings
-  }
-  // Fallback: flatten in [1A, 2A, 1B, 2B, ...] order and pair adjacents
-  const flat: string[] = []
-  for (const label of groupLabels) {
-    const seeds = seedsByGroup.get(label) ?? []
-    for (let p = 0; p < advance; p++) {
-      if (seeds[p]) flat.push(seeds[p])
-    }
-  }
-  for (let i = 0; i + 1 < flat.length; i += 2) {
-    pairings.push({ home: flat[i], away: flat[i + 1] })
-  }
-  return pairings
 }
 
 export async function seedDirectKnockoutAction(
@@ -446,6 +290,22 @@ export async function seedDirectKnockoutAction(
     revalidatePath(`/admin/tournaments/${tournamentId}`)
     revalidatePath(`/t/${tournamentId}`)
     return { created }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed.' }
+  }
+}
+
+export async function saveQualifiersAction(
+  tournamentId: string,
+  teamIds: string[],
+): Promise<{ ok: true } | { error: string }> {
+  try {
+    await ensureOrganizer(tournamentId)
+    const result = await updateKnockoutQualifiers(tournamentId, teamIds)
+    if (result.error) return { error: result.error }
+    revalidatePath(`/admin/tournaments/${tournamentId}/fixtures`)
+    revalidatePath(`/admin/tournaments/${tournamentId}`)
+    return { ok: true }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed.' }
   }

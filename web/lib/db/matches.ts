@@ -24,6 +24,8 @@ export interface CreateMatchInput {
   home_team_id: string
   away_team_id: string
   match_time: string
+  phase?: string
+  knockout_round?: string
 }
 
 export async function createMatch(input: CreateMatchInput): Promise<{ id: string } | { error: string }> {
@@ -35,6 +37,8 @@ export async function createMatch(input: CreateMatchInput): Promise<{ id: string
       home_team_id: input.home_team_id,
       away_team_id: input.away_team_id,
       match_time: input.match_time,
+      ...(input.phase != null && { phase: input.phase }),
+      ...(input.knockout_round != null && { knockout_round: input.knockout_round }),
     })
     .select('id')
     .single()

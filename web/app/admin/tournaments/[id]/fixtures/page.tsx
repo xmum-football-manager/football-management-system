@@ -41,6 +41,14 @@ export default async function FixturesPage({ params }: Props) {
       numGroups={tournament.num_groups}
       teamsPerGroup={tournament.teams_per_group}
       advancePerGroup={tournament.advance_per_group}
+      knockoutQualifiers={tournament.knockout_qualifiers ?? null}
+      knockoutSlots={
+        tournament.format === 'round_robin_knockout' &&
+        tournament.num_groups != null &&
+        tournament.advance_per_group != null
+          ? tournament.num_groups * tournament.advance_per_group
+          : 0
+      }
     />
   )
 }

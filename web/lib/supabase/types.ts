@@ -29,6 +29,7 @@ export interface Tournament {
   advance_per_group: number | null
   knockout_start_round: KnockoutStartRound | null
   seeding_method: SeedingMethod | null
+  knockout_qualifiers: string[] | null
   min_players_per_team: number
   created_at: string
   updated_at: string
@@ -51,6 +52,9 @@ export interface Player {
   created_at: string
 }
 
+export type MatchPhase = 'group' | 'knockout'
+export type KnockoutRound = 'r32' | 'r16' | 'qf' | 'sf' | 'final' | 'QF' | 'SF' | 'FINAL'
+
 export interface Match {
   id: string
   tournament_id: string
@@ -60,6 +64,8 @@ export interface Match {
   status: MatchStatus
   home_score: number
   away_score: number
+  phase: MatchPhase
+  knockout_round: string | null
   match_started_at: string | null
   match_finished_at: string | null
   created_at: string

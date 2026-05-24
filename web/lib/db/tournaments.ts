@@ -123,3 +123,16 @@ export async function deleteTournament(id: string): Promise<{ error?: string }> 
   if (error) return { error: error.message }
   return {}
 }
+
+export async function updateKnockoutQualifiers(
+  tournamentId: string,
+  teamIds: string[],
+): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('tournaments')
+    .update({ knockout_qualifiers: teamIds })
+    .eq('id', tournamentId)
+  if (error) return { error: error.message }
+  return {}
+}
