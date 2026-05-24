@@ -143,6 +143,14 @@ export async function swapTeamSlotsAction(
   }
 }
 
+function knockoutRoundFromCount(count: number): string {
+  if (count <= 2) return 'Final'
+  if (count <= 4) return 'SF'
+  if (count <= 8) return 'QF'
+  if (count <= 16) return 'R16'
+  return 'R32'
+}
+
 export async function seedKnockoutBracketAction(
   tournamentId: string,
 ): Promise<{ seeded: number } | { error: string }> {
@@ -160,22 +168,28 @@ export async function seedKnockoutBracketAction(
       }
     }
 
+    if (qualifiers.length % 2 !== 0) {
+      return { error: `Cannot seed bracket: ${qualifiers.length} qualifiers is odd. Select an even number of teams.` }
+    }
+
     const existingMatches = await listMatches(tournamentId)
     const knockoutMatches = existingMatches.filter((m) => m.phase === 'knockout')
     if (knockoutMatches.some((m) => m.status !== 'scheduled')) {
       return { error: 'Knockout matches are already in progress — cannot re-seed.' }
     }
 
+    const knockoutRound = knockoutRoundFromCount(qualifiers.length)
+
     // Pair qualifiers into first-round matches: slot[0] vs slot[1], slot[2] vs slot[3], etc.
     let seeded = 0
-    for (let i = 0; i < qualifiers.length - 1; i += 2) {
+    for (let i = 0; i < qualifiers.length; i += 2) {
       const r = await createMatch({
         tournament_id: tournamentId,
         home_team_id: qualifiers[i],
         away_team_id: qualifiers[i + 1],
         match_time: tournament.start_date + 'T12:00:00Z',
         phase: 'knockout',
-        knockout_round: 'QF',
+        knockout_round: knockoutRound,
       })
       if ('id' in r) seeded++
     }

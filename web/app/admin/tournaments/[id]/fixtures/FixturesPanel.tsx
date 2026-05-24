@@ -100,7 +100,7 @@ export function FixturesPanel({
         </h2>
       </div>
 
-      {tournamentFormat === 'round_robin_knockout' && canEdit && knockoutSlots > 0 && (
+      {tournamentFormat === 'round_robin_knockout' && canEdit && knockoutSlots > 0 && knockoutSlots % 2 === 0 && (
         <QualifierSelector
           tournamentId={tournamentId}
           slots={knockoutSlots}
