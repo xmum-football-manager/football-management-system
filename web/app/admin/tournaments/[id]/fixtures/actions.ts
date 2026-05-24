@@ -186,12 +186,6 @@ export async function seedKnockoutBracketAction(
     if (tournament.format !== 'round_robin_knockout') {
       return { error: 'Bracket seeding is only available for Group → Knockout tournaments.' }
     }
-    const kickoffDay = new Date(opts.kickoff).toISOString().split('T')[0]
-    if (kickoffDay < tournament.start_date || kickoffDay > tournament.end_date) {
-      return {
-        error: `Kickoff must be within the tournament period (${tournament.start_date} – ${tournament.end_date}).`,
-      }
-    }
 
     const qualifiers = tournament.knockout_qualifiers
     if (!qualifiers || qualifiers.length === 0) {
