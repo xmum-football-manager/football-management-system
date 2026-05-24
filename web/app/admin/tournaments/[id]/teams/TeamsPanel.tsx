@@ -9,6 +9,13 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -267,6 +274,8 @@ function PlayerList({
   )
 }
 
+const POSITIONS = ['GK', 'DEF', 'MID', 'FWD'] as const
+
 function AddPlayerForm({ teamId, tournamentId }: { teamId: string; tournamentId: string }) {
   const router = useRouter()
   const [name, setName] = useState('')
@@ -315,13 +324,18 @@ function AddPlayerForm({ teamId, tournamentId }: { teamId: string; tournamentId:
         onChange={(e) => setNum(e.target.value)}
         disabled={pending}
       />
-      <Input
-        className="col-span-2"
-        placeholder="Pos"
-        value={pos}
-        onChange={(e) => setPos(e.target.value)}
-        disabled={pending}
-      />
+      <Select value={pos} onValueChange={setPos} disabled={pending}>
+        <SelectTrigger className="col-span-2">
+          <SelectValue placeholder="Pos" />
+        </SelectTrigger>
+        <SelectContent>
+          {POSITIONS.map((p) => (
+            <SelectItem key={p} value={p}>
+              {p}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       <Button type="submit" className="col-span-2" disabled={pending || !name.trim()}>
         <Plus className="h-4 w-4" />
         Add
