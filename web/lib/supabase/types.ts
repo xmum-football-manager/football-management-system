@@ -29,6 +29,7 @@ export interface Tournament {
   advance_per_group: number | null
   knockout_start_round: KnockoutStartRound | null
   seeding_method: SeedingMethod | null
+  knockout_qualifiers: string[] | null
   min_players_per_team: number
   created_at: string
   updated_at: string
