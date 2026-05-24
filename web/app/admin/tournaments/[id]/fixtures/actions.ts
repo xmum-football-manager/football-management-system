@@ -12,7 +12,7 @@ import {
   listMatches,
 } from '@/lib/db/matches'
 import { listTeams } from '@/lib/db/teams'
-import { getTournament } from '@/lib/db/tournaments'
+import { getTournament, updateKnockoutQualifiers } from '@/lib/db/tournaments'
 
 async function ensureOrganizer(tournamentId: string) {
   const user = await requireUser()
@@ -410,6 +410,22 @@ export async function seedDirectKnockoutAction(
     revalidatePath(`/admin/tournaments/${tournamentId}`)
     revalidatePath(`/t/${tournamentId}`)
     return { created }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed.' }
+  }
+}
+
+export async function saveQualifiersAction(
+  tournamentId: string,
+  teamIds: string[],
+): Promise<{ ok: true } | { error: string }> {
+  try {
+    await ensureOrganizer(tournamentId)
+    const result = await updateKnockoutQualifiers(tournamentId, teamIds)
+    if (result.error) return { error: result.error }
+    revalidatePath(`/admin/tournaments/${tournamentId}/fixtures`)
+    revalidatePath(`/admin/tournaments/${tournamentId}`)
+    return { ok: true }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed.' }
   }
