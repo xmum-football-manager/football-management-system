@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 /**
  * Persists a string view selection in localStorage so the choice is consistent
@@ -11,20 +11,17 @@ export function usePersistedView<T extends string>(
   defaultValue: T,
   allowed: readonly T[],
 ): [T, (next: T) => void] {
-  const [value, setValue] = useState<T>(defaultValue)
-
-  useEffect(() => {
+  const [value, setValue] = useState<T>(() => {
     try {
       const raw = window.localStorage.getItem(key)
       if (raw && (allowed as readonly string[]).includes(raw)) {
-        setValue(raw as T)
+        return raw as T
       }
     } catch {
       /* localStorage may be blocked */
     }
-    // intentionally run once per key; `allowed` is treated as stable by callers
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key])
+    return defaultValue
+  })
 
   function update(next: T) {
     setValue(next)
