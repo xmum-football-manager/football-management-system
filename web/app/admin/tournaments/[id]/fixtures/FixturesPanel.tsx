@@ -24,6 +24,7 @@ import {
 } from './actions'
 import type { MatchWithTeams, TournamentFormat, TournamentStatus } from '@/lib/supabase/types'
 import { MatchViews } from '@/components/admin/MatchViews'
+import { QualifierSelector } from '@/components/admin/QualifierSelector'
 
 interface TeamRef {
   id: string
@@ -45,6 +46,8 @@ interface Props {
   numGroups: number | null
   teamsPerGroup: number | null
   advancePerGroup: number | null
+  knockoutQualifiers: string[] | null
+  knockoutSlots: number
 }
 
 export function FixturesPanel({
@@ -61,6 +64,8 @@ export function FixturesPanel({
   numGroups,
   teamsPerGroup,
   advancePerGroup,
+  knockoutQualifiers,
+  knockoutSlots,
 }: Props) {
   return (
     <div className="space-y-5">
@@ -94,6 +99,15 @@ export function FixturesPanel({
           Fixtures ({matches.length})
         </h2>
       </div>
+
+      {tournamentFormat === 'round_robin_knockout' && canEdit && knockoutSlots > 0 && (
+        <QualifierSelector
+          tournamentId={tournamentId}
+          slots={knockoutSlots}
+          teams={teams}
+          savedQualifiers={knockoutQualifiers}
+        />
+      )}
 
       <MatchViews
         tournamentId={tournamentId}
