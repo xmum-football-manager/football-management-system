@@ -251,6 +251,12 @@ export async function seedKnockoutBracketAction(
     if (tournament.format !== 'round_robin_knockout') {
       return { error: 'Bracket seeding is only available for Group → Knockout tournaments.' }
     }
+    const kickoffDay = new Date(opts.kickoff).toISOString().split('T')[0]
+    if (kickoffDay < tournament.start_date || kickoffDay > tournament.end_date) {
+      return {
+        error: `Kickoff must be within the tournament period (${tournament.start_date} – ${tournament.end_date}).`,
+      }
+    }
 
     // Bucket teams by group
     const groupLabels = new Set<string>()
@@ -406,6 +412,12 @@ export async function seedDirectKnockoutAction(
     if ((n & (n - 1)) !== 0) {
       return {
         error: `Team count must be a power of 2 (2, 4, 8, 16…). You have ${n} team${n === 1 ? '' : 's'}.`,
+      }
+    }
+    const kickoffDay = new Date(opts.kickoff).toISOString().split('T')[0]
+    if (kickoffDay < tournament.start_date || kickoffDay > tournament.end_date) {
+      return {
+        error: `Kickoff must be within the tournament period (${tournament.start_date} – ${tournament.end_date}).`,
       }
     }
     const start = new Date(opts.kickoff)
