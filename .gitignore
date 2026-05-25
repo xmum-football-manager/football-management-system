@@ -43,6 +43,9 @@ Thumbs.db
 web/.claude/settings.local.json
 web/.claude/worktrees/
 
+# Git worktrees
+.worktrees/
+
 # Storybook build output and scaffold stories
 web/storybook-static/
 web/stories/
