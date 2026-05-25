@@ -15,7 +15,7 @@ export function TournamentNav({ tournamentId }: Props) {
     { href: base, label: 'Overview' },
     { href: `${base}/teams`, label: 'Teams' },
     { href: `${base}/fixtures`, label: 'Fixtures' },
-    { href: `${base}/scorekeepers`, label: 'Scorekeepers' },
+    { href: `${base}/users`, label: 'Users' },
     { href: `${base}/settings`, label: 'Settings' },
   ]
 
