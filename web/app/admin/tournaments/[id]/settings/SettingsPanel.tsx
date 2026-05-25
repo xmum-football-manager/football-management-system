@@ -6,7 +6,6 @@ import { toast } from 'sonner'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,13 +17,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { Loader2, Archive, CheckCircle2, Trash2, UserPlus } from 'lucide-react'
+import { Loader2, Archive, CheckCircle2, Trash2 } from 'lucide-react'
 import {
   archiveTournamentAction,
   finishTournamentAction,
   deleteTournamentAction,
-  assignOrganizerAction,
-  removeOrganizerAction,
 } from './actions'
 import type { Tournament } from '@/lib/supabase/types'
 
@@ -32,58 +29,14 @@ interface Props {
   tournamentId: string
   tournament: Tournament
   isAdmin: boolean
-  organizers: { id: string; email: string }[]
 }
 
-export function SettingsPanel({ tournamentId, tournament, isAdmin, organizers }: Props) {
+export function SettingsPanel({ tournamentId, tournament, isAdmin }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
 
   return (
     <div className="space-y-5 max-w-3xl">
-      {isAdmin && (
-        <Card>
-          <CardContent className="p-4 space-y-3">
-            <div>
-              <h3 className="font-semibold text-sm">Organizers</h3>
-              <p className="text-xs text-muted-foreground">
-                Organizers can manage this tournament&apos;s teams, fixtures, and scores.
-              </p>
-            </div>
-            <AssignOrganizerForm tournamentId={tournamentId} />
-            <div className="divide-y border-t">
-              {organizers.length === 0 ? (
-                <div className="py-3 text-sm text-muted-foreground">No organizers assigned.</div>
-              ) : (
-                organizers.map((o) => (
-                  <div key={o.id} className="flex items-center gap-3 py-2.5">
-                    <span className="flex-1 truncate text-sm">{o.email}</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-red-700 hover:bg-red-50"
-                      disabled={pending}
-                      onClick={() =>
-                        startTransition(async () => {
-                          const r = await removeOrganizerAction(o.id, tournamentId)
-                          if ('error' in r) toast.error(r.error)
-                          else {
-                            toast.success('Removed.')
-                            router.refresh()
-                          }
-                        })
-                      }
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       <Card>
         <CardContent className="p-4 space-y-2">
           <h3 className="font-semibold text-sm">Tournament status</h3>
@@ -143,44 +96,6 @@ export function SettingsPanel({ tournamentId, tournament, isAdmin, organizers }:
         </Card>
       )}
     </div>
-  )
-}
-
-function AssignOrganizerForm({ tournamentId }: { tournamentId: string }) {
-  const router = useRouter()
-  const [email, setEmail] = useState('')
-  const [pending, startTransition] = useTransition()
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!email.trim()) return
-    startTransition(async () => {
-      const r = await assignOrganizerAction(tournamentId, email.trim())
-      if ('error' in r) toast.error(r.error)
-      else {
-        toast.success('Organizer assigned.')
-        setEmail('')
-        router.refresh()
-      }
-    })
-  }
-  return (
-    <form onSubmit={handleSubmit} className="flex gap-2">
-      <div className="flex-1">
-        <Label htmlFor="org-email" className="sr-only">Email</Label>
-        <Input
-          id="org-email"
-          type="email"
-          placeholder="organizer@club.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-      </div>
-      <Button type="submit" disabled={pending || !email.trim()}>
-        {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
-        Assign
-      </Button>
-    </form>
   )
 }
 
