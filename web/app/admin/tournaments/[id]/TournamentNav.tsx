@@ -21,7 +21,7 @@ export function TournamentNav({ tournamentId }: Props) {
 
   return (
     <nav
-      className="-mx-2 overflow-x-auto px-2"
+      className="-mx-2 overflow-x-auto px-2 scrollbar-hide"
       style={{ borderBottom: '1px solid var(--admin-rule)' }}
     >
       <ul className="flex gap-0 min-w-max">
