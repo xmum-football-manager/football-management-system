@@ -15,17 +15,24 @@ export async function listTournaments(): Promise<Tournament[]> {
   return (data ?? []) as Tournament[]
 }
 
-export async function listTournamentsForUser(userId: string): Promise<Tournament[]> {
+export async function listTournamentsForUser(
+  userId: string,
+  isAdmin?: boolean,
+): Promise<Tournament[]> {
   const supabase = await createClient()
 
-  const { data: admin } = await supabase
-    .from('user_roles')
-    .select('id')
-    .eq('user_id', userId)
-    .eq('role', 'admin')
-    .maybeSingle()
+  let adminResult = isAdmin
+  if (adminResult === undefined) {
+    const { data: admin } = await supabase
+      .from('user_roles')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('role', 'admin')
+      .maybeSingle()
+    adminResult = !!admin
+  }
 
-  if (admin) {
+  if (adminResult) {
     const { data, error } = await supabase
       .from('tournaments')
       .select('*')

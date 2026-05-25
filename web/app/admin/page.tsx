@@ -10,7 +10,7 @@ import { Calendar, ChevronRight, MapPin, Plus } from 'lucide-react'
 export default async function AdminHome() {
   const user = await requireUser()
   const admin = await isAdmin(user.id)
-  const tournaments = await listTournamentsForUser(user.id)
+  const tournaments = await listTournamentsForUser(user.id, admin)
 
   return (
     <div className="space-y-6">
