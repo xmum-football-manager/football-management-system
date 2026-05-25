@@ -3,9 +3,10 @@
 import { revalidatePath } from 'next/cache'
 import { requireUser } from '@/lib/auth'
 import { isAdmin, isOrganizer } from '@/lib/db/roles'
-import { createTeam, deleteTeam, setTeamGroup } from '@/lib/db/teams'
+import { createTeam, deleteTeam, listTeams, setTeamGroup } from '@/lib/db/teams'
 import { createPlayer, deletePlayer } from '@/lib/db/players'
 import { listMatches } from '@/lib/db/matches'
+import type { CsvRow } from '@/lib/csv'
 
 async function ensureOrganizer(tournamentId: string) {
   const user = await requireUser()
@@ -84,6 +85,54 @@ export async function addPlayerAction(input: {
     })
     if ('id' in result) revalidatePath(`/admin/tournaments/${input.tournamentId}/teams`)
     return result
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed.' }
+  }
+}
+
+export async function importTeamsCsvAction(
+  tournamentId: string,
+  rows: CsvRow[],
+): Promise<{ teamsCreated: number; playersAdded: number } | { error: string }> {
+  try {
+    await ensureOrganizer(tournamentId)
+
+    const existing = await listTeams(tournamentId)
+    const teamIdByName = new Map<string, string>(existing.map((t) => [t.name.toLowerCase(), t.id]))
+
+    let teamsCreated = 0
+    let playersAdded = 0
+
+    const grouped = new Map<string, CsvRow[]>()
+    for (const row of rows) {
+      const key = row.team
+      if (!grouped.has(key)) grouped.set(key, [])
+      grouped.get(key)!.push(row)
+    }
+
+    for (const [teamName, teamRows] of grouped) {
+      let teamId = teamIdByName.get(teamName.toLowerCase())
+      if (!teamId) {
+        const result = await createTeam(tournamentId, teamName)
+        if ('error' in result) return { error: `Creating team "${teamName}": ${result.error}` }
+        teamId = result.id
+        teamIdByName.set(teamName.toLowerCase(), teamId)
+        teamsCreated++
+      }
+
+      for (const row of teamRows) {
+        const result = await createPlayer({
+          team_id: teamId,
+          name: row.player_name,
+          jersey_number: row.jersey_number,
+          position: row.position,
+        })
+        if ('id' in result) playersAdded++
+      }
+    }
+
+    revalidatePath(`/admin/tournaments/${tournamentId}/teams`)
+    return { teamsCreated, playersAdded }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed.' }
   }
