@@ -103,32 +103,34 @@ export function StandingsTable({
       </div>
 
       {/* ── Advance legend ── */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '8px 20px',
-        borderBottom: '1px solid var(--ink-700)',
-        background: 'rgba(163,230,53,0.04)',
-      }}>
-        <span style={{
-          width: 3,
-          height: 14,
-          borderRadius: 999,
-          background: 'var(--brand-lime)',
-          flexShrink: 0,
-          display: 'inline-block',
-        }} />
-        <span style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: 10,
-          color: 'var(--brand-lime)',
-          letterSpacing: '0.06em',
-          textTransform: 'uppercase',
+      {advanceCount > 0 && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '8px 20px',
+          borderBottom: '1px solid var(--ink-700)',
+          background: 'rgba(163,230,53,0.04)',
         }}>
-          Top {advanceCount} advance ➤
-        </span>
-      </div>
+          <span style={{
+            width: 3,
+            height: 14,
+            borderRadius: 999,
+            background: 'var(--brand-lime)',
+            flexShrink: 0,
+            display: 'inline-block',
+          }} />
+          <span style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 10,
+            color: 'var(--brand-lime)',
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+          }}>
+            Top {advanceCount} advance ➤
+          </span>
+        </div>
+      )}
 
       {/* ── Table ── */}
       <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
@@ -180,7 +182,7 @@ export function StandingsTable({
 
           <tbody>
             {sorted.map((row, i) => {
-              const qualifies = i < advanceCount
+              const qualifies = advanceCount > 0 && i < advanceCount
               const gdStr = row.goal_difference > 0
                 ? `+${row.goal_difference}`
                 : String(row.goal_difference)

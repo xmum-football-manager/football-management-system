@@ -1,5 +1,4 @@
 import { createClient } from '@/lib/supabase/server'
-import Link from 'next/link'
 import type { Tournament } from '@/lib/supabase/types'
 import { TournamentCardItem } from '@/components/TournamentCardItem'
 import { statusBadge, statusRail, formatDateRange, formatLabel } from '@/lib/home-utils'
@@ -17,8 +16,8 @@ export default async function HomePage() {
     const { data: tournaments } = await supabase
       .from('tournaments')
       .select('*')
-      .in('status', ['setup', 'active'])
-      .order('start_date', { ascending: true })
+      .in('status', ['active', 'finished'])
+      .order('start_date', { ascending: false })
 
     list = (tournaments ?? []) as Tournament[]
   }

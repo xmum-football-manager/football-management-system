@@ -4,6 +4,7 @@
 -- live) remains admin-gated inside that function.
 
 drop policy if exists "matches_update_scorekeeper_score" on public.matches;
+drop policy if exists "matches_update_scorekeeper" on public.matches;
 
 create policy "matches_update_scorekeeper"
   on public.matches for update

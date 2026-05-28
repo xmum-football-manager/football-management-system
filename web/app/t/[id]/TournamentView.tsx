@@ -7,7 +7,6 @@ import { StandingsTable } from '@/components/StandingsTable'
 import { TeamCard } from '@/components/TeamCard'
 import { HeroLive } from '@/components/HeroLive'
 import { BracketView } from '@/components/BracketView'
-import { QrModal } from '@/components/QrModal'
 import { LiveBadge } from '@/components/LiveBadge'
 import Link from 'next/link'
 import type { Tournament, MatchWithTeams, Standing, Team, Player } from '@/lib/supabase/types'
@@ -176,12 +175,15 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
   const [standings, setStandings] = useState(initialStandings)
   const [connected, setConnected] = useState(true)
   const [fixtureFilter, setFixtureFilter] = useState<MatchFilter>('all')
-  const [showQr, setShowQr] = useState(false)
 
   const tabs = useMemo(() => {
-    return tournament.format === 'round_robin' 
-      ? baseTabs.filter(t => t.id !== 'bracket')
-      : baseTabs
+    if (tournament.format === 'round_robin') {
+      return baseTabs.filter((t) => t.id !== 'bracket')
+    }
+    if (tournament.format === 'knockout') {
+      return baseTabs.filter((t) => t.id !== 'standings')
+    }
+    return baseTabs
   }, [tournament.format])
 
   useEffect(() => {
@@ -256,12 +258,6 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
   const upcomingMatches = matches.filter(m => m.status === 'scheduled')
   const finishedMatches = matches.filter(m => m.status === 'finished')
 
-  const [whatsappUrl, setWhatsappUrl] = useState('#')
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setWhatsappUrl(`https://wa.me/?text=${encodeURIComponent(`⚽ ${tournament.name} — live scores & standings: ${window.location.href}`)}`)
-  }, [tournament.name])
-
   const filteredFixtures = fixtureFilter === 'all' ? matches : matches.filter(m => m.status === fixtureFilter)
 
   // Smart stage label — no DB column needed
@@ -271,6 +267,7 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
     if (upcomingMatches.length === 0 && finishedMatches.length > 0) return 'Tournament Finished'
     if (tournament.format === 'knockout') return 'Knockout Stage'
     if (tournament.format === 'round_robin_knockout' && upcomingMatches.length === 0) return 'Knockout Stage'
+    if (tournament.format === 'round_robin') return 'League Stage'
     return 'Group Stage'
   })()
 
@@ -298,10 +295,6 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
           </div>
         </div>
       </header>
-
-      {showQr && typeof window !== 'undefined' && (
-        <QrModal url={window.location.href} onClose={() => setShowQr(false)} />
-      )}
 
       {/* ── Offline banner ── */}
       {!connected && (
@@ -338,26 +331,6 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
             }}>
               {stageLabel} &middot; {tournament.location ?? 'Tournament'}
             </p>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" style={{
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              width: 44, height: 44, borderRadius: 999,
-              border: '1.5px solid var(--ink-700)',
-              background: 'var(--ink-800)', color: 'var(--ink-50)',
-              textDecoration: 'none',
-            }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-            </a>
-            <button onClick={() => setShowQr(true)} style={{
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              width: 44, height: 44, borderRadius: 999,
-              border: '1.5px solid var(--ink-700)',
-              background: 'var(--ink-800)', color: 'var(--ink-50)',
-              cursor: 'pointer',
-            }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3h6v6H3zM15 3h6v6h-6zM3 15h6v6H3zM21 21v-6h-6v6h6zM9 21h3v-3H9v3zM15 15h3v-3h-3v3zM9 9h6v6H9V9z" /></svg>
-            </button>
           </div>
         </div>
       </div>
@@ -429,15 +402,31 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
         </section>
 
         {/* STANDINGS tab */}
-        <section id="standings" style={{ padding: '64px 0 56px' }}>
-          <SectionHead eyebrow="Group stage" title="The" accent="table" />
-          <StandingsTable
-            standings={standings}
-            matches={matches}
-            groupLabel="Group A"
-            advanceCount={2}
-          />
-        </section>
+        {tournament.format !== 'knockout' && (
+          <section id="standings" style={{ padding: '64px 0 56px' }}>
+            {tournament.format === 'round_robin_knockout' ? (
+              <>
+                <SectionHead eyebrow="Group stage" title="The" accent="table" />
+                <GroupStandings
+                  initialTeams={initialTeams}
+                  matches={matches}
+                  standings={standings}
+                  advancePerGroup={tournament.advance_per_group ?? 2}
+                />
+              </>
+            ) : (
+              <>
+                <SectionHead eyebrow="League" title="The" accent="table" />
+                <StandingsTable
+                  standings={standings}
+                  matches={matches}
+                  groupLabel={tournament.name}
+                  advanceCount={0}
+                />
+              </>
+            )}
+          </section>
+        )}
 
         {/* BRACKET tab */}
         {tournament.format !== 'round_robin' && (
@@ -445,7 +434,7 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
             <SectionHead eyebrow="Knockout stage" title="The" accent="bracket" right={
               <span style={{ color: 'var(--ink-400)', fontSize: 14 }}>Single elimination</span>
             } />
-            <BracketView matches={matches.filter(m => m.status !== 'scheduled' || true)} />
+            <BracketView matches={matches.filter((m) => m.phase === 'knockout')} />
           </section>
         )}
 
@@ -494,6 +483,59 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
           {tournament.location && <span style={{ color: 'var(--brand-lime)' }}>{tournament.location}</span>}
         </div>
       </footer>
+    </div>
+  )
+}
+
+function GroupStandings({
+  initialTeams,
+  matches,
+  standings,
+  advancePerGroup,
+}: {
+  initialTeams: Array<Team & { players: Player[] }>
+  matches: MatchWithTeams[]
+  standings: Standing[]
+  advancePerGroup: number
+}) {
+  const groups = new Map<string, string[]>()
+  for (const t of initialTeams) {
+    if (!t.group_label) continue
+    const list = groups.get(t.group_label) ?? []
+    list.push(t.id)
+    groups.set(t.group_label, list)
+  }
+  const labels = Array.from(groups.keys()).sort()
+
+  if (labels.length === 0) {
+    return (
+      <StandingsTable
+        standings={standings}
+        matches={matches}
+        groupLabel="Unassigned"
+        advanceCount={advancePerGroup}
+      />
+    )
+  }
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))', gap: 16 }}>
+      {labels.map((label) => {
+        const teamIds = new Set(groups.get(label) ?? [])
+        const groupStandings = standings.filter((s) => teamIds.has(s.team_id))
+        const groupMatches = matches.filter(
+          (m) => teamIds.has(m.home_team_id) && teamIds.has(m.away_team_id),
+        )
+        return (
+          <StandingsTable
+            key={label}
+            standings={groupStandings}
+            matches={groupMatches}
+            groupLabel={`Group ${label}`}
+            advanceCount={advancePerGroup}
+          />
+        )
+      })}
     </div>
   )
 }
