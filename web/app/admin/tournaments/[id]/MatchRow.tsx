@@ -18,8 +18,8 @@ import {
 import { MatchStateStepper } from '@/components/admin/MatchStateStepper'
 import { transitionMatchAction } from './actions'
 import { formatClock } from '@/lib/format'
-import { Loader2, RotateCcw } from 'lucide-react'
-import type { MatchWithTeams, TournamentStatus } from '@/lib/supabase/types'
+import { Loader2, RotateCcw, Play, Pause, CircleStop, FastForward } from 'lucide-react'
+import type { MatchStatus, MatchWithTeams, TournamentStatus } from '@/lib/supabase/types'
 
 interface Props {
   match: MatchWithTeams
@@ -28,21 +28,91 @@ interface Props {
   onMatchClick?: (m: MatchWithTeams) => void
 }
 
+interface LifecycleAction {
+  next: MatchStatus
+  label: string
+  icon: React.ReactNode
+  tone: 'primary' | 'amber' | 'destructive'
+  confirmTitle: string
+  confirmDescription: string
+}
+
+function lifecycleActionsFor(status: MatchStatus): LifecycleAction[] {
+  if (status === 'scheduled') {
+    return [
+      {
+        next: 'live',
+        label: 'Kickoff',
+        icon: <Play className="h-3.5 w-3.5" />,
+        tone: 'primary',
+        confirmTitle: 'Start the match?',
+        confirmDescription: 'Records kickoff time and locks teams. Scorekeepers can now update the score.',
+      },
+    ]
+  }
+  if (status === 'live') {
+    return [
+      {
+        next: 'halftime',
+        label: 'Half time',
+        icon: <Pause className="h-3.5 w-3.5" />,
+        tone: 'amber',
+        confirmTitle: 'Mark half time?',
+        confirmDescription: 'Pauses scoring until the second half starts.',
+      },
+      {
+        next: 'finished',
+        label: 'Full time',
+        icon: <CircleStop className="h-3.5 w-3.5" />,
+        tone: 'destructive',
+        confirmTitle: 'End the match?',
+        confirmDescription: 'Result locks in and counts toward standings. Only an admin can revert it.',
+      },
+    ]
+  }
+  if (status === 'halftime') {
+    return [
+      {
+        next: 'live',
+        label: '2nd half',
+        icon: <FastForward className="h-3.5 w-3.5" />,
+        tone: 'primary',
+        confirmTitle: 'Start the second half?',
+        confirmDescription: 'Resumes scoring immediately.',
+      },
+    ]
+  }
+  return []
+}
+
 export function MatchRow({ match, tournamentStatus, isAdmin, onMatchClick }: Props) {
   const router = useRouter()
-  const [busy, setBusy] = useState(false)
+  const [busy, setBusy] = useState<string | null>(null)
+  const [prompt, setPrompt] = useState<LifecycleAction | null>(null)
 
-  const live = match.status === 'live'
-  const halftime = match.status === 'halftime'
   const finished = match.status === 'finished'
   const scheduled = match.status === 'scheduled'
   const tournamentLocked = tournamentStatus === 'finished' || tournamentStatus === 'archived'
   const clickable = scheduled && !!onMatchClick && !tournamentLocked
+  const lifecycleActions = tournamentLocked ? [] : lifecycleActionsFor(match.status)
+
+  async function commit(action: LifecycleAction) {
+    setBusy(action.next)
+    const r = await transitionMatchAction(match.id, action.next, isAdmin)
+    setBusy(null)
+    setPrompt(null)
+    if ('error' in r) {
+      toast.error(r.error)
+      return
+    }
+    toast.success(action.label + (action.next === 'finished' ? '.' : ' started.'))
+    router.refresh()
+  }
 
   async function revertToLive() {
-    setBusy(true)
+    setBusy('live')
     const r = await transitionMatchAction(match.id, 'live', isAdmin)
-    setBusy(false)
+    setBusy(null)
     if ('error' in r) {
       toast.error(r.error)
       return
@@ -58,20 +128,21 @@ export function MatchRow({ match, tournamentStatus, isAdmin, onMatchClick }: Pro
       }`}
       style={{ cursor: clickable ? 'pointer' : 'default' }}
       onClick={(e) => {
-        if (!clickable) return
+        if (!clickable || prompt) return
         const tgt = e.target as HTMLElement
         if (tgt.closest('[data-no-row-click]')) return
+        if (tgt.closest('[role="alertdialog"], [role="dialog"]')) return
         onMatchClick?.(match)
       }}
       title={clickable ? 'Click to reschedule' : undefined}
     >
       <div className="admin-mono w-14 shrink-0 text-[11px] text-muted-foreground">
-        {live || halftime ? (
+        {match.status === 'live' || match.status === 'halftime' ? (
           <span
             className="admin-tab text-[10px] tracking-[0.12em]"
-            style={{ color: live ? 'var(--admin-lime)' : '#B45309' }}
+            style={{ color: match.status === 'live' ? 'var(--admin-lime)' : '#B45309' }}
           >
-            {live ? 'LIVE' : 'HT'}
+            {match.status === 'live' ? 'LIVE' : 'HT'}
           </span>
         ) : (
           formatClock(match.match_time)
@@ -83,11 +154,12 @@ export function MatchRow({ match, tournamentStatus, isAdmin, onMatchClick }: Pro
         <div
           className="admin-mono inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-base font-bold tabular-nums"
           style={{
-            background: live ? 'var(--admin-lime-wash)' : 'var(--admin-surface-2)',
-            border: live
-              ? '1px solid color-mix(in srgb, var(--admin-lime) 35%, transparent)'
-              : '1px solid var(--admin-rule)',
-            color: live ? 'var(--admin-lime)' : 'var(--foreground)',
+            background: match.status === 'live' ? 'var(--admin-lime-wash)' : 'var(--admin-surface-2)',
+            border:
+              match.status === 'live'
+                ? '1px solid color-mix(in srgb, var(--admin-lime) 35%, transparent)'
+                : '1px solid var(--admin-rule)',
+            color: match.status === 'live' ? 'var(--admin-lime)' : 'var(--foreground)',
             minWidth: 84,
             justifyContent: 'center',
           }}
@@ -106,6 +178,27 @@ export function MatchRow({ match, tournamentStatus, isAdmin, onMatchClick }: Pro
         className="flex flex-wrap items-center justify-end gap-2"
         onClick={(e) => e.stopPropagation()}
       >
+        {lifecycleActions.map((action) => (
+          <Button
+            key={action.next + action.label}
+            size="sm"
+            variant={action.tone === 'primary' ? 'default' : 'outline'}
+            className="admin-tab tracking-wider text-[11px]"
+            style={
+              action.tone === 'amber'
+                ? { color: '#B45309', borderColor: 'rgba(180,83,9,0.4)' }
+                : action.tone === 'destructive'
+                  ? { color: '#DC2626', borderColor: 'rgba(220,38,38,0.4)' }
+                  : undefined
+            }
+            disabled={busy !== null}
+            onClick={() => setPrompt(action)}
+          >
+            {busy === action.next ? <Loader2 className="h-3 w-3 animate-spin" /> : action.icon}
+            {action.label}
+          </Button>
+        ))}
+
         {isAdmin && finished && !tournamentLocked && (
           <AlertDialog>
             <AlertDialogTrigger asChild>
@@ -114,9 +207,13 @@ export function MatchRow({ match, tournamentStatus, isAdmin, onMatchClick }: Pro
                 variant="outline"
                 className="admin-tab tracking-wider text-[11px]"
                 style={{ color: '#DC2626', borderColor: 'rgba(220,38,38,0.4)' }}
-                disabled={busy}
+                disabled={busy !== null}
               >
-                {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+                {busy === 'live' ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <RotateCcw className="h-3 w-3" />
+                )}
                 Revert
               </Button>
             </AlertDialogTrigger>
@@ -145,6 +242,38 @@ export function MatchRow({ match, tournamentStatus, isAdmin, onMatchClick }: Pro
           </AlertDialog>
         )}
       </div>
+
+      {prompt && (
+        <AlertDialog open onOpenChange={(open) => !open && setPrompt(null)}>
+          <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{prompt.confirmTitle}</AlertDialogTitle>
+              <AlertDialogDescription>
+                <span className="block mb-2 text-foreground font-medium">
+                  {match.home_team.name} {match.status === 'scheduled' ? '—' : match.home_score} :{' '}
+                  {match.status === 'scheduled' ? '—' : match.away_score} {match.away_team.name}
+                </span>
+                {prompt.confirmDescription}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={busy !== null}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => commit(prompt)}
+                disabled={busy !== null}
+                className={
+                  prompt.tone === 'destructive'
+                    ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
+                    : undefined
+                }
+              >
+                {busy !== null && <Loader2 className="h-4 w-4 animate-spin" />}
+                Confirm
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   )
 }

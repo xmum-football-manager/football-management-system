@@ -179,9 +179,13 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
   const [showQr, setShowQr] = useState(false)
 
   const tabs = useMemo(() => {
-    return tournament.format === 'round_robin' 
-      ? baseTabs.filter(t => t.id !== 'bracket')
-      : baseTabs
+    if (tournament.format === 'round_robin') {
+      return baseTabs.filter((t) => t.id !== 'bracket')
+    }
+    if (tournament.format === 'knockout') {
+      return baseTabs.filter((t) => t.id !== 'standings')
+    }
+    return baseTabs
   }, [tournament.format])
 
   useEffect(() => {
@@ -271,6 +275,7 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
     if (upcomingMatches.length === 0 && finishedMatches.length > 0) return 'Tournament Finished'
     if (tournament.format === 'knockout') return 'Knockout Stage'
     if (tournament.format === 'round_robin_knockout' && upcomingMatches.length === 0) return 'Knockout Stage'
+    if (tournament.format === 'round_robin') return 'League Stage'
     return 'Group Stage'
   })()
 
@@ -429,15 +434,31 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
         </section>
 
         {/* STANDINGS tab */}
-        <section id="standings" style={{ padding: '64px 0 56px' }}>
-          <SectionHead eyebrow="Group stage" title="The" accent="table" />
-          <StandingsTable
-            standings={standings}
-            matches={matches}
-            groupLabel="Group A"
-            advanceCount={2}
-          />
-        </section>
+        {tournament.format !== 'knockout' && (
+          <section id="standings" style={{ padding: '64px 0 56px' }}>
+            {tournament.format === 'round_robin_knockout' ? (
+              <>
+                <SectionHead eyebrow="Group stage" title="The" accent="table" />
+                <GroupStandings
+                  initialTeams={initialTeams}
+                  matches={matches}
+                  standings={standings}
+                  advancePerGroup={tournament.advance_per_group ?? 2}
+                />
+              </>
+            ) : (
+              <>
+                <SectionHead eyebrow="League" title="The" accent="table" />
+                <StandingsTable
+                  standings={standings}
+                  matches={matches}
+                  groupLabel={tournament.name}
+                  advanceCount={0}
+                />
+              </>
+            )}
+          </section>
+        )}
 
         {/* BRACKET tab */}
         {tournament.format !== 'round_robin' && (
@@ -445,7 +466,7 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
             <SectionHead eyebrow="Knockout stage" title="The" accent="bracket" right={
               <span style={{ color: 'var(--ink-400)', fontSize: 14 }}>Single elimination</span>
             } />
-            <BracketView matches={matches.filter(m => m.status !== 'scheduled' || true)} />
+            <BracketView matches={matches.filter((m) => m.phase === 'knockout')} />
           </section>
         )}
 
@@ -494,6 +515,59 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
           {tournament.location && <span style={{ color: 'var(--brand-lime)' }}>{tournament.location}</span>}
         </div>
       </footer>
+    </div>
+  )
+}
+
+function GroupStandings({
+  initialTeams,
+  matches,
+  standings,
+  advancePerGroup,
+}: {
+  initialTeams: Array<Team & { players: Player[] }>
+  matches: MatchWithTeams[]
+  standings: Standing[]
+  advancePerGroup: number
+}) {
+  const groups = new Map<string, string[]>()
+  for (const t of initialTeams) {
+    if (!t.group_label) continue
+    const list = groups.get(t.group_label) ?? []
+    list.push(t.id)
+    groups.set(t.group_label, list)
+  }
+  const labels = Array.from(groups.keys()).sort()
+
+  if (labels.length === 0) {
+    return (
+      <StandingsTable
+        standings={standings}
+        matches={matches}
+        groupLabel="Unassigned"
+        advanceCount={advancePerGroup}
+      />
+    )
+  }
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))', gap: 16 }}>
+      {labels.map((label) => {
+        const teamIds = new Set(groups.get(label) ?? [])
+        const groupStandings = standings.filter((s) => teamIds.has(s.team_id))
+        const groupMatches = matches.filter(
+          (m) => teamIds.has(m.home_team_id) && teamIds.has(m.away_team_id),
+        )
+        return (
+          <StandingsTable
+            key={label}
+            standings={groupStandings}
+            matches={groupMatches}
+            groupLabel={`Group ${label}`}
+            advanceCount={advancePerGroup}
+          />
+        )
+      })}
     </div>
   )
 }
