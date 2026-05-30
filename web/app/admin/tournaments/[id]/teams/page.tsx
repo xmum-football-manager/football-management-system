@@ -2,6 +2,7 @@ import { listTeamsWithPlayers } from '@/lib/db/teams'
 import { getTournament } from '@/lib/db/tournaments'
 import { listMatches } from '@/lib/db/matches'
 import { canManageTeams } from '@/lib/lock-rules'
+import { checkTournamentReadiness } from '@/lib/tournament-readiness'
 import { TeamsPanel } from './TeamsPanel'
 
 interface Props {
@@ -15,6 +16,20 @@ export default async function TeamsPage({ params }: Props) {
   const [teams, matches] = await Promise.all([listTeamsWithPlayers(id), listMatches(id)])
   const anyMatchActive = matches.some((m) => m.status !== 'scheduled')
   const canEdit = canManageTeams(tournament.status) && !anyMatchActive
+
+  const playerCounts: Record<string, number> = {}
+  for (const t of teams) {
+    playerCounts[t.id] = t.players.length
+  }
+  const readiness = checkTournamentReadiness(
+    teams,
+    playerCounts,
+    tournament.min_players_per_team,
+    tournament.format,
+    tournament.num_groups,
+  )
+  const readinessMessage = readiness.canGenerateFixtures ? null : readiness.blockingIssues.join(' ')
+
   return (
     <TeamsPanel
       tournamentId={id}
@@ -32,6 +47,7 @@ export default async function TeamsPage({ params }: Props) {
       canEdit={canEdit}
       minPlayersPerTeam={tournament.min_players_per_team}
       format={tournament.format}
+      readinessMessage={readinessMessage}
     />
   )
 }

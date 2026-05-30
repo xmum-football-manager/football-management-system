@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { requireUser } from '@/lib/auth'
 import { isAdmin, isOrganizer } from '@/lib/db/roles'
-import { createTeam, deleteTeam, setTeamGroup } from '@/lib/db/teams'
+import { createTeam, deleteTeam, setTeamGroup, listTeams } from '@/lib/db/teams'
 import { createPlayer, deletePlayer } from '@/lib/db/players'
 import { listMatches } from '@/lib/db/matches'
 
@@ -101,5 +101,50 @@ export async function deletePlayerAction(
     return { ok: true }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed.' }
+  }
+}
+
+export interface ImportPlayerInput {
+  name: string
+  jersey_number: number | null
+  position: string | null
+}
+
+export interface ImportTeamInput {
+  name: string
+  players: ImportPlayerInput[]
+}
+
+export async function importTeamsAction(
+  tournamentId: string,
+  teams: ImportTeamInput[],
+): Promise<{ ok: true; teamCount: number; playerCount: number } | { error: string }> {
+  try {
+    await ensureOrganizer(tournamentId)
+    const existing = await listTeams(tournamentId)
+    if (existing.length > 0) {
+      return { error: 'Teams already exist. Import is only available when the tournament has no teams.' }
+    }
+    let playerCount = 0
+    // No transaction: partial failure leaves orphan teams (Supabase JS has no transaction API here).
+    // Recovery: organizer must delete teams manually or via future delete-all action.
+    for (const team of teams) {
+      const teamResult = await createTeam(tournamentId, team.name)
+      if ('error' in teamResult) return { error: `Failed to create team "${team.name}": ${teamResult.error}` }
+      for (const player of team.players) {
+        const playerResult = await createPlayer({
+          team_id: teamResult.id,
+          name: player.name,
+          jersey_number: player.jersey_number,
+          position: player.position,
+        })
+        if ('error' in playerResult) return { error: `Failed to add player "${player.name}": ${playerResult.error}` }
+        playerCount++
+      }
+    }
+    revalidatePath(`/admin/tournaments/${tournamentId}/teams`)
+    return { ok: true, teamCount: teams.length, playerCount }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Import failed.' }
   }
 }
