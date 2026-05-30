@@ -26,6 +26,20 @@ export async function listTeamsWithPlayers(tournamentId: string): Promise<TeamWi
   }))
 }
 
+export async function listPlayerCounts(tournamentId: string): Promise<Record<string, number>> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('teams')
+    .select('id, players(id)')
+    .eq('tournament_id', tournamentId)
+  if (error) throw error
+  const counts: Record<string, number> = {}
+  for (const row of (data ?? []) as { id: string; players: { id: string }[] }[]) {
+    counts[row.id] = row.players?.length ?? 0
+  }
+  return counts
+}
+
 export async function createTeam(
   tournamentId: string,
   name: string,
