@@ -33,8 +33,8 @@ import {
   addPlayerAction,
   deletePlayerAction,
 } from './actions'
-import { CsvImport } from './CsvImport'
 import type { TournamentFormat } from '@/lib/supabase/types'
+import { CsvImport } from './CsvImport'
 
 interface PlayerData {
   id: string
