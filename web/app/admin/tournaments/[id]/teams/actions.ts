@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { requireUser } from '@/lib/auth'
 import { isAdmin, isOrganizer } from '@/lib/db/roles'
-import { createTeam, deleteTeam, setTeamGroup } from '@/lib/db/teams'
+import { createTeam, deleteTeam, setTeamGroup, listTeams } from '@/lib/db/teams'
 import { createPlayer, deletePlayer } from '@/lib/db/players'
 import { listMatches } from '@/lib/db/matches'
 
@@ -13,6 +13,13 @@ async function ensureOrganizer(tournamentId: string) {
   if (!(await isOrganizer(user.id, tournamentId))) throw new Error('Not authorized.')
 }
 
+function revalidateTeams(tournamentId: string) {
+  revalidatePath(`/admin/tournaments/${tournamentId}/teams`)
+  revalidatePath(`/admin/tournaments/${tournamentId}/rd-teams`)
+  revalidatePath(`/admin/tournaments/${tournamentId}/ko-teams`)
+  revalidatePath(`/admin/tournaments/${tournamentId}`)
+}
+
 export async function addTeamAction(
   tournamentId: string,
   name: string,
@@ -20,7 +27,7 @@ export async function addTeamAction(
   try {
     await ensureOrganizer(tournamentId)
     const result = await createTeam(tournamentId, name)
-    if ('id' in result) revalidatePath(`/admin/tournaments/${tournamentId}/teams`)
+    if ('id' in result) revalidateTeams(tournamentId)
     return result
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed.' }
@@ -43,9 +50,9 @@ export async function setTeamGroupAction(
     }
     const result = await setTeamGroup(teamId, groupLabel)
     if (result.error) return { error: result.error }
-    revalidatePath(`/admin/tournaments/${tournamentId}/teams`)
-    revalidatePath(`/admin/tournaments/${tournamentId}/fixtures`)
-    revalidatePath(`/admin/tournaments/${tournamentId}`)
+    revalidateTeams(tournamentId)
+    revalidatePath(`/admin/tournaments/${tournamentId}/rd-fixtures`)
+    revalidatePath(`/admin/tournaments/${tournamentId}/ko-fixtures`)
     return { ok: true }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed.' }
@@ -60,7 +67,7 @@ export async function deleteTeamAction(
     await ensureOrganizer(tournamentId)
     const result = await deleteTeam(teamId)
     if (result.error) return { error: result.error }
-    revalidatePath(`/admin/tournaments/${tournamentId}/teams`)
+    revalidateTeams(tournamentId)
     return { ok: true }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed.' }
@@ -82,7 +89,7 @@ export async function addPlayerAction(input: {
       jersey_number: input.jersey_number,
       position: input.position,
     })
-    if ('id' in result) revalidatePath(`/admin/tournaments/${input.tournamentId}/teams`)
+    if ('id' in result) revalidateTeams(input.tournamentId)
     return result
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed.' }
@@ -97,9 +104,54 @@ export async function deletePlayerAction(
     await ensureOrganizer(tournamentId)
     const result = await deletePlayer(playerId)
     if (result.error) return { error: result.error }
-    revalidatePath(`/admin/tournaments/${tournamentId}/teams`)
+    revalidateTeams(tournamentId)
     return { ok: true }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed.' }
+  }
+}
+
+export interface ImportPlayerInput {
+  name: string
+  jersey_number: number | null
+  position: string | null
+}
+
+export interface ImportTeamInput {
+  name: string
+  players: ImportPlayerInput[]
+}
+
+export async function importTeamsAction(
+  tournamentId: string,
+  teams: ImportTeamInput[],
+): Promise<{ ok: true; teamCount: number; playerCount: number } | { error: string }> {
+  try {
+    await ensureOrganizer(tournamentId)
+    const existing = await listTeams(tournamentId)
+    if (existing.length > 0) {
+      return { error: 'Teams already exist. Import is only available when the tournament has no teams.' }
+    }
+    let playerCount = 0
+    // No transaction: partial failure leaves orphan teams (Supabase JS has no transaction API here).
+    // Recovery: organizer must delete teams manually or via future delete-all action.
+    for (const team of teams) {
+      const teamResult = await createTeam(tournamentId, team.name)
+      if ('error' in teamResult) return { error: `Failed to create team "${team.name}": ${teamResult.error}` }
+      for (const player of team.players) {
+        const playerResult = await createPlayer({
+          team_id: teamResult.id,
+          name: player.name,
+          jersey_number: player.jersey_number,
+          position: player.position,
+        })
+        if ('error' in playerResult) return { error: `Failed to add player "${player.name}": ${playerResult.error}` }
+        playerCount++
+      }
+    }
+    revalidateTeams(tournamentId)
+    return { ok: true, teamCount: teams.length, playerCount }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Import failed.' }
   }
 }

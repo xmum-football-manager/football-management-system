@@ -20,6 +20,14 @@ async function ensureOrganizer(tournamentId: string) {
   if (!(await isOrganizer(user.id, tournamentId))) throw new Error('Not authorized.')
 }
 
+function revalidateFixtures(tournamentId: string) {
+  revalidatePath(`/admin/tournaments/${tournamentId}/fixtures`)
+  revalidatePath(`/admin/tournaments/${tournamentId}/rd-fixtures`)
+  revalidatePath(`/admin/tournaments/${tournamentId}/ko-fixtures`)
+  revalidatePath(`/admin/tournaments/${tournamentId}`)
+  revalidatePath(`/t/${tournamentId}`)
+}
+
 export async function addMatchAction(input: {
   tournament_id: string
   home_team_id: string
@@ -41,9 +49,7 @@ export async function addMatchAction(input: {
     }
     const result = await createMatch(input)
     if ('id' in result) {
-      revalidatePath(`/admin/tournaments/${input.tournament_id}/fixtures`)
-      revalidatePath(`/admin/tournaments/${input.tournament_id}`)
-      revalidatePath(`/t/${input.tournament_id}`)
+      revalidateFixtures(input.tournament_id)
     }
     return result
   } catch (e) {

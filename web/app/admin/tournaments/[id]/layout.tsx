@@ -4,6 +4,7 @@ import { requireUser } from '@/lib/auth'
 import { isAdmin, isOrganizer } from '@/lib/db/roles'
 import { getTournament } from '@/lib/db/tournaments'
 import { listTeams, listPlayerCounts } from '@/lib/db/teams'
+import { listMatches } from '@/lib/db/matches'
 import { checkTournamentReadiness } from '@/lib/tournament-readiness'
 import { TournamentStatusBadge } from '@/components/admin/TournamentStatusBadge'
 import { TournamentNav } from './TournamentNav'
@@ -30,9 +31,10 @@ export default async function TournamentLayout({ params, children }: Props) {
     )
   }
 
-  const [teams, playerCounts] = await Promise.all([
+  const [teams, playerCounts, matches] = await Promise.all([
     listTeams(id),
     listPlayerCounts(id),
+    listMatches(id),
   ])
 
   const readiness = checkTournamentReadiness(
@@ -42,6 +44,43 @@ export default async function TournamentLayout({ params, children }: Props) {
     tournament.format,
     tournament.num_groups,
   )
+
+  const isGroupStageMatch = (m: (typeof matches)[0]) => {
+    const h = m.home_team.group_label
+    const a = m.away_team.group_label
+    return !!h && !!a && h === a
+  }
+
+  const groupMatches = tournament.format === 'round_robin_knockout'
+    ? matches.filter(isGroupStageMatch)
+    : []
+  const allGroupMatchesFinished = groupMatches.length > 0
+    && groupMatches.every((m) => m.status === 'finished')
+
+  // RD fixtures locked when teams aren't ready
+  const teamsReady = readiness.canGenerateFixtures
+  const rdFixturesLocked = !teamsReady
+  const rdFixturesLockReason = !teamsReady
+    ? readiness.blockingIssues.join(' ')
+    : null
+
+  // KO teams locked when RD teams aren't ready (RR+KO only — in pure KO format, teams are set up directly)
+  let koTeamsLocked = false
+  let koTeamsLockReason: string | null = null
+  if (tournament.format === 'round_robin_knockout' && !teamsReady) {
+    koTeamsLocked = true
+    koTeamsLockReason = 'Complete group-stage teams first.'
+  }
+
+  // KO fixtures locked when teams aren't ready OR (for RR+KO) group stage not finished
+  let koFixturesLocked = !teamsReady
+  let koFixturesLockReason: string | null = !teamsReady
+    ? readiness.blockingIssues.join(' ')
+    : null
+  if (tournament.format === 'round_robin_knockout' && !allGroupMatchesFinished) {
+    koFixturesLocked = true
+    koFixturesLockReason = 'Group stage must be finished before knockout fixtures.'
+  }
 
   return (
     <div className="space-y-5">
@@ -65,18 +104,24 @@ export default async function TournamentLayout({ params, children }: Props) {
 
       <TournamentNav
         tournamentId={id}
+        format={tournament.format}
         isAdmin={admin}
-        teamsProgress={
-          !readiness.canGenerateFixtures
+        rdTeamsProgress={
+          !teamsReady
             ? `${readiness.teamsWithEnoughPlayers}/${readiness.totalTeams} teams ready`
             : null
         }
-        fixturesLocked={!readiness.canGenerateFixtures}
-        fixturesLockReason={
-          !readiness.canGenerateFixtures
-            ? readiness.blockingIssues.join(' ')
+        rdFixturesLocked={rdFixturesLocked}
+        rdFixturesLockReason={rdFixturesLockReason}
+        koTeamsLocked={koTeamsLocked}
+        koTeamsLockReason={koTeamsLockReason}
+        koTeamsProgress={
+          !teamsReady
+            ? `${readiness.teamsWithEnoughPlayers}/${readiness.totalTeams} teams ready`
             : null
         }
+        koFixturesLocked={koFixturesLocked}
+        koFixturesLockReason={koFixturesLockReason}
       />
 
       {children}

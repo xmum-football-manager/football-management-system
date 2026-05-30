@@ -34,6 +34,7 @@ import {
   deletePlayerAction,
 } from './actions'
 import type { TournamentFormat } from '@/lib/supabase/types'
+import { CsvImport } from './CsvImport'
 
 interface PlayerData {
   id: string
@@ -55,6 +56,7 @@ interface Props {
   canEdit: boolean
   minPlayersPerTeam: number
   format: TournamentFormat
+  phase?: 'rd' | 'ko'
   readinessMessage?: string | null
 }
 
@@ -64,6 +66,7 @@ export function TeamsPanel({
   canEdit,
   minPlayersPerTeam,
   format,
+  phase,
   readinessMessage,
 }: Props) {
   const router = useRouter()
@@ -105,6 +108,7 @@ export function TeamsPanel({
   }
 
   const showGroups = format === 'round_robin_knockout'
+  const showCsvImport = !(phase === 'ko' && format === 'round_robin_knockout')
 
   return (
     <div className="space-y-5">
@@ -128,6 +132,17 @@ export function TeamsPanel({
           Group assignment now lives on the <span className="font-semibold">Fixtures</span> tab →
           Groups view.
         </div>
+      )}
+
+      {canEdit && showCsvImport && (
+        <Card>
+          <CardContent className="p-4">
+            <CsvImport
+              tournamentId={tournamentId}
+              disabled={initialTeams.length > 0}
+            />
+          </CardContent>
+        </Card>
       )}
 
       {canEdit && (
