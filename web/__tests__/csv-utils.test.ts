@@ -66,7 +66,7 @@ Team A,Alice,,`
   })
 
   it('returns row-level error for invalid position', () => {
-    const csv = `team,player_name,position\nTeam A,John,STRIKER`
+    const csv = `team,player_name,position\nTeam A,John,WINGER`
     const { errors } = parseTeamsCsv(csv)
     expect(errors).toHaveLength(1)
     expect(errors[0]).toMatch(/Row 2.*position/)
@@ -77,6 +77,41 @@ Team A,Alice,,`
     const { teams, errors } = parseTeamsCsv(csv)
     expect(errors).toEqual([])
     expect(teams[0].players[0].position).toBe('GK')
+  })
+
+  it('accepts full position name "Goalkeeper" and normalises to GK', () => {
+    const csv = `team,player_name,position\nTeam A,John,Goalkeeper`
+    const { teams, errors } = parseTeamsCsv(csv)
+    expect(errors).toEqual([])
+    expect(teams[0].players[0].position).toBe('GK')
+  })
+
+  it('accepts full position name "Defender" and normalises to DEF', () => {
+    const csv = `team,player_name,position\nTeam A,John,Defender`
+    const { teams, errors } = parseTeamsCsv(csv)
+    expect(errors).toEqual([])
+    expect(teams[0].players[0].position).toBe('DEF')
+  })
+
+  it('accepts full position name "Midfielder" and normalises to MID', () => {
+    const csv = `team,player_name,position\nTeam A,John,Midfielder`
+    const { teams, errors } = parseTeamsCsv(csv)
+    expect(errors).toEqual([])
+    expect(teams[0].players[0].position).toBe('MID')
+  })
+
+  it('accepts full position name "Forward" and normalises to FWD', () => {
+    const csv = `team,player_name,position\nTeam A,John,Forward`
+    const { teams, errors } = parseTeamsCsv(csv)
+    expect(errors).toEqual([])
+    expect(teams[0].players[0].position).toBe('FWD')
+  })
+
+  it('accepts "Striker" and normalises to FWD', () => {
+    const csv = `team,player_name,position\nTeam A,John,Striker`
+    const { teams, errors } = parseTeamsCsv(csv)
+    expect(errors).toEqual([])
+    expect(teams[0].players[0].position).toBe('FWD')
   })
 
   it('preserves team insertion order', () => {

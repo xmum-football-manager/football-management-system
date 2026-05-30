@@ -16,6 +16,24 @@ export interface ParseResult {
 
 const VALID_POSITIONS = new Set(['GK', 'DEF', 'MID', 'FWD'])
 
+const POSITION_ALIASES: Record<string, string> = {
+  GOALKEEPER: 'GK',
+  GOALIE: 'GK',
+  DEFENDER: 'DEF',
+  DEFENCE: 'DEF',
+  DEFENSE: 'DEF',
+  MIDFIELDER: 'MID',
+  MIDFIELD: 'MID',
+  FORWARD: 'FWD',
+  STRIKER: 'FWD',
+  ATTACKER: 'FWD',
+}
+
+function normalisePosition(raw: string): string | null {
+  if (VALID_POSITIONS.has(raw)) return raw
+  return POSITION_ALIASES[raw] ?? null
+}
+
 export function parseTeamsCsv(csvText: string): ParseResult {
   const lines = csvText.trim().split(/\r?\n/)
   const errors: string[] = []
@@ -62,11 +80,11 @@ export function parseTeamsCsv(csvText: string): ParseResult {
 
     let position: string | null = null
     if (posRaw !== '') {
-      if (!VALID_POSITIONS.has(posRaw)) {
-        errors.push(`Row ${row}: position must be one of GK, DEF, MID, FWD.`)
+      position = normalisePosition(posRaw)
+      if (position === null) {
+        errors.push(`Row ${row}: position must be one of GK, DEF, MID, FWD (or Goalkeeper, Defender, Midfielder, Forward).`)
         continue
       }
-      position = posRaw
     }
 
     if (!teamMap.has(teamName)) {
