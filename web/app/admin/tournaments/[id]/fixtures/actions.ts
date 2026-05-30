@@ -13,6 +13,7 @@ import {
 } from '@/lib/db/matches'
 import { listTeams } from '@/lib/db/teams'
 import { getTournament, updateKnockoutQualifiers } from '@/lib/db/tournaments'
+import { generateRoundRobin } from '@/lib/round-robin'
 
 async function ensureOrganizer(tournamentId: string) {
   const user = await requireUser()
@@ -305,6 +306,79 @@ export async function saveQualifiersAction(
     if (result.error) return { error: result.error }
     revalidatePath(`/admin/tournaments/${tournamentId}/fixtures`)
     revalidatePath(`/admin/tournaments/${tournamentId}`)
+    return { ok: true }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed.' }
+  }
+}
+
+export async function generateGroupFixturesAction(
+  tournamentId: string,
+): Promise<{ created: number } | { error: string }> {
+  try {
+    await ensureOrganizer(tournamentId)
+    const [tournament, teams, existing] = await Promise.all([
+      getTournament(tournamentId),
+      listTeams(tournamentId),
+      listMatches(tournamentId),
+    ])
+    if (!tournament) return { error: 'Tournament not found.' }
+    if (!tournament.num_groups) return { error: 'No groups configured.' }
+    if (existing.length > 0) return { error: 'Fixtures already exist for this tournament.' }
+
+    const validLabels = Array.from(
+      { length: tournament.num_groups },
+      (_, i) => String.fromCharCode(65 + i),
+    )
+    let created = 0
+    for (const label of validLabels) {
+      const groupTeams = teams.filter((t) => t.group_label === label)
+      const rounds = generateRoundRobin(groupTeams)
+      for (const round of rounds) {
+        for (const { home, away } of round) {
+          const r = await createMatch({
+            tournament_id: tournamentId,
+            home_team_id: home.id,
+            away_team_id: away.id,
+            match_time: null,
+            phase: 'group',
+          })
+          if ('id' in r) created++
+        }
+      }
+    }
+    revalidateFixtures(tournamentId)
+    return { created }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed.' }
+  }
+}
+
+export async function scheduleMatchAction(
+  matchId: string,
+  tournamentId: string,
+  matchTime: string | null,
+): Promise<{ ok: true } | { error: string }> {
+  try {
+    await ensureOrganizer(tournamentId)
+    const existing = await getMatch(matchId)
+    if (!existing) return { error: 'Match not found.' }
+    if (existing.status !== 'scheduled') {
+      return { error: 'Only scheduled matches can be rescheduled.' }
+    }
+    if (matchTime !== null) {
+      const tournament = await getTournament(tournamentId)
+      if (!tournament) return { error: 'Tournament not found.' }
+      const matchDay = new Date(matchTime).toISOString().split('T')[0]
+      if (matchDay < tournament.start_date || matchDay > tournament.end_date) {
+        return {
+          error: `Match must be within the tournament period (${tournament.start_date} – ${tournament.end_date}).`,
+        }
+      }
+    }
+    const result = await updateMatchTime(matchId, matchTime)
+    if (result.error) return { error: result.error }
+    revalidateFixtures(tournamentId)
     return { ok: true }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed.' }
