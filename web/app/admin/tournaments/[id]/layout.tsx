@@ -43,6 +43,7 @@ export default async function TournamentLayout({ params, children }: Props) {
     tournament.min_players_per_team,
     tournament.format,
     tournament.num_groups,
+    tournament.teams_per_group,
   )
 
   const isGroupStageMatch = (m: (typeof matches)[0]) => {

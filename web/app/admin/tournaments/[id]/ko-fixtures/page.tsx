@@ -43,6 +43,7 @@ export default async function KOFixturesPage({ params }: Props) {
     tournament.min_players_per_team,
     tournament.format,
     tournament.num_groups,
+    tournament.teams_per_group,
   )
 
   // For round_robin_knockout, check if group stage is complete

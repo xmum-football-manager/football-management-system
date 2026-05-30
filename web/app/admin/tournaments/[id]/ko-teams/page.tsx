@@ -26,6 +26,7 @@ export default async function KOTeamsPage({ params }: Props) {
     tournament.min_players_per_team,
     tournament.format,
     tournament.num_groups,
+    tournament.teams_per_group,
   )
 
   // In RR+KO format, KO-teams are locked until group-stage teams are ready

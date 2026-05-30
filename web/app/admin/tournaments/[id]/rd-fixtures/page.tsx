@@ -44,6 +44,7 @@ export default async function RDFixturesPage({ params }: Props) {
     tournament.min_players_per_team,
     tournament.format,
     tournament.num_groups,
+    tournament.teams_per_group,
   )
 
   // For round_robin_knockout, treat as round_robin for fixture generation

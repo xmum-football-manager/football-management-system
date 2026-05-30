@@ -1,17 +1,12 @@
 import type { TournamentFormat, Team } from '@/lib/supabase/types'
 
 export interface TournamentReadiness {
-  /** Total number of teams in the tournament */
   totalTeams: number
-  /** Number of teams that have enough players */
   teamsWithEnoughPlayers: number
-  /** True when every team has >= minPlayersPerTeam players */
   allPlayersReady: boolean
-  /** For group formats: true when every team has a valid group_label */
   allGroupsAssigned: boolean
-  /** Overall: fixtures can be generated */
+  allGroupsFull: boolean
   canGenerateFixtures: boolean
-  /** Human-readable issues blocking fixture generation */
   blockingIssues: string[]
 }
 
@@ -21,6 +16,7 @@ export function checkTournamentReadiness(
   minPlayersPerTeam: number,
   format: TournamentFormat,
   numGroups: number | null,
+  teamsPerGroup: number | null,
 ): TournamentReadiness {
   const totalTeams = teams.length
   let teamsWithEnoughPlayers = 0
@@ -37,17 +33,38 @@ export function checkTournamentReadiness(
 
   const allPlayersReady = teamsWithoutPlayers.length === 0
 
-  // Group assignment check (only for group formats)
   const isGroupFormat = format === 'round_robin_knockout'
   let allGroupsAssigned = true
+  let allGroupsFull = true
   const unassignedTeams: string[] = []
+  const groupIssues: string[] = []
 
   if (isGroupFormat && numGroups != null) {
     const validLabels = Array.from({ length: numGroups }, (_, i) => String.fromCharCode(65 + i))
+
+    // Check every team has a valid label
     for (const t of teams) {
       if (!t.group_label || !validLabels.includes(t.group_label)) {
         allGroupsAssigned = false
         unassignedTeams.push(t.name)
+      }
+    }
+
+    // Check per-group counts when teamsPerGroup is set
+    if (teamsPerGroup != null) {
+      const countByLabel = new Map<string, number>()
+      for (const l of validLabels) countByLabel.set(l, 0)
+      for (const t of teams) {
+        if (t.group_label && validLabels.includes(t.group_label)) {
+          countByLabel.set(t.group_label, (countByLabel.get(t.group_label) ?? 0) + 1)
+        }
+      }
+      for (const label of validLabels) {
+        const n = countByLabel.get(label) ?? 0
+        if (n !== teamsPerGroup) {
+          allGroupsFull = false
+          groupIssues.push(`Group ${label} has ${n} team${n === 1 ? '' : 's'}, expected ${teamsPerGroup}.`)
+        }
       }
     }
   }
@@ -67,13 +84,15 @@ export function checkTournamentReadiness(
       `${unassignedTeams.length} team${unassignedTeams.length === 1 ? '' : 's'} not assigned to a group: ${shown}${more}.`
     )
   }
+  blockingIssues.push(...groupIssues)
 
   return {
     totalTeams,
     teamsWithEnoughPlayers,
     allPlayersReady,
     allGroupsAssigned,
-    canGenerateFixtures: allPlayersReady && allGroupsAssigned,
+    allGroupsFull,
+    canGenerateFixtures: allPlayersReady && allGroupsAssigned && allGroupsFull,
     blockingIssues,
   }
 }
