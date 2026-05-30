@@ -26,6 +26,10 @@ export async function transitionMatchAction(
 ): Promise<{ ok: true } | { error: string }> {
   try {
     const { user, match, admin } = await ensureOrganizerOfMatch(matchId)
+    // Guard: cannot go live without a scheduled time
+    if (next === 'live' && !match.match_time) {
+      return { error: 'Set a match time before going live.' }
+    }
     const role: 'admin' | 'organizer' = admin && asAdmin ? 'admin' : 'organizer'
     if (!isValidTransition(match.status, next, role)) {
       return { error: `Cannot move from ${match.status} to ${next}.` }

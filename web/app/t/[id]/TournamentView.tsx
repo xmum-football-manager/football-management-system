@@ -229,7 +229,7 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
         .eq('tournament_id', tournament.id).order('match_time', { ascending: true }),
       supabase.from('standings').select('*').eq('tournament_id', tournament.id),
     ])
-    if (m) setMatches(m as MatchWithTeams[])
+    if (m) setMatches((m as MatchWithTeams[]).filter(x => x.match_time !== null))
     if (s) setStandings(s as Standing[])
   }, [tournament.id])
 
@@ -254,11 +254,14 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
     return () => document.removeEventListener('visibilitychange', handler)
   }, [refetch])
 
-  const liveMatches     = matches.filter(m => m.status === 'live')
-  const upcomingMatches = matches.filter(m => m.status === 'scheduled')
-  const finishedMatches = matches.filter(m => m.status === 'finished')
+  // Filter out unscheduled (null match_time) matches — not yet public
+  const scheduledMatches = matches.filter((m) => m.match_time !== null)
 
-  const filteredFixtures = fixtureFilter === 'all' ? matches : matches.filter(m => m.status === fixtureFilter)
+  const liveMatches     = scheduledMatches.filter(m => m.status === 'live')
+  const upcomingMatches = scheduledMatches.filter(m => m.status === 'scheduled')
+  const finishedMatches = scheduledMatches.filter(m => m.status === 'finished')
+
+  const filteredFixtures = fixtureFilter === 'all' ? scheduledMatches : scheduledMatches.filter(m => m.status === fixtureFilter)
 
   // Smart stage label — no DB column needed
   const stageLabel = (() => {
