@@ -73,6 +73,13 @@ export default async function TournamentLayout({ params, children }: Props) {
     koTeamsLockReason = 'Complete group-stage teams first.'
   }
 
+  const rdGroupsProgress = (
+    tournament.format === 'round_robin_knockout' &&
+    (!readiness.allGroupsAssigned || !readiness.allGroupsFull)
+  )
+    ? 'Groups incomplete'
+    : null
+
   // KO fixtures locked when teams aren't ready OR (for RR+KO) group stage not finished
   let koFixturesLocked = !teamsReady
   let koFixturesLockReason: string | null = !teamsReady
@@ -107,6 +114,7 @@ export default async function TournamentLayout({ params, children }: Props) {
         tournamentId={id}
         format={tournament.format}
         isAdmin={admin}
+        rdGroupsProgress={rdGroupsProgress}
         rdTeamsProgress={
           !teamsReady
             ? `${readiness.teamsWithEnoughPlayers}/${readiness.totalTeams} teams ready`
