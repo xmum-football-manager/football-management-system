@@ -18,7 +18,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { Loader2, Archive, CheckCircle2, Trash2, UserPlus } from 'lucide-react'
+import { Loader2, Archive, CheckCircle2, Trash2, UserPlus, MapPin, Calendar } from 'lucide-react'
 import {
   archiveTournamentAction,
   finishTournamentAction,
@@ -41,6 +41,8 @@ export function SettingsPanel({ tournamentId, tournament, isAdmin, organizers }:
 
   return (
     <div className="space-y-5 max-w-3xl">
+      <TournamentDetails tournament={tournament} />
+
       {isAdmin && (
         <Card>
           <CardContent className="p-4 space-y-3">
@@ -181,6 +183,96 @@ function AssignOrganizerForm({ tournamentId }: { tournamentId: string }) {
         Assign
       </Button>
     </form>
+  )
+}
+
+function formatLabel(f: string): string {
+  switch (f) {
+    case 'round_robin':
+      return 'Round-robin'
+    case 'knockout':
+      return 'Knockout'
+    case 'round_robin_knockout':
+      return 'Group → Knockout'
+    default:
+      return f
+  }
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+function TournamentDetails({ tournament }: { tournament: Tournament }) {
+  return (
+    <Card>
+      <CardContent className="p-4 space-y-4">
+        <h3 className="font-semibold text-sm">Tournament details</h3>
+
+        <div className="space-y-3 text-sm">
+          <DetailRow label="Name" value={tournament.name} />
+          {tournament.description && (
+            <DetailRow label="Description" value={tournament.description} />
+          )}
+          <DetailRow
+            label="Dates"
+            value={`${formatDate(tournament.start_date)} – ${formatDate(tournament.end_date)}`}
+            icon={<Calendar className="h-3.5 w-3.5 text-muted-foreground" />}
+          />
+          {tournament.location && (
+            <DetailRow
+              label="Venue"
+              value={tournament.location}
+              icon={<MapPin className="h-3.5 w-3.5 text-muted-foreground" />}
+            />
+          )}
+          <DetailRow label="Format" value={formatLabel(tournament.format)} />
+          {tournament.format === 'round_robin_knockout' && tournament.num_groups != null && (
+            <DetailRow
+              label="Group stage"
+              value={`${tournament.num_groups} groups × ${tournament.teams_per_group ?? '?'} teams · top ${tournament.advance_per_group ?? '?'} advance`}
+            />
+          )}
+          <DetailRow
+            label="Match length"
+            value={`${tournament.minutes_per_half} min halves${tournament.halftime_enabled ? ` + ${tournament.halftime_minutes ?? '?'} min halftime` : ' (no halftime)'}`}
+          />
+          <DetailRow
+            label="Points"
+            value={`W ${tournament.points_win} / D ${tournament.points_draw} / L ${tournament.points_loss}`}
+          />
+          <DetailRow
+            label="Min players per team"
+            value={String(tournament.min_players_per_team)}
+          />
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function DetailRow({
+  label,
+  value,
+  icon,
+}: {
+  label: string
+  value: string
+  icon?: React.ReactNode
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <span className="w-36 shrink-0 text-xs text-muted-foreground pt-px">{label}</span>
+      <span className="flex-1 text-sm flex items-center gap-1.5">
+        {icon}
+        {value}
+      </span>
+    </div>
   )
 }
 
