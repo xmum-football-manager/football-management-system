@@ -26,7 +26,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { ChevronDown, ChevronRight, Plus, Trash2, Loader2, Lock } from 'lucide-react'
+import { ChevronDown, ChevronRight, Plus, Trash2, Loader2, Lock, AlertCircle } from 'lucide-react'
 import {
   addTeamAction,
   deleteTeamAction,
@@ -55,6 +55,7 @@ interface Props {
   canEdit: boolean
   minPlayersPerTeam: number
   format: TournamentFormat
+  readinessMessage?: string | null
 }
 
 export function TeamsPanel({
@@ -63,6 +64,7 @@ export function TeamsPanel({
   canEdit,
   minPlayersPerTeam,
   format,
+  readinessMessage,
 }: Props) {
   const router = useRouter()
   const [newTeam, setNewTeam] = useState('')
@@ -106,6 +108,13 @@ export function TeamsPanel({
 
   return (
     <div className="space-y-5">
+      {readinessMessage && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 flex items-center gap-2">
+          <AlertCircle className="h-3.5 w-3.5" />
+          {readinessMessage}
+        </div>
+      )}
+
       {!canEdit && (
         <div className="rounded-md border bg-amber-50 border-amber-200 px-3 py-2 text-xs text-amber-900 flex items-center gap-2">
           <Lock className="h-3 w-3" /> Teams are locked — a match has gone live or the tournament is finished.
