@@ -126,6 +126,8 @@ export async function importTeamsAction(
       return { error: 'Teams already exist. Import is only available when the tournament has no teams.' }
     }
     let playerCount = 0
+    // No transaction: partial failure leaves orphan teams (Supabase JS has no transaction API here).
+    // Recovery: organizer must delete teams manually or via future delete-all action.
     for (const team of teams) {
       const teamResult = await createTeam(tournamentId, team.name)
       if ('error' in teamResult) return { error: `Failed to create team "${team.name}": ${teamResult.error}` }

@@ -24,7 +24,7 @@ export function parseTeamsCsv(csvText: string): ParseResult {
     return { teams: [], errors: ['CSV must have a header row and at least one data row.'] }
   }
 
-  const header = lines[0].trim().toLowerCase().split(',')
+  const header = lines[0].trim().toLowerCase().split(',').map(h => h.trim())
   const teamIdx = header.indexOf('team')
   const playerIdx = header.indexOf('player_name')
   const jerseyIdx = header.indexOf('jersey_number')
