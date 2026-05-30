@@ -28,6 +28,7 @@ export function formatMatchTime(iso: string): string {
 }
 
 export function formatClock(iso: string): string {
+  if (!iso) return 'TBD'
   const d = new Date(iso)
   return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
 }

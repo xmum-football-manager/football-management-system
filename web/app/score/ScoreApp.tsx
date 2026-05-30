@@ -463,6 +463,7 @@ function BigButton({
 }
 
 function formatTime(iso: string): string {
+  if (!iso) return 'TBD'
   return new Date(iso).toLocaleTimeString('en-US', {
     hour: '2-digit',
     minute: '2-digit',

@@ -93,7 +93,7 @@ export function MatchViews({
 
   const [reschedulingMatch, setReschedulingMatch] = useState<MatchWithTeams | null>(null)
   const handleMatchClick = (m: MatchWithTeams) => {
-    if (m.status !== 'scheduled' || !canManageFixtures) return
+    if (m.status !== 'scheduled' || !canManageFixtures || !m.match_time) return
     setReschedulingMatch(m)
   }
 
