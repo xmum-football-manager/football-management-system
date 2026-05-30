@@ -18,6 +18,7 @@ interface Props {
   format: TournamentFormat
   isAdmin: boolean
   rdTeamsProgress?: string | null
+  rdGroupsProgress?: string | null
   rdFixturesLocked?: boolean
   rdFixturesLockReason?: string | null
   koTeamsLocked?: boolean
@@ -32,6 +33,7 @@ export function TournamentNav({
   format,
   isAdmin: _isAdmin,
   rdTeamsProgress = null,
+  rdGroupsProgress = null,
   rdFixturesLocked = false,
   rdFixturesLockReason = null,
   koTeamsLocked = false,
@@ -59,6 +61,7 @@ export function TournamentNav({
     // round_robin_knockout
     tabs.push(
       { href: `${base}/rd-teams`, label: 'RD-Teams', needsAttention: !!rdTeamsProgress },
+      { href: `${base}/rd-groups`, label: 'RD-Groups', needsAttention: !!rdGroupsProgress },
       { href: `${base}/rd-fixtures`, label: 'RD-Fixtures', locked: rdFixturesLocked, lockReason: rdFixturesLockReason },
       { href: `${base}/ko-teams`, label: 'KO-Teams', needsAttention: !koTeamsLocked && !!koTeamsProgress, locked: koTeamsLocked, lockReason: koTeamsLockReason },
       { href: `${base}/ko-fixtures`, label: 'KO-Fixtures', locked: koFixturesLocked, lockReason: koFixturesLockReason },
