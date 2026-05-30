@@ -1,7 +1,6 @@
 'use client'
 
 import { useTransition, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -31,7 +30,6 @@ interface Props {
 }
 
 export function RDGroupsPanel({ tournamentId, initialTeams, numGroups, teamsPerGroup, canEdit }: Props) {
-  const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [teams, setTeams] = useState<TeamData[]>(initialTeams)
 
@@ -51,13 +49,13 @@ export function RDGroupsPanel({ tournamentId, initialTeams, numGroups, teamsPerG
     : unassigned.length === 0
 
   function assign(teamId: string, label: string | null) {
-    // Optimistic update
-    setTeams(prev => prev.map(t => t.id === teamId ? { ...t, group_label: label } : t))
+    const prev = teams
+    setTeams(t => t.map(t => t.id === teamId ? { ...t, group_label: label } : t))
     startTransition(async () => {
       const r = await setTeamGroupAction(teamId, tournamentId, label)
       if ('error' in r) {
         toast.error(r.error)
-        router.refresh()
+        setTeams(prev)
       }
     })
   }
@@ -80,7 +78,7 @@ export function RDGroupsPanel({ tournamentId, initialTeams, numGroups, teamsPerG
       )}
 
       {/* Unassigned pool */}
-      {(unassigned.length > 0 || !canEdit) && (
+      {(unassigned.length > 0) && (
         <Card>
           <CardContent className="p-4 space-y-2">
             <div className="flex items-center gap-2">
@@ -150,7 +148,7 @@ export function RDGroupsPanel({ tournamentId, initialTeams, numGroups, teamsPerG
                         className="h-6 w-6"
                         disabled={pending}
                         onClick={() => assign(t.id, null)}
-                        title="Remove from group"
+                        aria-label={`Remove ${t.name} from group`}
                       >
                         <X className="h-3 w-3" />
                       </Button>
