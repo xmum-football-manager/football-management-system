@@ -99,6 +99,7 @@ export default async function RDFixturesPage({ params }: Props) {
         advancePerGroup={tournament.advance_per_group}
         knockoutQualifiers={tournament.knockout_qualifiers ?? null}
         knockoutSlots={0}
+        hideTabs
       />
     </div>
   )

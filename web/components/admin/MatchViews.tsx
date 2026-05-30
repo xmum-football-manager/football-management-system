@@ -61,6 +61,7 @@ interface MatchViewsProps {
   advancePerGroup?: number | null
   teams: TeamRef[]
   matches: MatchWithTeams[]
+  hideTabs?: boolean
 }
 
 export function MatchViews({
@@ -76,6 +77,7 @@ export function MatchViews({
   advancePerGroup,
   teams,
   matches,
+  hideTabs = false,
 }: MatchViewsProps) {
   const supportsStructure =
     tournamentFormat === 'knockout' ||
@@ -99,40 +101,42 @@ export function MatchViews({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-end">
-        <div
-          role="tablist"
-          aria-label="Match view"
-          className="inline-flex items-center gap-0.5 rounded-lg p-1"
-          style={{
-            background: 'var(--admin-surface-2)',
-            border: '1px solid var(--admin-rule)',
-          }}
-        >
-          {supportsStructure && (
+      {!hideTabs && (
+        <div className="flex items-center justify-end">
+          <div
+            role="tablist"
+            aria-label="Match view"
+            className="inline-flex items-center gap-0.5 rounded-lg p-1"
+            style={{
+              background: 'var(--admin-surface-2)',
+              border: '1px solid var(--admin-rule)',
+            }}
+          >
+            {supportsStructure && (
+              <ViewTab
+                icon={<Network className="h-3.5 w-3.5" />}
+                label="Structure"
+                active={effectiveView === 'structure'}
+                onClick={() => setView('structure')}
+              />
+            )}
             <ViewTab
-              icon={<Network className="h-3.5 w-3.5" />}
-              label="Structure"
-              active={effectiveView === 'structure'}
-              onClick={() => setView('structure')}
+              icon={<LayoutGrid className="h-3.5 w-3.5" />}
+              label="Board"
+              active={effectiveView === 'board'}
+              onClick={() => setView('board')}
             />
-          )}
-          <ViewTab
-            icon={<LayoutGrid className="h-3.5 w-3.5" />}
-            label="Board"
-            active={effectiveView === 'board'}
-            onClick={() => setView('board')}
-          />
-          <ViewTab
-            icon={<ListIcon className="h-3.5 w-3.5" />}
-            label="List"
-            active={effectiveView === 'list'}
-            onClick={() => setView('list')}
-          />
+            <ViewTab
+              icon={<ListIcon className="h-3.5 w-3.5" />}
+              label="List"
+              active={effectiveView === 'list'}
+              onClick={() => setView('list')}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
-      {effectiveView === 'structure' ? (
+      {!hideTabs && effectiveView === 'structure' ? (
         <StructureView
           format={tournamentFormat}
           teams={teams}
@@ -152,7 +156,7 @@ export function MatchViews({
               : 'Add at least 2 teams first.'}
           </CardContent>
         </Card>
-      ) : effectiveView === 'board' ? (
+      ) : !hideTabs && effectiveView === 'board' ? (
         <BoardView
           matches={matches}
           canEdit={canManageFixtures}

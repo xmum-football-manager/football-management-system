@@ -26,6 +26,7 @@ interface Props {
   advancePerGroup: number | null
   knockoutQualifiers: string[] | null
   knockoutSlots: number
+  hideTabs?: boolean
 }
 
 export function FixturesPanel({
@@ -43,6 +44,7 @@ export function FixturesPanel({
   advancePerGroup,
   knockoutQualifiers,
   knockoutSlots,
+  hideTabs,
 }: Props) {
   return (
     <div className="space-y-5">
@@ -80,6 +82,7 @@ export function FixturesPanel({
         advancePerGroup={advancePerGroup}
         teams={teams}
         matches={matches}
+        hideTabs={hideTabs}
       />
     </div>
   )
