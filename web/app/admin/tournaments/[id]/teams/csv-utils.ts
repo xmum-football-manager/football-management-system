@@ -39,6 +39,7 @@ export function parseTeamsCsv(csvText: string): ParseResult {
 
   for (let i = 1; i < lines.length; i++) {
     const row = i + 1
+    // Simple split — does not handle quoted fields containing commas (RFC 4180)
     const cols = lines[i].split(',')
 
     const teamName = cols[teamIdx]?.trim() ?? ''
