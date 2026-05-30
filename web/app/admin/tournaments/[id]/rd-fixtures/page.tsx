@@ -1,8 +1,7 @@
 import { getTournament } from '@/lib/db/tournaments'
-import { listTeams, listPlayerCounts } from '@/lib/db/teams'
+import { listTeams } from '@/lib/db/teams'
 import { listMatches } from '@/lib/db/matches'
-import { checkTournamentReadiness } from '@/lib/tournament-readiness'
-import { canAddFixture, canCreateFixtures, canManageTeams } from '@/lib/lock-rules'
+import { canAddFixture, canManageTeams } from '@/lib/lock-rules'
 import { requireUser } from '@/lib/auth'
 import { isAdmin } from '@/lib/db/roles'
 import { FixturesPanel } from '../fixtures/FixturesPanel'
@@ -22,11 +21,10 @@ export default async function RDFixturesPage({ params }: Props) {
   const user = await requireUser()
   const tournament = await getTournament(id)
   if (!tournament) return null
-  const [teams, matches, admin, playerCounts] = await Promise.all([
+  const [teams, matches, admin] = await Promise.all([
     listTeams(id),
     listMatches(id),
     isAdmin(user.id),
-    listPlayerCounts(id),
   ])
 
   // For round_robin_knockout, only show group matches
@@ -36,18 +34,9 @@ export default async function RDFixturesPage({ params }: Props) {
 
   const canEdit = canAddFixture(tournament.status)
   const anyMatchActive = displayMatches.some((m) => m.status !== 'scheduled')
-  const canCreate = canCreateFixtures(tournament.status, anyMatchActive)
   const canAssignGroups = canManageTeams(tournament.status) && !anyMatchActive
-  const readiness = checkTournamentReadiness(
-    teams,
-    playerCounts,
-    tournament.min_players_per_team,
-    tournament.format,
-    tournament.num_groups,
-    tournament.teams_per_group,
-  )
 
-  // For round_robin_knockout, treat as round_robin for fixture generation
+  // For round_robin_knockout, treat as round_robin for MatchViews rendering
   const effectiveFormat = tournament.format === 'round_robin_knockout'
     ? 'round_robin' as const
     : tournament.format
@@ -63,11 +52,8 @@ export default async function RDFixturesPage({ params }: Props) {
       teams={teams.map((t) => ({ id: t.id, name: t.name, group_label: t.group_label }))}
       matches={displayMatches}
       canEdit={canEdit}
-      canCreateFixtures={canCreate && readiness.canGenerateFixtures}
       canAssignGroups={canAssignGroups}
-      readinessIssues={readiness.blockingIssues}
       numGroups={tournament.num_groups}
-      teamsPerGroup={tournament.teams_per_group}
       advancePerGroup={tournament.advance_per_group}
       knockoutQualifiers={tournament.knockout_qualifiers ?? null}
       knockoutSlots={0}
