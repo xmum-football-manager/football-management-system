@@ -98,4 +98,24 @@ Team A,Alice,,`
     expect(errors).toEqual([])
     expect(teams[0].players).toHaveLength(2)
   })
+
+  it('accepts jersey_number of 0 (lower boundary)', () => {
+    const csv = `team,player_name,jersey_number\nTeam A,John,0`
+    const { teams, errors } = parseTeamsCsv(csv)
+    expect(errors).toEqual([])
+    expect(teams[0].players[0].jersey_number).toBe(0)
+  })
+
+  it('returns row-level error for jersey_number -1 (below lower boundary)', () => {
+    const csv = `team,player_name,jersey_number\nTeam A,John,-1`
+    const { errors } = parseTeamsCsv(csv)
+    expect(errors).toHaveLength(1)
+    expect(errors[0]).toMatch(/Row 2.*jersey_number/)
+  })
+
+  it('returns error when player_name column is missing', () => {
+    const { errors } = parseTeamsCsv(`team,jersey_number\nTeam A,1`)
+    expect(errors).toHaveLength(1)
+    expect(errors[0]).toMatch(/"player_name"/)
+  })
 })
