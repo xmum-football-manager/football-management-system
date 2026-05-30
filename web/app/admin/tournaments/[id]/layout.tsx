@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation'
 import { requireUser } from '@/lib/auth'
 import { isAdmin, isOrganizer } from '@/lib/db/roles'
 import { getTournament } from '@/lib/db/tournaments'
+import { listTeams, listPlayerCounts } from '@/lib/db/teams'
+import { checkTournamentReadiness } from '@/lib/tournament-readiness'
 import { TournamentStatusBadge } from '@/components/admin/TournamentStatusBadge'
 import { TournamentNav } from './TournamentNav'
 import { ArrowLeft } from 'lucide-react'
@@ -28,6 +30,19 @@ export default async function TournamentLayout({ params, children }: Props) {
     )
   }
 
+  const [teams, playerCounts] = await Promise.all([
+    listTeams(id),
+    listPlayerCounts(id),
+  ])
+
+  const readiness = checkTournamentReadiness(
+    teams,
+    playerCounts,
+    tournament.min_players_per_team,
+    tournament.format,
+    tournament.num_groups,
+  )
+
   return (
     <div className="space-y-5">
       <div>
@@ -48,7 +63,21 @@ export default async function TournamentLayout({ params, children }: Props) {
         )}
       </div>
 
-      <TournamentNav tournamentId={id} isAdmin={admin} />
+      <TournamentNav
+        tournamentId={id}
+        isAdmin={admin}
+        teamsProgress={
+          !readiness.canGenerateFixtures
+            ? `${readiness.teamsWithEnoughPlayers}/${readiness.totalTeams} teams ready`
+            : null
+        }
+        fixturesLocked={!readiness.canGenerateFixtures}
+        fixturesLockReason={
+          !readiness.canGenerateFixtures
+            ? readiness.blockingIssues.join(' ')
+            : null
+        }
+      />
 
       {children}
     </div>
