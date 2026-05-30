@@ -68,7 +68,7 @@ export function MatchCard({ match }: MatchCardProps) {
             fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 11,
             letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--brand-lime)',
           }}>
-            Upcoming · {formatTime(match.match_time)}
+            Upcoming · {formatTime(match.match_time ?? '')}
           </span>
         )}
       </div>
@@ -98,7 +98,7 @@ export function MatchCard({ match }: MatchCardProps) {
         fontSize: 12, color: 'var(--ink-400)',
       }}>
         <span style={{ fontFamily: 'var(--font-mono)' }}>
-          {isUpcoming ? formatDate(match.match_time) : isFinished ? `FT · ${formatDate(match.match_time)}` : ''}
+          {isUpcoming ? formatDate(match.match_time ?? '') : isFinished ? `FT · ${formatDate(match.match_time ?? '')}` : ''}
         </span>
         <span style={{
           width: 24, height: 24, borderRadius: 999,

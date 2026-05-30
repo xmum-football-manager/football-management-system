@@ -173,7 +173,7 @@ export function MatchViews({
       {reschedulingMatch && (
         <RescheduleDialog
           match={reschedulingMatch}
-          initialTime={reschedulingMatch.match_time}
+          initialTime={reschedulingMatch.match_time ?? ''}
           tournamentId={tournamentId}
           tournamentStart={tournamentStart}
           tournamentEnd={tournamentEnd}
@@ -350,7 +350,7 @@ function StructureView({
       .filter(
         (m) => m.home_team.group_label === label && m.away_team.group_label === label,
       )
-      .sort((a, b) => a.match_time.localeCompare(b.match_time))
+      .sort((a, b) => (a.match_time ?? '').localeCompare(b.match_time ?? ''))
     return { label: `Group ${label}`, standings, matches: groupMatches }
   })
 
@@ -614,7 +614,7 @@ function MatchdayCard({
         className="flex items-center justify-between px-2 py-1 text-[10px] text-muted-foreground"
         style={{ background: 'var(--admin-surface-2)' }}
       >
-        <span className="admin-mono">{formatClock(match.match_time)}</span>
+        <span className="admin-mono">{formatClock(match.match_time ?? '')}</span>
         <MatchStatusBadge status={match.status} />
       </div>
       <MatchdayTeamRow
@@ -1131,7 +1131,7 @@ function BoardView({
     e.preventDefault()
     const source = matches.find((x) => x.id === sourceId)
     if (!source) return
-    setReschedule({ match: source, targetTime: target.match_time })
+    setReschedule({ match: source, targetTime: target.match_time ?? '' })
     setDragId(null)
   }
 
@@ -1200,7 +1200,7 @@ function BoardView({
                   <CardContent className="p-3">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
                       {draggable && <GripVertical className="h-3 w-3 opacity-60" />}
-                      <span className="font-mono">{formatClock(m.match_time)}</span>
+                      <span className="font-mono">{formatClock(m.match_time ?? '')}</span>
                       {m.home_team.group_label && m.home_team.group_label === m.away_team.group_label && (
                         <span
                           className="admin-tab rounded-full px-1.5 py-0.5 text-[9px]"
@@ -1408,7 +1408,7 @@ function RescheduleDialog({
             disabled={pending}
           />
           <p className="text-[11px] text-muted-foreground">
-            Currently scheduled for {new Date(match.match_time).toLocaleString()}. Must be within {tournamentStart} – {tournamentEnd}.
+            Currently scheduled for {new Date(match.match_time ?? '').toLocaleString()}. Must be within {tournamentStart} – {tournamentEnd}.
           </p>
         </div>
         <DialogFooter>
@@ -1497,6 +1497,7 @@ function SwapTeamsDialog({
 function groupByDay(matches: MatchWithTeams[]) {
   const map = new Map<string, MatchWithTeams[]>()
   for (const m of matches) {
+    if (!m.match_time) continue
     const d = new Date(m.match_time)
     const key = d.toISOString().slice(0, 10)
     const arr = map.get(key) ?? []
@@ -1512,7 +1513,7 @@ function groupByDay(matches: MatchWithTeams[]) {
         month: 'short',
         day: 'numeric',
       }),
-      matches: ms.sort((a, b) => a.match_time.localeCompare(b.match_time)),
+      matches: ms.sort((a, b) => (a.match_time ?? '').localeCompare(b.match_time ?? '')),
     }))
 }
 

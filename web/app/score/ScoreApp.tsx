@@ -93,7 +93,7 @@ export function ScoreApp({ email, initialMatches }: Props) {
                   ) : m.status === 'finished' ? (
                     <span className="ml-1 text-slate-500">FT</span>
                   ) : (
-                    <span className="ml-1 text-slate-400">{formatTime(m.match_time)}</span>
+                    <span className="ml-1 text-slate-400">{formatTime(m.match_time ?? '')}</span>
                   )}
                 </button>
               )
@@ -253,7 +253,7 @@ function ScoreCard({ match, onChange }: { match: MatchWithTeams; onChange: () =>
         ) : match.status === 'finished' ? (
           <span className="text-slate-400 text-sm font-semibold">FULL TIME</span>
         ) : (
-          <span className="text-slate-400 text-sm">SCHEDULED · {formatTime(match.match_time)}</span>
+          <span className="text-slate-400 text-sm">SCHEDULED · {formatTime(match.match_time ?? '')}</span>
         )}
       </div>
 

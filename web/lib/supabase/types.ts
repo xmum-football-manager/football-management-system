@@ -60,7 +60,7 @@ export interface Match {
   tournament_id: string
   home_team_id: string
   away_team_id: string
-  match_time: string
+  match_time: string | null
   status: MatchStatus
   home_score: number
   away_score: number

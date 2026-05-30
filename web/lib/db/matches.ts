@@ -23,7 +23,7 @@ export interface CreateMatchInput {
   tournament_id: string
   home_team_id: string
   away_team_id: string
-  match_time: string
+  match_time: string | null
   phase?: string
   knockout_round?: string
 }
@@ -77,7 +77,7 @@ export async function updateMatchStatus(
   return {}
 }
 
-export async function updateMatchTime(id: string, match_time: string): Promise<{ error?: string }> {
+export async function updateMatchTime(id: string, match_time: string | null): Promise<{ error?: string }> {
   const supabase = await createClient()
   const { error } = await supabase.from('matches').update({ match_time }).eq('id', id)
   if (error) return { error: error.message }

@@ -145,7 +145,7 @@ export function MatchRow({ match, tournamentStatus, isAdmin, onMatchClick }: Pro
             {match.status === 'live' ? 'LIVE' : 'HT'}
           </span>
         ) : (
-          formatClock(match.match_time)
+          formatClock(match.match_time ?? '')
         )}
       </div>
 

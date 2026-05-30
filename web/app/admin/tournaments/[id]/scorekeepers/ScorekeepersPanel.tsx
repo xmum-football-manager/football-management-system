@@ -15,7 +15,7 @@ import { assignScorekeeperAction, removeScorekeeperAction } from './actions'
 interface Match {
   id: string
   label: string
-  time: string
+  time: string | null
 }
 
 interface Assignment {
