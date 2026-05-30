@@ -169,7 +169,7 @@ function FilterChips({ value, onChange }: { value: MatchFilter; onChange: (v: Ma
 
 // ── Main component ──────────────────────────────────────────────────────────────
 export function TournamentView({ tournament, initialMatches, initialStandings, initialTeams }: TournamentViewProps) {
-  const defaultTab = initialMatches.some(m => m.status === 'live') ? 'live' : 'fixtures'
+  const defaultTab = initialMatches.filter(m => m.match_time !== null).some(m => m.status === 'live') ? 'live' : 'fixtures'
   const [tab, setTab] = useState<Tab>(defaultTab)
   const [matches, setMatches] = useState(initialMatches)
   const [standings, setStandings] = useState(initialStandings)
