@@ -46,6 +46,9 @@ export function CsvImport({ tournamentId, disabled }: Props) {
       const text = ev.target?.result as string
       setPreview(parseTeamsCsv(text))
     }
+    reader.onerror = () => {
+      toast.error('Could not read the file. Please try again.')
+    }
     reader.readAsText(file)
     e.target.value = ''
   }
