@@ -3,39 +3,72 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { AlertCircle, Lock } from 'lucide-react'
+import type { TournamentFormat } from '@/lib/supabase/types'
 
 interface TabDef {
   href: string
   label: string
   needsAttention?: boolean
   locked?: boolean
+  lockReason?: string | null
 }
 
 interface Props {
   tournamentId: string
+  format: TournamentFormat
   isAdmin: boolean
-  teamsProgress?: string | null
-  fixturesLocked?: boolean
-  fixturesLockReason?: string | null
+  rdTeamsProgress?: string | null
+  rdFixturesLocked?: boolean
+  rdFixturesLockReason?: string | null
+  koTeamsLocked?: boolean
+  koTeamsLockReason?: string | null
+  koTeamsProgress?: string | null
+  koFixturesLocked?: boolean
+  koFixturesLockReason?: string | null
 }
 
 export function TournamentNav({
   tournamentId,
+  format,
   isAdmin: _isAdmin,
-  teamsProgress = null,
-  fixturesLocked = false,
-  fixturesLockReason = null,
+  rdTeamsProgress = null,
+  rdFixturesLocked = false,
+  rdFixturesLockReason = null,
+  koTeamsLocked = false,
+  koTeamsLockReason = null,
+  koTeamsProgress = null,
+  koFixturesLocked = false,
+  koFixturesLockReason = null,
 }: Props) {
   const pathname = usePathname()
   const base = `/admin/tournaments/${tournamentId}`
 
-  const tabs: TabDef[] = [
-    { href: base, label: 'Overview' },
-    { href: `${base}/teams`, label: 'Teams', needsAttention: !!teamsProgress },
-    { href: `${base}/fixtures`, label: 'Fixtures', locked: fixturesLocked },
+  const tabs: TabDef[] = [{ href: base, label: 'Overview' }]
+
+  if (format === 'round_robin') {
+    tabs.push(
+      { href: `${base}/rd-teams`, label: 'RD-Teams', needsAttention: !!rdTeamsProgress },
+      { href: `${base}/rd-fixtures`, label: 'RD-Fixtures', locked: rdFixturesLocked, lockReason: rdFixturesLockReason },
+    )
+  } else if (format === 'knockout') {
+    tabs.push(
+      { href: `${base}/ko-teams`, label: 'KO-Teams', needsAttention: !!koTeamsProgress },
+      { href: `${base}/ko-fixtures`, label: 'KO-Fixtures', locked: koFixturesLocked, lockReason: koFixturesLockReason },
+    )
+  } else {
+    // round_robin_knockout
+    tabs.push(
+      { href: `${base}/rd-teams`, label: 'RD-Teams', needsAttention: !!rdTeamsProgress },
+      { href: `${base}/rd-fixtures`, label: 'RD-Fixtures', locked: rdFixturesLocked, lockReason: rdFixturesLockReason },
+      { href: `${base}/ko-teams`, label: 'KO-Teams', needsAttention: !koTeamsLocked && !!koTeamsProgress, locked: koTeamsLocked, lockReason: koTeamsLockReason },
+      { href: `${base}/ko-fixtures`, label: 'KO-Fixtures', locked: koFixturesLocked, lockReason: koFixturesLockReason },
+    )
+  }
+
+  tabs.push(
     { href: `${base}/scorekeepers`, label: 'Scorekeepers' },
     { href: `${base}/settings`, label: 'Settings' },
-  ]
+  )
 
   return (
     <nav
@@ -59,8 +92,8 @@ export function TournamentNav({
                   pointerEvents: t.locked ? 'none' : 'auto',
                 }}
                 title={
-                  t.locked && fixturesLockReason
-                    ? fixturesLockReason
+                  t.locked && t.lockReason
+                    ? t.lockReason
                     : undefined
                 }
               >

@@ -13,6 +13,13 @@ async function ensureOrganizer(tournamentId: string) {
   if (!(await isOrganizer(user.id, tournamentId))) throw new Error('Not authorized.')
 }
 
+function revalidateTeams(tournamentId: string) {
+  revalidatePath(`/admin/tournaments/${tournamentId}/teams`)
+  revalidatePath(`/admin/tournaments/${tournamentId}/rd-teams`)
+  revalidatePath(`/admin/tournaments/${tournamentId}/ko-teams`)
+  revalidatePath(`/admin/tournaments/${tournamentId}`)
+}
+
 export async function addTeamAction(
   tournamentId: string,
   name: string,
@@ -20,7 +27,7 @@ export async function addTeamAction(
   try {
     await ensureOrganizer(tournamentId)
     const result = await createTeam(tournamentId, name)
-    if ('id' in result) revalidatePath(`/admin/tournaments/${tournamentId}/teams`)
+    if ('id' in result) revalidateTeams(tournamentId)
     return result
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed.' }
@@ -43,9 +50,9 @@ export async function setTeamGroupAction(
     }
     const result = await setTeamGroup(teamId, groupLabel)
     if (result.error) return { error: result.error }
-    revalidatePath(`/admin/tournaments/${tournamentId}/teams`)
-    revalidatePath(`/admin/tournaments/${tournamentId}/fixtures`)
-    revalidatePath(`/admin/tournaments/${tournamentId}`)
+    revalidateTeams(tournamentId)
+    revalidatePath(`/admin/tournaments/${tournamentId}/rd-fixtures`)
+    revalidatePath(`/admin/tournaments/${tournamentId}/ko-fixtures`)
     return { ok: true }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed.' }
@@ -60,7 +67,7 @@ export async function deleteTeamAction(
     await ensureOrganizer(tournamentId)
     const result = await deleteTeam(teamId)
     if (result.error) return { error: result.error }
-    revalidatePath(`/admin/tournaments/${tournamentId}/teams`)
+    revalidateTeams(tournamentId)
     return { ok: true }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed.' }
@@ -82,7 +89,7 @@ export async function addPlayerAction(input: {
       jersey_number: input.jersey_number,
       position: input.position,
     })
-    if ('id' in result) revalidatePath(`/admin/tournaments/${input.tournamentId}/teams`)
+    if ('id' in result) revalidateTeams(input.tournamentId)
     return result
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed.' }
@@ -97,7 +104,7 @@ export async function deletePlayerAction(
     await ensureOrganizer(tournamentId)
     const result = await deletePlayer(playerId)
     if (result.error) return { error: result.error }
-    revalidatePath(`/admin/tournaments/${tournamentId}/teams`)
+    revalidateTeams(tournamentId)
     return { ok: true }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed.' }
@@ -142,7 +149,7 @@ export async function importTeamsAction(
         playerCount++
       }
     }
-    revalidatePath(`/admin/tournaments/${tournamentId}/teams`)
+    revalidateTeams(tournamentId)
     return { ok: true, teamCount: teams.length, playerCount }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Import failed.' }
