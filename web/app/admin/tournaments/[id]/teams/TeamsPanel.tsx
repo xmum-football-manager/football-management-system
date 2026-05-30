@@ -34,6 +34,7 @@ import {
   deletePlayerAction,
 } from './actions'
 import type { TournamentFormat } from '@/lib/supabase/types'
+import { CsvImport } from './CsvImport'
 
 interface PlayerData {
   id: string
@@ -119,6 +120,17 @@ export function TeamsPanel({
           Group assignment now lives on the <span className="font-semibold">Fixtures</span> tab →
           Groups view.
         </div>
+      )}
+
+      {canEdit && (
+        <Card>
+          <CardContent className="p-4">
+            <CsvImport
+              tournamentId={tournamentId}
+              disabled={initialTeams.length > 0}
+            />
+          </CardContent>
+        </Card>
       )}
 
       {canEdit && (
