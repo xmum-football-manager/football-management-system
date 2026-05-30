@@ -2,19 +2,37 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { AlertCircle, Lock } from 'lucide-react'
+
+interface TabDef {
+  href: string
+  label: string
+  needsAttention?: boolean
+  locked?: boolean
+}
 
 interface Props {
   tournamentId: string
   isAdmin: boolean
+  teamsProgress?: string | null
+  fixturesLocked?: boolean
+  fixturesLockReason?: string | null
 }
 
-export function TournamentNav({ tournamentId }: Props) {
+export function TournamentNav({
+  tournamentId,
+  isAdmin: _isAdmin,
+  teamsProgress = null,
+  fixturesLocked = false,
+  fixturesLockReason = null,
+}: Props) {
   const pathname = usePathname()
   const base = `/admin/tournaments/${tournamentId}`
-  const tabs: { href: string; label: string }[] = [
+
+  const tabs: TabDef[] = [
     { href: base, label: 'Overview' },
-    { href: `${base}/teams`, label: 'Teams' },
-    { href: `${base}/fixtures`, label: 'Fixtures' },
+    { href: `${base}/teams`, label: 'Teams', needsAttention: !!teamsProgress },
+    { href: `${base}/fixtures`, label: 'Fixtures', locked: fixturesLocked },
     { href: `${base}/scorekeepers`, label: 'Scorekeepers' },
     { href: `${base}/settings`, label: 'Settings' },
   ]
@@ -37,9 +55,22 @@ export function TournamentNav({ tournamentId }: Props) {
                   borderBottom: active
                     ? '2px solid var(--admin-lime)'
                     : '2px solid transparent',
+                  opacity: t.locked ? 0.5 : 1,
+                  pointerEvents: t.locked ? 'none' : 'auto',
                 }}
+                title={
+                  t.locked && fixturesLockReason
+                    ? fixturesLockReason
+                    : undefined
+                }
               >
                 {t.label}
+                {t.needsAttention && (
+                  <AlertCircle className="inline-block ml-1 h-3.5 w-3.5 text-red-500" />
+                )}
+                {t.locked && (
+                  <Lock className="inline-block ml-1 h-3.5 w-3.5 text-muted-foreground" />
+                )}
               </Link>
             </li>
           )
