@@ -12,6 +12,8 @@ export function computeEndTime(
   return `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`
 }
 
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
 export function getTournamentDays(
   startDate: string,
   endDate: string,
@@ -23,7 +25,7 @@ export function getTournamentDays(
   while (current <= end) {
     const isoDate = current.toISOString().split('T')[0]
     const day = current.getUTCDate()
-    const month = current.toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' })
+    const month = MONTHS[current.getUTCMonth()]
     days.push({ label: `Day ${dayNumber} (${day} ${month})`, date: isoDate })
     current.setUTCDate(current.getUTCDate() + 1)
     dayNumber++

@@ -42,4 +42,17 @@ describe('getTournamentDays', () => {
     const days = getTournamentDays('2026-12-31', '2026-12-31')
     expect(days[0].label).toBe('Day 1 (31 Dec)')
   })
+
+  it('formats September with 3-character abbreviation', () => {
+    const days = getTournamentDays('2026-09-15', '2026-09-15')
+    expect(days[0].label).toBe('Day 1 (15 Sep)')
+  })
+
+  it('handles month boundary correctly', () => {
+    const days = getTournamentDays('2026-01-31', '2026-02-02')
+    expect(days).toHaveLength(3)
+    expect(days[0].label).toBe('Day 1 (31 Jan)')
+    expect(days[1].label).toBe('Day 2 (1 Feb)')
+    expect(days[2].label).toBe('Day 3 (2 Feb)')
+  })
 })
