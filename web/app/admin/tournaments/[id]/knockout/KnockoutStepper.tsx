@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Check, Lock } from 'lucide-react'
 import { QualifiersStep } from './QualifiersStep'
 import { BracketSetupView } from './BracketSetupView'
+import { AdminBracketView } from '@/components/admin/AdminBracketView'
 import type { MatchWithTeams } from '@/lib/supabase/types'
 import type { TeamStanding } from '@/lib/qualifiers'
 
@@ -62,6 +63,25 @@ export function KnockoutStepper({
   ]
 
   const qualifiedTeams = teams.filter((t) => savedQualifiers?.includes(t.id) ?? false)
+
+  // Once bracket is created, collapse the setup and show the bracket view directly
+  if (bracketExists) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--muted-foreground)' }}>
+          <Check className="h-3 w-3 text-emerald-500" />
+          <span>Qualifiers set</span>
+          <span style={{ opacity: 0.35 }}>──</span>
+          <Check className="h-3 w-3 text-emerald-500" />
+          <span>Bracket scheduled</span>
+        </div>
+        <AdminBracketView
+          matches={knockoutMatches}
+          bracketTeamCount={qualifiedTeams.length}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4">
@@ -123,7 +143,7 @@ export function KnockoutStepper({
         />
       )}
 
-      {activeStep === 'bracket' && !bracketExists && canEdit && (
+      {activeStep === 'bracket' && canEdit && (
         <BracketSetupView
           tournamentId={tournamentId}
           qualifiedTeams={qualifiedTeams}

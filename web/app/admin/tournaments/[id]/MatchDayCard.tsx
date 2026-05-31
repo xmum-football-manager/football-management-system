@@ -120,7 +120,7 @@ export function MatchDayCard({ match, isAdmin, halftimeEnabled }: Props) {
           />
           {isHalftime ? 'HALF TIME' : 'LIVE'}
         </span>
-        {match.home_team.group_label && (
+        {match.phase !== 'knockout' && match.home_team.group_label && (
           <span className="text-xs text-muted-foreground">· Group {match.home_team.group_label}</span>
         )}
       </div>
