@@ -14,7 +14,22 @@ interface Team {
 interface Props {
   tournamentId: string
   qualifiedTeams: Team[]
+  tournamentStart: string  // YYYY-MM-DD
+  tournamentEnd: string    // YYYY-MM-DD
   onCreated: () => void
+}
+
+function buildDayOptions(start: string, end: string): { label: string; date: string }[] {
+  const options: { label: string; date: string }[] = []
+  const endDate = new Date(end)
+  let current = new Date(start)
+  let day = 1
+  while (current <= endDate) {
+    options.push({ label: `Day ${day}`, date: current.toISOString().split('T')[0] })
+    current.setDate(current.getDate() + 1)
+    day++
+  }
+  return options
 }
 
 interface Pairing {
@@ -51,7 +66,7 @@ function initials(name: string): string {
   return name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
 }
 
-export function BracketSetupView({ tournamentId, qualifiedTeams, onCreated }: Props) {
+export function BracketSetupView({ tournamentId, qualifiedTeams, tournamentStart, tournamentEnd, onCreated }: Props) {
   const matchCount = Math.floor(qualifiedTeams.length / 2)
   const [pairings, setPairings] = useState<Pairing[]>(() => buildEmptyPairings(matchCount))
   const [openPicker, setOpenPicker] = useState<{ matchIdx: number; slot: 'home' | 'away' } | null>(null)
@@ -59,6 +74,7 @@ export function BracketSetupView({ tournamentId, qualifiedTeams, onCreated }: Pr
   const handleClosePicker = useCallback(() => setOpenPicker(null), [])
 
   const assigned = assignedIds(pairings)
+  const dayOptions = buildDayOptions(tournamentStart, tournamentEnd)
 
   // Build placeholder rounds for subsequent rounds
   const placeholderRounds: Array<{ homeLabel: string; awayLabel: string }[]> = []
@@ -173,6 +189,7 @@ export function BracketSetupView({ tournamentId, qualifiedTeams, onCreated }: Pr
                     pairing={pairing}
                     qualifiedTeams={qualifiedTeams}
                     assigned={assigned}
+                    dayOptions={dayOptions}
                     openPicker={openPicker}
                     onOpenPicker={setOpenPicker}
                     onClosePicker={handleClosePicker}
@@ -264,6 +281,7 @@ function MatchCard({
   pairing,
   qualifiedTeams,
   assigned,
+  dayOptions,
   openPicker,
   onOpenPicker,
   onClosePicker,
@@ -275,6 +293,7 @@ function MatchCard({
   pairing: Pairing
   qualifiedTeams: Team[]
   assigned: Set<string>
+  dayOptions: { label: string; date: string }[]
   openPicker: { matchIdx: number; slot: 'home' | 'away' } | null
   onOpenPicker: (v: { matchIdx: number; slot: 'home' | 'away' }) => void
   onClosePicker: () => void
@@ -282,6 +301,25 @@ function MatchCard({
   onClearSlot: (slot: 'home' | 'away') => void
   onSetTime: (value: string) => void
 }) {
+  const selectedDate = pairing.matchTime ? pairing.matchTime.slice(0, 10) : ''
+  const selectedTime = pairing.matchTime ? pairing.matchTime.slice(11, 16) : ''
+
+  function handleDayChange(date: string) {
+    const time = selectedTime || ''
+    onSetTime(date && time ? `${date}T${time}` : '')
+  }
+
+  function handleTimeChange(time: string) {
+    onSetTime(selectedDate && time ? `${selectedDate}T${time}` : '')
+  }
+
+  const inputStyle = {
+    border: '1px solid var(--admin-rule)',
+    background: 'var(--admin-surface-2)',
+    color: 'var(--foreground)',
+    outline: 'none',
+  }
+
   return (
     <div
       className="rounded-md overflow-visible"
@@ -316,18 +354,24 @@ function MatchCard({
         onClearSlot={onClearSlot}
       />
       <div style={{ height: 1, background: 'var(--admin-rule)' }} />
-      <div className="px-3 py-2.5">
+      <div className="flex gap-2 px-3 py-2.5">
+        <select
+          value={selectedDate}
+          onChange={(e) => handleDayChange(e.target.value)}
+          className="flex-1 rounded text-xs px-2 py-1"
+          style={inputStyle}
+        >
+          <option value="">Day…</option>
+          {dayOptions.map((opt) => (
+            <option key={opt.date} value={opt.date}>{opt.label}</option>
+          ))}
+        </select>
         <input
-          type="datetime-local"
-          value={pairing.matchTime}
-          onChange={(e) => onSetTime(e.target.value)}
-          className="w-full rounded text-xs px-2 py-1"
-          style={{
-            border: '1px solid var(--admin-rule)',
-            background: 'var(--admin-surface-2)',
-            color: 'var(--foreground)',
-            outline: 'none',
-          }}
+          type="time"
+          value={selectedTime}
+          onChange={(e) => handleTimeChange(e.target.value)}
+          className="w-24 rounded text-xs px-2 py-1"
+          style={inputStyle}
         />
       </div>
     </div>

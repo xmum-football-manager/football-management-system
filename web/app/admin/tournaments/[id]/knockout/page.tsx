@@ -54,6 +54,8 @@ export default async function KnockoutPage({ params }: Props) {
       teams={teams.map((t) => ({ id: t.id, name: t.name, group_label: t.group_label }))}
       isAdmin={admin}
       canEdit={canEdit}
+      tournamentStart={tournament.start_date}
+      tournamentEnd={tournament.end_date}
     />
   )
 }

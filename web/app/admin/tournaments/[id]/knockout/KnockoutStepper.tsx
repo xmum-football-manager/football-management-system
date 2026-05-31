@@ -22,6 +22,8 @@ interface Props {
   teams: Array<{ id: string; name: string; group_label: string | null }>
   isAdmin: boolean
   canEdit: boolean
+  tournamentStart: string
+  tournamentEnd: string
 }
 
 export function KnockoutStepper({
@@ -34,6 +36,8 @@ export function KnockoutStepper({
   teams,
   isAdmin,
   canEdit,
+  tournamentStart,
+  tournamentEnd,
 }: Props) {
   const router = useRouter()
   const qualifiersDone = (savedQualifiers?.length ?? 0) > 0
@@ -147,6 +151,8 @@ export function KnockoutStepper({
         <BracketSetupView
           tournamentId={tournamentId}
           qualifiedTeams={qualifiedTeams}
+          tournamentStart={tournamentStart}
+          tournamentEnd={tournamentEnd}
           onCreated={() => router.refresh()}
         />
       )}
