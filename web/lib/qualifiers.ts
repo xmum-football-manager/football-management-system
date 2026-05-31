@@ -7,6 +7,10 @@ export interface TeamStanding {
   qualified: boolean
 }
 
+/**
+ * Computes group-stage standings and marks qualifiers per group.
+ * Constraints: numGroups must be ≤ 26 (A–Z labels), advancePerGroup must be ≥ 1.
+ */
 export function computeGroupStandings(
   teams: Array<{ id: string; name: string; group_label: string | null }>,
   matches: Array<{
@@ -33,13 +37,13 @@ export function computeGroupStandings(
     const home = map.get(m.home_team_id)
     const away = map.get(m.away_team_id)
     if (!home || !away) continue
-    const h = m.home_score
-    const a = m.away_score
-    if (h > a) { home.points += 3 }
-    else if (h < a) { away.points += 3 }
+    const homeScore = m.home_score
+    const awayScore = m.away_score
+    if (homeScore > awayScore) { home.points += 3 }
+    else if (homeScore < awayScore) { away.points += 3 }
     else { home.points += 1; away.points += 1 }
-    home.gd += h - a
-    away.gd += a - h
+    home.gd += homeScore - awayScore
+    away.gd += awayScore - homeScore
   }
 
   const qualifiedIds = new Set<string>()

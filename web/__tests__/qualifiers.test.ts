@@ -82,6 +82,17 @@ describe('computeGroupStandings', () => {
     expect(standings.find(s => s.teamId === 'b')!.qualified).toBe(false)
   })
 
+  it('excludes teams with null group_label', () => {
+    const teams = [
+      team('a', 'Alpha', 'A'),
+      { id: 'x', name: 'Orphan', group_label: null },
+    ]
+    const matches: ReturnType<typeof match>[] = []
+    const standings = computeGroupStandings(teams, matches, 1, 1)
+    expect(standings.find(s => s.teamId === 'x')).toBeUndefined()
+    expect(standings.find(s => s.teamId === 'a')).toBeDefined()
+  })
+
   it('handles multiple groups correctly', () => {
     const teams = [
       team('a', 'Alpha', 'A'), team('b', 'Beta', 'A'),
