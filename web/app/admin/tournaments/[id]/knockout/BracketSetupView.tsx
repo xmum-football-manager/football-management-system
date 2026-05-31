@@ -165,7 +165,7 @@ export function BracketSetupView({ tournamentId, qualifiedTeams, onCreated }: Pr
               >
                 Round 1
               </div>
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-5">
                 {pairings.map((pairing, matchIdx) => (
                   <MatchCard
                     key={matchIdx}
@@ -316,12 +316,12 @@ function MatchCard({
         onClearSlot={onClearSlot}
       />
       <div style={{ height: 1, background: 'var(--admin-rule)' }} />
-      <div className="px-2 py-1.5">
+      <div className="px-3 py-2.5">
         <input
           type="datetime-local"
           value={pairing.matchTime}
           onChange={(e) => onSetTime(e.target.value)}
-          className="w-full rounded text-xs px-1.5 py-0.5"
+          className="w-full rounded text-xs px-2 py-1"
           style={{
             border: '1px solid var(--admin-rule)',
             background: 'var(--admin-surface-2)',
@@ -378,7 +378,7 @@ function TeamSlot({
   return (
     <div style={{ position: 'relative' }}>
       {team ? (
-        <div className="flex items-center gap-2 px-2 py-1.5">
+        <div className="flex items-center gap-2 px-3 py-3">
           <span
             className="admin-display inline-flex h-5 w-5 items-center justify-center rounded-full text-[9px] shrink-0"
             style={{
@@ -404,7 +404,7 @@ function TeamSlot({
         <button
           type="button"
           onClick={() => onOpenPicker({ matchIdx, slot })}
-          className="w-full text-left px-2 py-1.5 text-xs"
+          className="w-full text-left px-3 py-3 text-xs"
           style={{
             color: 'var(--admin-lime)',
             border: 'none',
@@ -487,7 +487,7 @@ function PlaceholderCard({
 
 function PlaceholderRow({ label }: { label: string }) {
   return (
-    <div className="flex items-center gap-2 px-2 py-2">
+    <div className="flex items-center gap-2 px-3 py-3">
       <span
         className="admin-display inline-flex h-5 w-5 items-center justify-center rounded-full text-[9px] shrink-0"
         style={{
