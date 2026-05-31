@@ -21,13 +21,24 @@ interface Props {
 
 function buildDayOptions(start: string, end: string): { label: string; date: string }[] {
   const options: { label: string; date: string }[] = []
-  const endDate = new Date(end)
-  let current = new Date(start)
+  // Work purely with date strings (YYYY-MM-DD) to avoid timezone shifts
+  const startParts = start.split('-').map(Number)
+  const endParts = end.split('-').map(Number)
+  let [y, m, d] = startParts
+  const [ey, em, ed] = endParts
   let day = 1
-  while (current <= endDate) {
-    options.push({ label: `Day ${day}`, date: current.toISOString().split('T')[0] })
-    current.setDate(current.getDate() + 1)
+  while (
+    y < ey || (y === ey && m < em) || (y === ey && m === em && d <= ed)
+  ) {
+    const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    options.push({ label: `Day ${day}`, date: dateStr })
     day++
+    d++
+    // Roll over days within month (simplified: use Date for month boundary)
+    const next = new Date(y, m - 1, d)
+    y = next.getFullYear()
+    m = next.getMonth() + 1
+    d = next.getDate()
   }
   return options
 }
