@@ -307,7 +307,7 @@ export async function seedDirectKnockoutAction(
 
 export async function createManualKnockoutAction(
   tournamentId: string,
-  pairings: Array<{ home_team_id: string; away_team_id: string }>,
+  pairings: Array<{ home_team_id: string; away_team_id: string; match_time: string | null }>,
 ): Promise<{ created: number } | { error: string }> {
   try {
     await ensureOrganizer(tournamentId)
@@ -335,11 +335,12 @@ export async function createManualKnockoutAction(
         tournament_id: tournamentId,
         home_team_id: p.home_team_id,
         away_team_id: p.away_team_id,
-        match_time: tournament.start_date + 'T12:00:00Z',
+        match_time: p.match_time ?? null,
         phase: 'knockout',
         knockout_round: round,
       })
-      if ('id' in r) created++
+      if ('error' in r) return { error: r.error }
+      created++
     }
     revalidatePath(`/admin/tournaments/${tournamentId}/fixtures`)
     revalidatePath(`/admin/tournaments/${tournamentId}`)

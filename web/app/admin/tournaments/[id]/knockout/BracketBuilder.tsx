@@ -46,7 +46,7 @@ export function BracketBuilder({ tournamentId, qualifiedTeams, onCreated }: Prop
     startTransition(async () => {
       const r = await createManualKnockoutAction(
         tournamentId,
-        pairings.map((p) => ({ home_team_id: p.home, away_team_id: p.away })),
+        pairings.map((p) => ({ home_team_id: p.home, away_team_id: p.away, match_time: null })),
       )
       if ('error' in r) toast.error(r.error)
       else {
