@@ -125,27 +125,7 @@ export function TeamsPanel({
         </div>
       )}
 
-      {showGroups && (
-        <div
-          className="rounded-md border bg-emerald-50/60 border-emerald-200 px-3 py-2 text-xs text-emerald-900"
-        >
-          Group assignment now lives on the <span className="font-semibold">Fixtures</span> tab →
-          Groups view.
-        </div>
-      )}
-
-      {canEdit && showCsvImport && (
-        <Card>
-          <CardContent className="p-4">
-            <CsvImport
-              tournamentId={tournamentId}
-              disabled={initialTeams.length > 0}
-            />
-          </CardContent>
-        </Card>
-      )}
-
-      {canEdit && (
+{canEdit && showCsvImport && (
         <Card>
           <CardContent className="p-4">
             <CsvImport

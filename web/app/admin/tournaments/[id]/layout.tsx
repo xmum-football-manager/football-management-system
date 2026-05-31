@@ -65,14 +65,13 @@ export default async function TournamentLayout({ params, children }: Props) {
     ? readiness.blockingIssues.join(' ')
     : null
 
-  // KO teams locked when RD teams aren't ready (RR+KO only — in pure KO format, teams are set up directly)
-  let koTeamsLocked = false
-  let koTeamsLockReason: string | null = null
-  if (tournament.format === 'round_robin_knockout' && !teamsReady) {
-    koTeamsLocked = true
-    koTeamsLockReason = 'Complete group-stage teams first.'
-  }
+  // Groups tab only needs players ready — group assignment happens inside the tab
+  const groupsTabLocked = !readiness.allPlayersReady
+  const groupsTabLockReason = groupsTabLocked
+    ? readiness.blockingIssues.filter(i => !i.includes('not assigned')).join(' ') || rdFixturesLockReason
+    : null
 
+  // KO teams locked when RD teams aren't ready (RR+KO only — in pure KO format, teams are set up directly)
   const rdGroupsProgress = (
     tournament.format === 'round_robin_knockout' &&
     (!readiness.allGroupsAssigned || !readiness.allGroupsFull)
@@ -114,23 +113,14 @@ export default async function TournamentLayout({ params, children }: Props) {
         tournamentId={id}
         format={tournament.format}
         isAdmin={admin}
-        rdGroupsProgress={rdGroupsProgress}
-        rdTeamsProgress={
-          !teamsReady
-            ? `${readiness.teamsWithEnoughPlayers}/${readiness.totalTeams} teams ready`
-            : null
-        }
-        rdFixturesLocked={rdFixturesLocked}
-        rdFixturesLockReason={rdFixturesLockReason}
-        koTeamsLocked={koTeamsLocked}
-        koTeamsLockReason={koTeamsLockReason}
-        koTeamsProgress={
-          !teamsReady
-            ? `${readiness.teamsWithEnoughPlayers}/${readiness.totalTeams} teams ready`
-            : null
-        }
-        koFixturesLocked={koFixturesLocked}
-        koFixturesLockReason={koFixturesLockReason}
+        teamsNeedsAttention={!teamsReady}
+        groupsLocked={groupsTabLocked}
+        groupsLockReason={groupsTabLockReason}
+        groupsNeedsAttention={!!rdGroupsProgress}
+        fixturesLocked={rdFixturesLocked}
+        fixturesLockReason={rdFixturesLockReason}
+        knockoutLocked={koFixturesLocked}
+        knockoutLockReason={koFixturesLockReason}
       />
 
       {children}

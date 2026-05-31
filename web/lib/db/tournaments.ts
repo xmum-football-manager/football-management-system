@@ -3,6 +3,7 @@ import type {
   Tournament,
   TournamentFormat,
   TournamentStatus,
+  KnockoutStartRound,
 } from '@/lib/supabase/types'
 
 export async function listTournaments(): Promise<Tournament[]> {
@@ -82,6 +83,7 @@ export interface CreateTournamentInput {
   num_groups?: number | null
   teams_per_group?: number | null
   advance_per_group?: number | null
+  knockout_start_round?: KnockoutStartRound | null
 }
 
 export async function createTournament(
@@ -107,6 +109,7 @@ export async function createTournament(
       num_groups: isGroupFormat ? (input.num_groups ?? null) : null,
       teams_per_group: isGroupFormat ? (input.teams_per_group ?? null) : null,
       advance_per_group: isGroupFormat ? (input.advance_per_group ?? null) : null,
+      knockout_start_round: isGroupFormat ? (input.knockout_start_round ?? null) : null,
     })
     .select('id')
     .single()

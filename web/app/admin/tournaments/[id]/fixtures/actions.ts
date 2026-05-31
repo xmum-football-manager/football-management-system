@@ -5,6 +5,7 @@ import { requireUser } from '@/lib/auth'
 import { isAdmin, isOrganizer } from '@/lib/db/roles'
 import {
   createMatch,
+  createMatchAdmin,
   deleteMatch,
   updateMatchTime,
   updateMatchTeams,
@@ -174,11 +175,19 @@ export async function swapTeamSlotsAction(
   }
 }
 
-function knockoutRoundFromCount(count: number): string {
-  if (count <= 2) return 'Final'
-  if (count <= 4) return 'SF'
-  if (count <= 8) return 'QF'
-  if (count <= 16) return 'R16'
+function knockoutRoundLabel(tournament: { knockout_start_round: string | null }, qualifierCount: number): string {
+  switch (tournament.knockout_start_round) {
+    case 'final':  return 'Final'
+    case 'semi':   return 'SF'
+    case 'top_8':  return 'QF'
+    case 'top_16': return 'R16'
+    case 'top_32': return 'R32'
+  }
+  // fallback for tournaments created before this field existed
+  if (qualifierCount <= 2)  return 'Final'
+  if (qualifierCount <= 4)  return 'SF'
+  if (qualifierCount <= 8)  return 'QF'
+  if (qualifierCount <= 16) return 'R16'
   return 'R32'
 }
 
@@ -212,7 +221,7 @@ export async function seedKnockoutBracketAction(
       return { error: 'Knockout matches are already in progress — cannot re-seed.' }
     }
 
-    const knockoutRound = knockoutRoundFromCount(qualifiers.length)
+    const knockoutRound = knockoutRoundLabel(tournament, qualifiers.length)
 
     // Pair qualifiers into first-round matches: slot[0] vs slot[1], slot[2] vs slot[3], etc.
     let seeded = 0
@@ -296,6 +305,50 @@ export async function seedDirectKnockoutAction(
   }
 }
 
+export async function createManualKnockoutAction(
+  tournamentId: string,
+  pairings: Array<{ home_team_id: string; away_team_id: string }>,
+): Promise<{ created: number } | { error: string }> {
+  try {
+    await ensureOrganizer(tournamentId)
+    const tournament = await getTournament(tournamentId)
+    if (!tournament) return { error: 'Tournament not found.' }
+    if (tournament.format !== 'round_robin_knockout') {
+      return { error: 'Manual bracket is only available for Group → Knockout tournaments.' }
+    }
+    if (pairings.length === 0) return { error: 'No pairings provided.' }
+    if (pairings.some((p) => p.home_team_id === p.away_team_id)) {
+      return { error: 'A team cannot play itself.' }
+    }
+    const allIds = pairings.flatMap((p) => [p.home_team_id, p.away_team_id])
+    if (new Set(allIds).size !== allIds.length) {
+      return { error: 'Each team can only appear once in the bracket.' }
+    }
+    const existingMatches = await listMatches(tournamentId)
+    if (existingMatches.some((m) => m.phase === 'knockout')) {
+      return { error: 'Knockout matches already exist.' }
+    }
+    const round = knockoutRoundLabel(tournament, pairings.length * 2)
+    let created = 0
+    for (const p of pairings) {
+      const r = await createMatch({
+        tournament_id: tournamentId,
+        home_team_id: p.home_team_id,
+        away_team_id: p.away_team_id,
+        match_time: tournament.start_date + 'T12:00:00Z',
+        phase: 'knockout',
+        knockout_round: round,
+      })
+      if ('id' in r) created++
+    }
+    revalidatePath(`/admin/tournaments/${tournamentId}/fixtures`)
+    revalidatePath(`/admin/tournaments/${tournamentId}`)
+    return { created }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed.' }
+  }
+}
+
 export async function saveQualifiersAction(
   tournamentId: string,
   teamIds: string[],
@@ -336,14 +389,15 @@ export async function generateGroupFixturesAction(
       const rounds = generateRoundRobin(groupTeams)
       for (const round of rounds) {
         for (const { home, away } of round) {
-          const r = await createMatch({
+          const r = await createMatchAdmin({
             tournament_id: tournamentId,
             home_team_id: home.id,
             away_team_id: away.id,
             match_time: null,
             phase: 'group',
           })
-          if ('id' in r) created++
+          if ('error' in r) return { error: r.error }
+          created++
         }
       }
     }
@@ -360,14 +414,16 @@ export async function scheduleMatchAction(
   matchTime: string | null,
 ): Promise<{ ok: true } | { error: string }> {
   try {
-    await ensureOrganizer(tournamentId)
-    const existing = await getMatch(matchId)
+    const [, existing, tournament] = await Promise.all([
+      ensureOrganizer(tournamentId),
+      getMatch(matchId),
+      matchTime !== null ? getTournament(tournamentId) : Promise.resolve(null),
+    ])
     if (!existing) return { error: 'Match not found.' }
     if (existing.status !== 'scheduled') {
       return { error: 'Only scheduled matches can be rescheduled.' }
     }
     if (matchTime !== null) {
-      const tournament = await getTournament(tournamentId)
       if (!tournament) return { error: 'Tournament not found.' }
       const matchDay = new Date(matchTime).toISOString().split('T')[0]
       if (matchDay < tournament.start_date || matchDay > tournament.end_date) {

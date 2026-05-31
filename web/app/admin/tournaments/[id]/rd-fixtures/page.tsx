@@ -1,6 +1,6 @@
 import { getTournament } from '@/lib/db/tournaments'
 import { listTeams, listPlayerCounts } from '@/lib/db/teams'
-import { listMatches } from '@/lib/db/matches'
+import { listMatchesAdmin } from '@/lib/db/matches'
 import { canAddFixture, canManageTeams } from '@/lib/lock-rules'
 import { requireUser } from '@/lib/auth'
 import { isAdmin } from '@/lib/db/roles'
@@ -26,7 +26,7 @@ export default async function RDFixturesPage({ params }: Props) {
   if (!tournament) return null
   const [teams, matches, playerCounts, admin] = await Promise.all([
     listTeams(id),
-    listMatches(id),
+    listMatchesAdmin(id),
     listPlayerCounts(id),
     isAdmin(user.id),
   ])

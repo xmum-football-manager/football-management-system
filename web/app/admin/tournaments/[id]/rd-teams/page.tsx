@@ -29,7 +29,7 @@ export default async function RDTeamsPage({ params }: Props) {
     tournament.num_groups,
     tournament.teams_per_group,
   )
-  const readinessMessage = readiness.canGenerateFixtures ? null : readiness.blockingIssues.join(' ')
+  const readinessMessage = readiness.allPlayersReady ? null : readiness.blockingIssues.find(i => !i.includes('not assigned') && !i.includes('Group ')) ?? null
 
   return (
     <TeamsPanel

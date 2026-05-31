@@ -9,7 +9,14 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Loader2 } from 'lucide-react'
-import type { TournamentFormat } from '@/lib/supabase/types'
+import type { TournamentFormat, KnockoutStartRound } from '@/lib/supabase/types'
+
+const KNOCKOUT_STAGES: { value: KnockoutStartRound; label: string; teams: number }[] = [
+  { value: 'semi',    label: 'Semi-final',   teams: 4  },
+  { value: 'top_8',  label: 'Quarter-final', teams: 8  },
+  { value: 'top_16', label: 'Round of 16',   teams: 16 },
+  { value: 'top_32', label: 'Round of 32',   teams: 32 },
+]
 
 const FORMATS: { value: TournamentFormat; label: string; description: string }[] = [
   {
@@ -45,7 +52,7 @@ export function NewTournamentForm() {
   const [halftimeMinutes, setHalftimeMinutes] = useState(15)
   const [numGroups, setNumGroups] = useState(4)
   const [teamsPerGroup, setTeamsPerGroup] = useState(4)
-  const [advancePerGroup, setAdvancePerGroup] = useState(2)
+  const [knockoutStage, setKnockoutStage] = useState<KnockoutStartRound>('top_8')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -68,6 +75,8 @@ export function NewTournamentForm() {
       setError('Halftime length must be at least 1 minute.')
       return
     }
+    const selectedStage = KNOCKOUT_STAGES.find((s) => s.value === knockoutStage)!
+    const advancePerGroup = format === 'round_robin_knockout' ? selectedStage.teams / numGroups : null
     if (format === 'round_robin_knockout') {
       if (numGroups < 2 || numGroups > 16) {
         setError('Number of groups must be between 2 and 16.')
@@ -77,8 +86,8 @@ export function NewTournamentForm() {
         setError('Teams per group must be between 2 and 16.')
         return
       }
-      if (advancePerGroup < 1 || advancePerGroup >= teamsPerGroup) {
-        setError('Teams advancing must be at least 1 and fewer than teams per group.')
+      if (!advancePerGroup || !Number.isInteger(advancePerGroup) || advancePerGroup >= teamsPerGroup) {
+        setError('Selected knockout stage does not divide evenly into the number of groups.')
         return
       }
     }
@@ -99,6 +108,7 @@ export function NewTournamentForm() {
       num_groups: format === 'round_robin_knockout' ? numGroups : null,
       teams_per_group: format === 'round_robin_knockout' ? teamsPerGroup : null,
       advance_per_group: format === 'round_robin_knockout' ? advancePerGroup : null,
+      knockout_start_round: format === 'round_robin_knockout' ? knockoutStage : null,
     })
     setLoading(false)
     if ('error' in result) {
@@ -188,9 +198,9 @@ export function NewTournamentForm() {
       </fieldset>
 
       {format === 'round_robin_knockout' && (
-        <fieldset className="space-y-2">
+        <fieldset className="space-y-3">
           <legend className="text-sm font-medium">Group stage</legend>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="num-groups" className="text-xs">Number of groups</Label>
               <Input
@@ -215,24 +225,52 @@ export function NewTournamentForm() {
                 onChange={(e) => setTeamsPerGroup(Number(e.target.value))}
               />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="advance-per-group" className="text-xs">Advance per group</Label>
-              <Input
-                id="advance-per-group"
-                type="number"
-                min={1}
-                max={Math.max(1, teamsPerGroup - 1)}
-                required
-                value={advancePerGroup}
-                onChange={(e) => setAdvancePerGroup(Number(e.target.value))}
-              />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Knockout stage</Label>
+            <div className="flex flex-wrap gap-2">
+              {KNOCKOUT_STAGES.map((stage) => {
+                const valid = stage.teams % numGroups === 0
+                const advPerGroup = valid ? stage.teams / numGroups : null
+                const active = knockoutStage === stage.value
+                return (
+                  <button
+                    key={stage.value}
+                    type="button"
+                    disabled={!valid}
+                    onClick={() => setKnockoutStage(stage.value)}
+                    className="rounded-md border px-3 py-1.5 text-xs font-medium transition-colors"
+                    style={{
+                      background: active ? 'var(--admin-lime)' : 'transparent',
+                      color: active ? '#000' : valid ? 'var(--foreground)' : 'var(--muted-foreground)',
+                      borderColor: active ? 'var(--admin-lime)' : 'var(--border)',
+                      opacity: valid ? 1 : 0.4,
+                      cursor: valid ? 'pointer' : 'not-allowed',
+                    }}
+                  >
+                    {stage.label}
+                    {valid && advPerGroup !== null && (
+                      <span className="ml-1 opacity-60">· top {advPerGroup}/group</span>
+                    )}
+                  </button>
+                )
+              })}
             </div>
           </div>
-          <p className="text-xs text-muted-foreground">
-            {numGroups} group{numGroups === 1 ? '' : 's'} × {teamsPerGroup} team
-            {teamsPerGroup === 1 ? '' : 's'} = {numGroups * teamsPerGroup} teams total · top{' '}
-            {advancePerGroup} per group advance ({numGroups * advancePerGroup} into knockout).
-          </p>
+          {(() => {
+            const stage = KNOCKOUT_STAGES.find((s) => s.value === knockoutStage)!
+            const valid = stage.teams % numGroups === 0
+            const advPerGroup = valid ? stage.teams / numGroups : null
+            return (
+              <p className="text-xs text-muted-foreground">
+                {numGroups} group{numGroups === 1 ? '' : 's'} × {teamsPerGroup} team
+                {teamsPerGroup === 1 ? '' : 's'} = {numGroups * teamsPerGroup} teams total
+                {valid && advPerGroup !== null
+                  ? ` · top ${advPerGroup} per group advance (${stage.teams} into ${stage.label})`
+                  : ' · select a valid knockout stage above'}
+              </p>
+            )
+          })()}
         </fieldset>
       )}
 

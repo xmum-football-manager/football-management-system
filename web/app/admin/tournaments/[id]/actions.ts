@@ -38,6 +38,7 @@ export async function transitionMatchAction(
         .from('matches')
         .select('id', { count: 'exact', head: true })
         .eq('tournament_id', match.tournament_id)
+        .neq('id', matchId)
         .in('status', ['live', 'halftime'])
       if (countError) return { error: 'Could not verify match status. Try again.' }
       if (count !== null && count > 0) {

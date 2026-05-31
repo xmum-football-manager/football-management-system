@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import type { Match, MatchStatus, MatchWithTeams } from '@/lib/supabase/types'
 
 export async function listMatches(tournamentId: string): Promise<MatchWithTeams[]> {
@@ -8,6 +8,17 @@ export async function listMatches(tournamentId: string): Promise<MatchWithTeams[
     .select('*, home_team:teams!matches_home_team_id_fkey(*), away_team:teams!matches_away_team_id_fkey(*)')
     .eq('tournament_id', tournamentId)
     .order('match_time', { ascending: true })
+  if (error) throw error
+  return (data ?? []) as unknown as MatchWithTeams[]
+}
+
+export async function listMatchesAdmin(tournamentId: string): Promise<MatchWithTeams[]> {
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('matches')
+    .select('*, home_team:teams!matches_home_team_id_fkey(*), away_team:teams!matches_away_team_id_fkey(*)')
+    .eq('tournament_id', tournamentId)
+    .order('match_time', { ascending: true, nullsFirst: false })
   if (error) throw error
   return (data ?? []) as unknown as MatchWithTeams[]
 }
@@ -26,6 +37,24 @@ export interface CreateMatchInput {
   match_time: string | null
   phase?: string
   knockout_round?: string
+}
+
+export async function createMatchAdmin(input: CreateMatchInput): Promise<{ id: string } | { error: string }> {
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('matches')
+    .insert({
+      tournament_id: input.tournament_id,
+      home_team_id: input.home_team_id,
+      away_team_id: input.away_team_id,
+      match_time: input.match_time,
+      ...(input.phase != null && { phase: input.phase }),
+      ...(input.knockout_round != null && { knockout_round: input.knockout_round }),
+    })
+    .select('id')
+    .single()
+  if (error) return { error: error.message }
+  return { id: data.id }
 }
 
 export async function createMatch(input: CreateMatchInput): Promise<{ id: string } | { error: string }> {

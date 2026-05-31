@@ -4,7 +4,7 @@ import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { Download, Upload } from 'lucide-react'
+import { Download, Loader2, Upload } from 'lucide-react'
 import { parseTeamsCsv, type ParseResult } from './csv-utils'
 import { importTeamsAction, type ImportTeamInput } from './actions'
 
@@ -166,6 +166,12 @@ export function CsvImport({ tournamentId, disabled }: Props) {
               Cancel
             </Button>
           </div>
+          {pending && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground pt-1">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Importing… this may take around 1 minute.
+            </div>
+          )}
         </div>
       )}
     </div>

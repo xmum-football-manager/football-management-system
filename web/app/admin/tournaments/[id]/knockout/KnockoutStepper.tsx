@@ -1,12 +1,10 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { toast } from 'sonner'
+import { useState } from 'react'
 import { Check, Lock } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { QualifiersStep } from './QualifiersStep'
+import { BracketBuilder } from './BracketBuilder'
 import { FixturesPanel } from '../fixtures/FixturesPanel'
-import { seedKnockoutBracketAction } from '../fixtures/actions'
 import type { MatchWithTeams, TournamentStatus } from '@/lib/supabase/types'
 import type { TeamStanding } from '@/lib/qualifiers'
 
@@ -44,7 +42,6 @@ export function KnockoutStepper({
   canEdit,
   knockoutSlots,
 }: Props) {
-  const [pending, startTransition] = useTransition()
   const qualifiersDone = (savedQualifiers?.length ?? 0) > 0
   const bracketExists = knockoutMatches.length > 0
 
@@ -71,13 +68,7 @@ export function KnockoutStepper({
     },
   ]
 
-  function seedBracket() {
-    startTransition(async () => {
-      const r = await seedKnockoutBracketAction(tournamentId)
-      if ('error' in r) toast.error(r.error)
-      else toast.success(`${r.seeded} knockout matches created.`)
-    })
-  }
+  const qualifiedTeams = teams.filter((t) => savedQualifiers?.includes(t.id) ?? false)
 
   return (
     <div className="space-y-4">
@@ -130,6 +121,8 @@ export function KnockoutStepper({
           savedQualifiers={savedQualifiers}
           advancePerGroup={advancePerGroup}
           numGroups={numGroups}
+          isAdmin={isAdmin}
+          bracketExists={bracketExists}
           onSaved={() => setActiveStep('bracket')}
         />
       )}
@@ -137,14 +130,11 @@ export function KnockoutStepper({
       {activeStep === 'bracket' && (
         <div className="space-y-4">
           {!bracketExists && canEdit && (
-            <div className="flex items-center justify-between rounded-md border bg-muted/30 px-4 py-3">
-              <p className="text-sm text-muted-foreground">
-                {knockoutSlots} qualifiers saved. Seed the bracket to generate first-round matches.
-              </p>
-              <Button size="sm" disabled={pending} onClick={seedBracket}>
-                Seed bracket
-              </Button>
-            </div>
+            <BracketBuilder
+              tournamentId={tournamentId}
+              qualifiedTeams={qualifiedTeams}
+              onCreated={() => {}}
+            />
           )}
           <FixturesPanel
             tournamentId={tournamentId}
