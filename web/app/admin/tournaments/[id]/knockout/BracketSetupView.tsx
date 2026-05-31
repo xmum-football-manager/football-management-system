@@ -51,9 +51,6 @@ function initials(name: string): string {
   return name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
 }
 
-const CARD_HEIGHT = 64
-const ROW_GAP = 16
-
 export function BracketSetupView({ tournamentId, qualifiedTeams, onCreated }: Props) {
   const matchCount = Math.floor(qualifiedTeams.length / 2)
   const [pairings, setPairings] = useState<Pairing[]>(() => buildEmptyPairings(matchCount))
@@ -81,9 +78,6 @@ export function BracketSetupView({ tournamentId, qualifiedTeams, onCreated }: Pr
     prevMatchNums = newMatchNums
   }
 
-  const firstRoundHeight =
-    Math.max(1, matchCount) * CARD_HEIGHT + Math.max(0, matchCount - 1) * ROW_GAP
-
   function submit() {
     startTransition(async () => {
       const r = await createManualKnockoutAction(
@@ -108,7 +102,7 @@ export function BracketSetupView({ tournamentId, qualifiedTeams, onCreated }: Pr
     <div className="space-y-4">
       <div className="overflow-x-auto rounded-xl border bg-card p-6" style={{ borderColor: 'var(--admin-rule)' }}>
         <div style={{ minWidth }}>
-          <div className="flex gap-6 items-start">
+          <div className="flex gap-6 items-stretch">
             {/* Left sidebar — unscheduled teams */}
             <div style={{ width: 168, flexShrink: 0 }}>
               <div
@@ -171,7 +165,7 @@ export function BracketSetupView({ tournamentId, qualifiedTeams, onCreated }: Pr
               >
                 Round 1
               </div>
-              <div className="flex flex-col justify-around" style={{ height: firstRoundHeight }}>
+              <div className="flex flex-col gap-3">
                 {pairings.map((pairing, matchIdx) => (
                   <MatchCard
                     key={matchIdx}
@@ -199,7 +193,7 @@ export function BracketSetupView({ tournamentId, qualifiedTeams, onCreated }: Pr
                 >
                   Round {roundIdx + 2}
                 </div>
-                <div className="flex flex-col justify-around" style={{ height: firstRoundHeight }}>
+                <div className="flex flex-col justify-around h-full">
                   {round.map((slot, i) => (
                     <PlaceholderCard key={i} homeLabel={slot.homeLabel} awayLabel={slot.awayLabel} />
                   ))}
@@ -215,12 +209,11 @@ export function BracketSetupView({ tournamentId, qualifiedTeams, onCreated }: Pr
               >
                 Champion
               </div>
-              <div className="flex flex-col justify-center" style={{ height: firstRoundHeight }}>
+              <div className="flex flex-col justify-center h-full">
                 <div
                   className="flex flex-col items-center rounded-lg p-5 text-center"
                   style={{
                     border: '1.5px dashed var(--admin-rule)',
-                    minHeight: CARD_HEIGHT + 40,
                   }}
                 >
                   <svg
