@@ -154,7 +154,7 @@ export function MatchDayCard({ match, isAdmin, halftimeEnabled }: Props) {
           {actions.map((action) => (
             <Button
               key={action.next}
-              variant="outline"
+              variant={action.tone === 'primary' ? 'default' : 'outline'}
               size="sm"
               disabled={busy}
               onClick={() => setPrompt(action)}
