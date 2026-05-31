@@ -177,18 +177,18 @@ export async function swapTeamSlotsAction(
 
 function knockoutRoundLabel(tournament: { knockout_start_round: string | null }, qualifierCount: number): string {
   switch (tournament.knockout_start_round) {
-    case 'final':  return 'Final'
-    case 'semi':   return 'SF'
-    case 'top_8':  return 'QF'
-    case 'top_16': return 'R16'
-    case 'top_32': return 'R32'
+    case 'final':  return 'final'
+    case 'semi':   return 'sf'
+    case 'top_8':  return 'qf'
+    case 'top_16': return 'r16'
+    case 'top_32': return 'r32'
   }
   // fallback for tournaments created before this field existed
-  if (qualifierCount <= 2)  return 'Final'
-  if (qualifierCount <= 4)  return 'SF'
-  if (qualifierCount <= 8)  return 'QF'
-  if (qualifierCount <= 16) return 'R16'
-  return 'R32'
+  if (qualifierCount <= 2)  return 'final'
+  if (qualifierCount <= 4)  return 'sf'
+  if (qualifierCount <= 8)  return 'qf'
+  if (qualifierCount <= 16) return 'r16'
+  return 'r32'
 }
 
 export async function seedKnockoutBracketAction(

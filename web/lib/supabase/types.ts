@@ -53,7 +53,7 @@ export interface Player {
 }
 
 export type MatchPhase = 'group' | 'knockout'
-export type KnockoutRound = 'r32' | 'r16' | 'qf' | 'sf' | 'final' | 'QF' | 'SF' | 'FINAL'
+export type KnockoutRound = 'r32' | 'r16' | 'qf' | 'sf' | 'final'
 
 export interface Match {
   id: string
