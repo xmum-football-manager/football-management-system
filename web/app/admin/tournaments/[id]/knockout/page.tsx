@@ -62,9 +62,6 @@ export default async function KnockoutPage({ params }: Props) {
       isAdmin={admin}
       canEdit={canEdit}
       knockoutSlots={knockoutSlots}
-      advancePerGroupForPanel={tournament.advance_per_group}
-      knockoutQualifiers={tournament.knockout_qualifiers ?? null}
-      numGroupsForPanel={tournament.num_groups}
     />
   )
 }

@@ -27,9 +27,6 @@ interface Props {
   isAdmin: boolean
   canEdit: boolean
   knockoutSlots: number
-  advancePerGroupForPanel: number | null
-  knockoutQualifiers: string[] | null
-  numGroupsForPanel: number | null
 }
 
 export function KnockoutStepper({
@@ -46,9 +43,6 @@ export function KnockoutStepper({
   isAdmin,
   canEdit,
   knockoutSlots,
-  advancePerGroupForPanel,
-  knockoutQualifiers,
-  numGroupsForPanel,
 }: Props) {
   const [pending, startTransition] = useTransition()
   const qualifiersDone = (savedQualifiers?.length ?? 0) > 0
@@ -61,11 +55,7 @@ export function KnockoutStepper({
     {
       id: 'qualifiers',
       label: 'Qualifiers',
-      status: qualifiersDone
-        ? 'done'
-        : activeStep === 'qualifiers'
-        ? 'current'
-        : 'upcoming',
+      status: qualifiersDone ? 'done' : 'current',
     },
     {
       id: 'bracket',
@@ -167,9 +157,9 @@ export function KnockoutStepper({
             matches={knockoutMatches}
             canEdit={canEdit}
             canAssignGroups={false}
-            numGroups={numGroupsForPanel}
-            advancePerGroup={advancePerGroupForPanel}
-            knockoutQualifiers={knockoutQualifiers}
+            numGroups={numGroups}
+            advancePerGroup={advancePerGroup}
+            knockoutQualifiers={savedQualifiers}
             knockoutSlots={knockoutSlots}
           />
         </div>
