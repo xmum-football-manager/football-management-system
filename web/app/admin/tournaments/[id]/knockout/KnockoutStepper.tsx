@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Check, Lock } from 'lucide-react'
 import { QualifiersStep } from './QualifiersStep'
 import { BracketSetupView } from './BracketSetupView'
@@ -33,6 +34,7 @@ export function KnockoutStepper({
   isAdmin,
   canEdit,
 }: Props) {
+  const router = useRouter()
   const qualifiersDone = (savedQualifiers?.length ?? 0) > 0
   const bracketExists = knockoutMatches.length > 0
 
@@ -114,7 +116,10 @@ export function KnockoutStepper({
           numGroups={numGroups}
           isAdmin={isAdmin}
           bracketExists={bracketExists}
-          onSaved={() => setActiveStep('bracket')}
+          onSaved={() => {
+            router.refresh()
+            setActiveStep('bracket')
+          }}
         />
       )}
 
