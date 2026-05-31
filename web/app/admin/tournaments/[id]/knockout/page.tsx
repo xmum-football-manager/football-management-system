@@ -1,0 +1,70 @@
+import { requireUser } from '@/lib/auth'
+import { isAdmin } from '@/lib/db/roles'
+import { getTournament } from '@/lib/db/tournaments'
+import { listTeams } from '@/lib/db/teams'
+import { listMatchesAdmin } from '@/lib/db/matches'
+import { canAddFixture } from '@/lib/lock-rules'
+import { computeGroupStandings } from '@/lib/qualifiers'
+import { notFound } from 'next/navigation'
+import { KnockoutStepper } from './KnockoutStepper'
+
+interface Props {
+  params: Promise<{ id: string }>
+}
+
+function isGroupMatch(m: { home_team: { group_label: string | null }; away_team: { group_label: string | null } }) {
+  return !!m.home_team.group_label && m.home_team.group_label === m.away_team.group_label
+}
+
+export default async function KnockoutPage({ params }: Props) {
+  const { id } = await params
+  const user = await requireUser()
+  const tournament = await getTournament(id)
+  if (!tournament) notFound()
+  if (tournament.format !== 'round_robin_knockout') notFound()
+
+  const [teams, matches, admin] = await Promise.all([
+    listTeams(id),
+    listMatchesAdmin(id),
+    isAdmin(user.id),
+  ])
+
+  const groupMatches = matches.filter(isGroupMatch)
+  const knockoutMatches = matches.filter((m) => !isGroupMatch(m) && m.phase === 'knockout')
+
+  const standings = tournament.num_groups && tournament.advance_per_group
+    ? computeGroupStandings(
+        teams,
+        groupMatches,
+        tournament.num_groups,
+        tournament.advance_per_group,
+      )
+    : []
+
+  const canEdit = canAddFixture(tournament.status)
+  const knockoutSlots =
+    tournament.num_groups != null && tournament.advance_per_group != null
+      ? tournament.num_groups * tournament.advance_per_group
+      : 0
+
+  return (
+    <KnockoutStepper
+      tournamentId={id}
+      standings={standings}
+      savedQualifiers={tournament.knockout_qualifiers ?? null}
+      advancePerGroup={tournament.advance_per_group ?? 1}
+      numGroups={tournament.num_groups ?? 1}
+      knockoutMatches={knockoutMatches}
+      teams={teams.map((t) => ({ id: t.id, name: t.name, group_label: t.group_label }))}
+      tournamentStart={tournament.start_date}
+      tournamentEnd={tournament.end_date}
+      tournamentStatus={tournament.status}
+      isAdmin={admin}
+      canEdit={canEdit}
+      knockoutSlots={knockoutSlots}
+      advancePerGroupForPanel={tournament.advance_per_group}
+      knockoutQualifiers={tournament.knockout_qualifiers ?? null}
+      numGroupsForPanel={tournament.num_groups}
+    />
+  )
+}
