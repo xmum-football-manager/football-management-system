@@ -31,10 +31,15 @@ export default async function OverviewPage({ params }: Props) {
 
   const showKnockoutCTA = shouldShowKnockoutCTA(tournament.format, matches)
 
-  const upNext = matches
+  const timedUpNext = matches
     .filter((m) => m.status === 'scheduled' && m.match_time !== null)
     .sort((a, b) => a.match_time!.localeCompare(b.match_time!))
     .at(0) ?? null
+
+  const upNext =
+    timedUpNext ??
+    matches.find((m) => m.status === 'scheduled' && m.phase === 'knockout') ??
+    null
 
   return (
     <div className="space-y-7">
