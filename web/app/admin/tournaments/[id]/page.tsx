@@ -5,6 +5,8 @@ import { requireUser } from '@/lib/auth'
 import { isAdmin } from '@/lib/db/roles'
 import { canAddFixture } from '@/lib/lock-rules'
 import { MatchViews } from '@/components/admin/MatchViews'
+import { MatchDayCard } from './MatchDayCard'
+import { UpNextRow } from './UpNextRow'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -20,9 +22,15 @@ export default async function OverviewPage({ params }: Props) {
   const [matches, teams] = await Promise.all([listMatches(id), listTeams(id)])
 
   const played = matches.filter((m) => m.status === 'finished').length
-  const live = matches.filter((m) => m.status === 'live' || m.status === 'halftime').length
+  const liveMatch = matches.find((m) => m.status === 'live' || m.status === 'halftime') ?? null
+  const hasLiveMatch = liveMatch !== null
   const remaining = matches.length - played
   const canManageFixtures = canAddFixture(tournament.status)
+
+  const upNext = matches
+    .filter((m) => m.status === 'scheduled' && m.match_time !== null)
+    .sort((a, b) => a.match_time!.localeCompare(b.match_time!))
+    .at(0) ?? null
 
   return (
     <div className="space-y-7">
@@ -30,8 +38,23 @@ export default async function OverviewPage({ params }: Props) {
         <StatTile label="Teams" value={teams.length} />
         <StatTile label="Matches" value={matches.length} />
         <StatTile label="Played" value={played} />
-        <StatTile label="Live now" value={live} live={live > 0} />
+        <StatTile label="Live now" value={hasLiveMatch ? 1 : 0} live={hasLiveMatch} />
       </div>
+
+      {liveMatch && (
+        <MatchDayCard
+          match={liveMatch}
+          isAdmin={admin}
+          halftimeEnabled={tournament.halftime_enabled}
+        />
+      )}
+
+      {upNext && canManageFixtures && (
+        <div>
+          <p className="admin-eyebrow mb-2">{hasLiveMatch ? 'Up next' : 'Next up'}</p>
+          <UpNextRow match={upNext} isAdmin={admin} hasLiveMatch={hasLiveMatch} />
+        </div>
+      )}
 
       <div>
         <div className="mb-2 flex items-center justify-between">
@@ -70,7 +93,7 @@ function StatTile({
   return (
     <div
       className="rounded-xl border bg-card p-4"
-      style={{ borderColor: 'var(--admin-rule)' }}
+      style={{ borderColor: live ? '#DC2626' : 'var(--admin-rule)', background: live ? 'color-mix(in srgb, #DC2626 8%, transparent)' : undefined }}
     >
       <div className="admin-eyebrow">{label}</div>
       <div
@@ -78,7 +101,7 @@ function StatTile({
         style={{
           fontSize: 36,
           lineHeight: 1,
-          color: live ? 'var(--admin-lime)' : 'var(--foreground)',
+          color: live ? '#DC2626' : 'var(--foreground)',
         }}
       >
         {value}
