@@ -3,9 +3,8 @@
 import { useState } from 'react'
 import { Check, Lock } from 'lucide-react'
 import { QualifiersStep } from './QualifiersStep'
-import { BracketBuilder } from './BracketBuilder'
-import { FixturesPanel } from '../fixtures/FixturesPanel'
-import type { MatchWithTeams, TournamentStatus } from '@/lib/supabase/types'
+import { BracketSetupView } from './BracketSetupView'
+import type { MatchWithTeams } from '@/lib/supabase/types'
 import type { TeamStanding } from '@/lib/qualifiers'
 
 type Step = 'qualifiers' | 'bracket'
@@ -19,12 +18,8 @@ interface Props {
   numGroups: number
   knockoutMatches: MatchWithTeams[]
   teams: Array<{ id: string; name: string; group_label: string | null }>
-  tournamentStart: string
-  tournamentEnd: string
-  tournamentStatus: TournamentStatus
   isAdmin: boolean
   canEdit: boolean
-  knockoutSlots: number
 }
 
 export function KnockoutStepper({
@@ -35,12 +30,8 @@ export function KnockoutStepper({
   numGroups,
   knockoutMatches,
   teams,
-  tournamentStart,
-  tournamentEnd,
-  tournamentStatus,
   isAdmin,
   canEdit,
-  knockoutSlots,
 }: Props) {
   const qualifiersDone = (savedQualifiers?.length ?? 0) > 0
   const bracketExists = knockoutMatches.length > 0
@@ -127,32 +118,12 @@ export function KnockoutStepper({
         />
       )}
 
-      {activeStep === 'bracket' && (
-        <div className="space-y-4">
-          {!bracketExists && canEdit && (
-            <BracketBuilder
-              tournamentId={tournamentId}
-              qualifiedTeams={qualifiedTeams}
-              onCreated={() => {}}
-            />
-          )}
-          <FixturesPanel
-            tournamentId={tournamentId}
-            tournamentStart={tournamentStart}
-            tournamentEnd={tournamentEnd}
-            tournamentFormat="knockout"
-            tournamentStatus={tournamentStatus}
-            isAdmin={isAdmin}
-            teams={teams}
-            matches={knockoutMatches}
-            canEdit={canEdit}
-            canAssignGroups={false}
-            numGroups={numGroups}
-            advancePerGroup={advancePerGroup}
-            knockoutQualifiers={savedQualifiers}
-            knockoutSlots={knockoutSlots}
-          />
-        </div>
+      {activeStep === 'bracket' && !bracketExists && canEdit && (
+        <BracketSetupView
+          tournamentId={tournamentId}
+          qualifiedTeams={qualifiedTeams}
+          onCreated={() => {}}
+        />
       )}
     </div>
   )
