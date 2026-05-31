@@ -344,6 +344,7 @@ export async function createManualKnockoutAction(
     }
     revalidatePath(`/admin/tournaments/${tournamentId}/fixtures`)
     revalidatePath(`/admin/tournaments/${tournamentId}`)
+    revalidatePath(`/admin/tournaments/${tournamentId}/knockout`)
     return { created }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed.' }

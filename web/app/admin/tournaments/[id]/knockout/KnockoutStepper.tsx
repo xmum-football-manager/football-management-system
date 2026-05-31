@@ -127,7 +127,7 @@ export function KnockoutStepper({
         <BracketSetupView
           tournamentId={tournamentId}
           qualifiedTeams={qualifiedTeams}
-          onCreated={() => {}}
+          onCreated={() => router.refresh()}
         />
       )}
     </div>
