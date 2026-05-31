@@ -32,14 +32,15 @@ export async function transitionMatchAction(
       return { error: 'Set a match time before going live.' }
     }
     // 1-live guard: only one match may be live or at halftime at a time
-    if (next === 'live' && match.status === 'scheduled') {
+    if (next === 'live') {
       const supabase = await createClient()
-      const { count } = await supabase
+      const { count, error: countError } = await supabase
         .from('matches')
         .select('id', { count: 'exact', head: true })
         .eq('tournament_id', match.tournament_id)
         .in('status', ['live', 'halftime'])
-      if (count && count > 0) {
+      if (countError) return { error: 'Could not verify match status. Try again.' }
+      if (count !== null && count > 0) {
         return { error: 'Another match is already live. Finish it first.' }
       }
     }
