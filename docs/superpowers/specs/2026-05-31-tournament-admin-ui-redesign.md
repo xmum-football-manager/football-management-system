@@ -76,10 +76,18 @@ Lock rules already computed in `layout.tsx`:
 **When a match is live:**
 - Stats row: "Live now" tile highlighted red (value = 1)
 - **Live card** pinned between stats and schedule:
-  - Red border, red "● LIVE" label
+  - Red border, red "● LIVE" label (or amber "● HALFTIME" when status = `halftime`)
   - Team names with inline +/− score buttons (optimistic update via `updateMatchScore`)
-  - **Halftime** button (only visible when status = `live`)
-  - **Full time** button (visible when status = `live` or `halftime`)
+  - Lifecycle buttons change based on current status and `halftime_enabled`:
+
+| Current status | `halftime_enabled` | Buttons shown |
+|---|---|---|
+| `live` | true | **Halftime** · **Full time** |
+| `live` | false | **Full time** |
+| `halftime` | — | **2nd half** · **Full time** |
+
+  - "2nd half" sets status back to `live` via existing `updateMatchStatus`
+  - Score entry (+/−) is enabled in all live/halftime states
 - "Up next" section shown below live card, but **Go live** button is disabled with tooltip "Finish current match first"
 - Validation enforced server-side: `scheduleMatchAction` / go-live action checks no other match has status `live` or `halftime`
 
