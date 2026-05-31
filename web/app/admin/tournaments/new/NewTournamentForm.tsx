@@ -12,7 +12,8 @@ import { Loader2 } from 'lucide-react'
 import type { TournamentFormat, KnockoutStartRound } from '@/lib/supabase/types'
 
 const KNOCKOUT_STAGES: { value: KnockoutStartRound; label: string; teams: number }[] = [
-  { value: 'semi',    label: 'Semi-final',   teams: 4  },
+  { value: 'final',  label: 'Final',         teams: 2  },
+  { value: 'semi',   label: 'Semi-final',    teams: 4  },
   { value: 'top_8',  label: 'Quarter-final', teams: 8  },
   { value: 'top_16', label: 'Round of 16',   teams: 16 },
   { value: 'top_32', label: 'Round of 32',   teams: 32 },

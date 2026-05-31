@@ -199,6 +199,17 @@ function formatLabel(f: string): string {
   }
 }
 
+function knockoutStageLabel(round: string | null): string {
+  switch (round) {
+    case 'final':  return 'Final'
+    case 'semi':   return 'Semi-final'
+    case 'top_8':  return 'Quarter-final'
+    case 'top_16': return 'Round of 16'
+    case 'top_32': return 'Round of 32'
+    default:       return '—'
+  }
+}
+
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', {
     weekday: 'short',
@@ -236,6 +247,12 @@ function TournamentDetails({ tournament }: { tournament: Tournament }) {
             <DetailRow
               label="Group stage"
               value={`${tournament.num_groups} groups × ${tournament.teams_per_group ?? '?'} teams · top ${tournament.advance_per_group ?? '?'} advance`}
+            />
+          )}
+          {tournament.format === 'round_robin_knockout' && (
+            <DetailRow
+              label="Knockout stage"
+              value={knockoutStageLabel(tournament.knockout_start_round)}
             />
           )}
           <DetailRow
