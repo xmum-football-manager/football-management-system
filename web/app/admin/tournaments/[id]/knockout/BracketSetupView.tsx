@@ -319,16 +319,21 @@ function MatchCard({
   onClearSlot: (slot: 'home' | 'away') => void
   onSetTime: (value: string) => void
 }) {
-  const selectedDate = pairing.matchTime ? pairing.matchTime.slice(0, 10) : ''
-  const selectedTime = pairing.matchTime ? pairing.matchTime.slice(11, 16) : ''
+  const [pendingDate, setPendingDate] = useState(
+    () => pairing.matchTime ? pairing.matchTime.slice(0, 10) : ''
+  )
+  const [pendingTime, setPendingTime] = useState(
+    () => pairing.matchTime ? pairing.matchTime.slice(11, 16) : ''
+  )
 
   function handleDayChange(date: string) {
-    const time = selectedTime || ''
-    onSetTime(date && time ? `${date}T${time}` : '')
+    setPendingDate(date)
+    onSetTime(date && pendingTime ? `${date}T${pendingTime}` : '')
   }
 
   function handleTimeChange(time: string) {
-    onSetTime(selectedDate && time ? `${selectedDate}T${time}` : '')
+    setPendingTime(time)
+    onSetTime(pendingDate && time ? `${pendingDate}T${time}` : '')
   }
 
   const inputStyle = {
@@ -374,7 +379,7 @@ function MatchCard({
       <div style={{ height: 1, background: 'var(--admin-rule)' }} />
       <div className="flex gap-2 px-3 py-2.5">
         <select
-          value={selectedDate}
+          value={pendingDate}
           onChange={(e) => handleDayChange(e.target.value)}
           className="flex-1 rounded text-xs px-2 py-1"
           style={inputStyle}
@@ -385,7 +390,7 @@ function MatchCard({
           ))}
         </select>
         <select
-          value={selectedTime}
+          value={pendingTime}
           onChange={(e) => handleTimeChange(e.target.value)}
           className="w-24 rounded text-xs px-2 py-1"
           style={inputStyle}
