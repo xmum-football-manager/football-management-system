@@ -42,10 +42,6 @@ export default async function KnockoutPage({ params }: Props) {
     : []
 
   const canEdit = canAddFixture(tournament.status)
-  const knockoutSlots =
-    tournament.num_groups != null && tournament.advance_per_group != null
-      ? tournament.num_groups * tournament.advance_per_group
-      : 0
 
   return (
     <KnockoutStepper
@@ -56,12 +52,8 @@ export default async function KnockoutPage({ params }: Props) {
       numGroups={tournament.num_groups ?? 1}
       knockoutMatches={knockoutMatches}
       teams={teams.map((t) => ({ id: t.id, name: t.name, group_label: t.group_label }))}
-      tournamentStart={tournament.start_date}
-      tournamentEnd={tournament.end_date}
-      tournamentStatus={tournament.status}
       isAdmin={admin}
       canEdit={canEdit}
-      knockoutSlots={knockoutSlots}
     />
   )
 }
