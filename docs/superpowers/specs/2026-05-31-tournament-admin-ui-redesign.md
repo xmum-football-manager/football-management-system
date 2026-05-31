@@ -76,18 +76,19 @@ Lock rules already computed in `layout.tsx`:
 **When a match is live:**
 - Stats row: "Live now" tile highlighted red (value = 1)
 - **Live card** pinned between stats and schedule:
-  - Red border, red "● LIVE" label (or amber "● HALFTIME" when status = `halftime`)
+  - Red border, red "● LIVE" label (or amber "● HT" when status = `halftime`)
   - Team names with inline +/− score buttons (optimistic update via `updateMatchScore`)
-  - Lifecycle buttons change based on current status and `halftime_enabled`:
+  - Lifecycle buttons reuse the exact same pattern as `MatchRow` / `transitionMatchAction`:
 
-| Current status | `halftime_enabled` | Buttons shown |
-|---|---|---|
-| `live` | true | **Halftime** · **Full time** |
-| `live` | false | **Full time** |
-| `halftime` | — | **2nd half** · **Full time** |
+| Current status | Buttons shown |
+|---|---|
+| `scheduled` | **Kickoff** (Play icon) |
+| `live` | **Half time** (Pause) · **Full time** (CircleStop) |
+| `halftime` | **2nd half** (FastForward) |
 
-  - "2nd half" sets status back to `live` via existing `updateMatchStatus`
-  - Score entry (+/−) is enabled in all live/halftime states
+  - Each button opens the same confirmation `AlertDialog` before calling `transitionMatchAction`
+  - `halftime_enabled` is checked when deciding whether to show the Half time button (consistent with existing behaviour)
+  - Score +/− enabled in all `live` and `halftime` states
 - "Up next" section shown below live card, but **Go live** button is disabled with tooltip "Finish current match first"
 - Validation enforced server-side: `scheduleMatchAction` / go-live action checks no other match has status `live` or `halftime`
 
@@ -101,13 +102,13 @@ Lock rules already computed in `layout.tsx`:
 - No confirmation dialog — the `−` button corrects mistakes.
 
 ### Validation: 1 match live at a time
-- **Client**: "Go live" button disabled + tooltip when any match has `status = 'live' | 'halftime'`.
-- **Server**: new `goLiveAction` checks `SELECT count(*) FROM matches WHERE tournament_id = $1 AND status IN ('live','halftime')` before updating. Returns `{ error: 'Another match is already live.' }` if count > 0.
+- **Client**: Kickoff button disabled + tooltip "Finish the current match first" when any match in `matches` prop has `status = 'live' | 'halftime'`.
+- **Server**: add check to existing `transitionMatchAction` — before transitioning to `live`, verify no other match in the same tournament is already `live` or `halftime`. Returns `{ error: 'Another match is already live.' }` if so.
 
 ### Files to change
-- `app/admin/tournaments/[id]/page.tsx` — add live card section and "Up next" section above existing `MatchViews`
-- New client component `MatchDayCard.tsx` — live card with +/− and lifecycle buttons
-- New server action `goLiveAction` in `app/admin/tournaments/[id]/fixtures/actions.ts`
+- `app/admin/tournaments/[id]/page.tsx` — add live card + "Up next" section above existing `MatchViews`; pass `halftime_enabled` and `isAdmin` as props
+- New client component `app/admin/tournaments/[id]/MatchDayCard.tsx` — live card with +/− score buttons and lifecycle buttons (reuses `transitionMatchAction` pattern from `MatchRow`)
+- `app/admin/tournaments/[id]/actions.ts` — add 1-live-at-a-time guard to `transitionMatchAction`'s `scheduled → live` path
 
 ---
 
