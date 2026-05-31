@@ -19,6 +19,13 @@ interface Props {
   onCreated: () => void
 }
 
+const TIME_OPTIONS: string[] = Array.from({ length: 34 }, (_, i) => {
+  const totalMins = 360 + i * 30 // 06:00 to 22:30
+  const h = Math.floor(totalMins / 60)
+  const m = totalMins % 60
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+})
+
 function buildDayOptions(start: string, end: string): { label: string; date: string }[] {
   const options: { label: string; date: string }[] = []
   // Work purely with date strings (YYYY-MM-DD) to avoid timezone shifts
@@ -377,13 +384,17 @@ function MatchCard({
             <option key={opt.date} value={opt.date}>{opt.label}</option>
           ))}
         </select>
-        <input
-          type="time"
+        <select
           value={selectedTime}
           onChange={(e) => handleTimeChange(e.target.value)}
           className="w-24 rounded text-xs px-2 py-1"
           style={inputStyle}
-        />
+        >
+          <option value="">Time…</option>
+          {TIME_OPTIONS.map((t) => (
+            <option key={t} value={t}>{t}</option>
+          ))}
+        </select>
       </div>
     </div>
   )
