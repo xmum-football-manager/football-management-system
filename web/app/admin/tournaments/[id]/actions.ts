@@ -6,6 +6,7 @@ import { isAdmin, isOrganizer } from '@/lib/db/roles'
 import { getMatch, updateMatchScore, updateMatchStatus, updateMatchTime } from '@/lib/db/matches'
 import { logMatchRevert } from '@/lib/db/audit'
 import { isValidTransition } from '@/lib/match-lifecycle'
+import { createClient } from '@/lib/supabase/server'
 import type { MatchStatus } from '@/lib/supabase/types'
 
 async function ensureOrganizerOfMatch(matchId: string) {
@@ -29,6 +30,18 @@ export async function transitionMatchAction(
     // Guard: cannot go live without a scheduled time
     if (next === 'live' && !match.match_time) {
       return { error: 'Set a match time before going live.' }
+    }
+    // 1-live guard: only one match may be live or at halftime at a time
+    if (next === 'live' && match.status === 'scheduled') {
+      const supabase = await createClient()
+      const { count } = await supabase
+        .from('matches')
+        .select('id', { count: 'exact', head: true })
+        .eq('tournament_id', match.tournament_id)
+        .in('status', ['live', 'halftime'])
+      if (count && count > 0) {
+        return { error: 'Another match is already live. Finish it first.' }
+      }
     }
     const role: 'admin' | 'organizer' = admin && asAdmin ? 'admin' : 'organizer'
     if (!isValidTransition(match.status, next, role)) {
