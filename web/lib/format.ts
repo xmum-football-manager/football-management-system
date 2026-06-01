@@ -32,3 +32,7 @@ export function formatClock(iso: string): string {
   const d = new Date(iso)
   return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
 }
+
+export function teamInitials(name: string): string {
+  return name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+}
