@@ -1,13 +1,10 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import { teamInitials } from '@/lib/format'
 
 interface Props {
   params: Promise<{ id: string; teamId: string }>
-}
-
-function initials(name: string) {
-  return name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
 }
 
 export async function generateMetadata({ params }: Props) {
@@ -75,7 +72,7 @@ export default async function TeamPage({ params }: Props) {
             fontSize: 18, color: '#fff',
             boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.12), 0 4px 12px rgba(0,0,0,0.3)',
           }}>
-            {initials(team.name)}
+            {teamInitials(team.name)}
           </div>
           <div>
             <h1 style={{ 

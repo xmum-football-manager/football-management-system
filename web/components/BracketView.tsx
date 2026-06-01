@@ -1,11 +1,8 @@
 import type { MatchWithTeams } from '@/lib/supabase/types'
+import { teamInitials } from '@/lib/format'
 
 interface BracketViewProps {
   matches: MatchWithTeams[]
-}
-
-function initials(name: string) {
-  return name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
 }
 
 function BracketTeamRow({ name, score, winner, loser, tbd }: {
@@ -28,7 +25,7 @@ function BracketTeamRow({ name, score, winner, loser, tbd }: {
         fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: 9,
         color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
       }}>
-        {tbd ? '?' : initials(name)}
+        {tbd ? '?' : teamInitials(name)}
       </span>
       <span style={{
         fontWeight: 700, fontSize: 13,

@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Loader2, X } from 'lucide-react'
 import { createManualKnockoutAction } from '../fixtures/actions'
+import { teamInitials } from '@/lib/format'
 
 interface Team {
   id: string
@@ -78,10 +79,6 @@ function setMatchTime(pairings: Pairing[], matchIdx: number, value: string): Pai
 
 function allFilled(pairings: Pairing[]): boolean {
   return pairings.every((p) => p.home && p.away && p.matchTime)
-}
-
-function initials(name: string): string {
-  return name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
 }
 
 export function BracketSetupView({ tournamentId, qualifiedTeams, tournamentStart, tournamentEnd, onCreated }: Props) {
@@ -173,7 +170,7 @@ export function BracketSetupView({ tournamentId, qualifiedTeams, tournamentStart
                             border: '1px solid var(--admin-rule)',
                           }}
                         >
-                          {initials(t.name)}
+                          {teamInitials(t.name)}
                         </span>
                         <span
                           className="truncate text-xs"
@@ -458,7 +455,7 @@ function TeamSlot({
               border: '1px solid var(--admin-rule)',
             }}
           >
-            {initials(team.name)}
+            {teamInitials(team.name)}
           </span>
           <span className="truncate text-xs flex-1" style={{ color: 'var(--foreground)' }}>
             {team.name}
@@ -521,7 +518,7 @@ function TeamSlot({
                     border: '1px solid var(--admin-rule)',
                   }}
                 >
-                  {initials(t.name)}
+                  {teamInitials(t.name)}
                 </span>
                 {t.name}
               </button>

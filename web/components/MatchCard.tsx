@@ -1,5 +1,6 @@
 import type { MatchWithTeams } from '@/lib/supabase/types'
 import { LiveBadge } from './LiveBadge'
+import { teamInitials } from '@/lib/format'
 
 interface MatchCardProps {
   match: MatchWithTeams
@@ -11,10 +12,6 @@ function formatTime(iso: string) {
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-MY', { weekday: 'short', month: 'short', day: 'numeric' })
-}
-
-function initials(name: string) {
-  return name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
 }
 
 export function MatchCard({ match }: MatchCardProps) {
@@ -136,7 +133,7 @@ function TeamRow({ name, score, winner, loser, dim }: {
           fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: 11, color: '#fff',
           boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.1)',
         }}>
-          {initials(name)}
+          {teamInitials(name)}
         </span>
         <span style={{
           fontWeight: 700, fontSize: 14,

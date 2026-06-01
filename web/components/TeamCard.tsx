@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import type { Team, Player, Standing } from '@/lib/supabase/types'
+import { teamInitials } from '@/lib/format'
 
 interface TeamCardProps {
   team: Team & { players: Player[] }
@@ -14,7 +15,7 @@ export function TeamCard({ team, standings, tournamentId }: TeamCardProps) {
   const [open, setOpen] = useState(false)
   const rec = standings.find(s => s.team_id === team.id)
 
-  const initials = team.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+  const initials = teamInitials(team.name)
 
   return (
     <div style={{

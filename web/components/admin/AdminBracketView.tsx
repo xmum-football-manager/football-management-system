@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import type { MatchWithTeams } from '@/lib/supabase/types'
+import { teamInitials } from '@/lib/format'
 
 export interface BracketGroupStanding {
   team_id: string
@@ -36,15 +37,6 @@ interface Props {
 
 const CARD_HEIGHT = 64
 const ROW_GAP = 16
-
-function initials(name: string) {
-  return name
-    .split(' ')
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase()
-}
 
 function roundLabel(slotCount: number): string {
   if (slotCount === 8) return 'Round of 16'
@@ -667,7 +659,7 @@ function BracketTeamRow({
           border: '1px solid var(--admin-rule)',
         }}
       >
-        {initials(name)}
+        {teamInitials(name)}
       </span>
       <span
         className="truncate text-sm"
