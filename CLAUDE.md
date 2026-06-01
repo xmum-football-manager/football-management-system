@@ -76,6 +76,16 @@ Skip the subagent when:
 
 Each subagent starts cold (no conversation memory, no warm prompt cache), so the briefing prompt must be self-contained: goal, context, what to return, and a length cap.
 
+## Previous Knowledge
+
+The file `docs/frontend/component-map.md` contains a map of every UI component — what it does, which pages use it, phase-filtering rules, and the public vs admin UI system split.
+
+**Treat it as a starting point, not ground truth.** It was written at a point in time. Before relying on it, verify against the actual code if the area you're touching has changed recently. Specifically:
+- Check actual `import` statements if a component's usage seems off.
+- The `isGroupStageMatch` heuristic and `match_time` visibility rules are documented there — re-read that section before touching match filtering.
+
+The `lib/` directory contains shared utilities — `lib/format.ts` for formatting (`teamInitials`, `formatClock`, etc.), `lib/match-phase.ts` for phase filtering, `lib/qualifiers.ts` for standings. **Before writing any local helper function, check `lib/` first.** If the helper is used in more than one file, it belongs in `lib/`. The component map's `lib/ utility modules` section documents what's there.
+
 ## Health Stack
 
 - typecheck: cd web && tsc --noEmit
