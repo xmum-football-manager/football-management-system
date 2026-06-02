@@ -16,7 +16,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { MatchStateStepper } from '@/components/admin/MatchStateStepper'
-import { transitionMatchAction } from './actions'
+import { transitionMatchAction, setMatchWinnerAction } from './actions'
 import { formatClock } from '@/lib/format'
 import { Loader2, RotateCcw, Play, Pause, CircleStop, FastForward } from 'lucide-react'
 import type { MatchStatus, MatchWithTeams, TournamentStatus } from '@/lib/supabase/types'
@@ -89,6 +89,9 @@ export function MatchRow({ match, tournamentStatus, isAdmin, onMatchClick }: Pro
   const router = useRouter()
   const [busy, setBusy] = useState<string | null>(null)
   const [prompt, setPrompt] = useState<LifecycleAction | null>(null)
+  const [winnerPick, setWinnerPick] = useState<string | null>(null)
+  const isLevelKo =
+    match.phase === 'knockout' && match.home_score === match.away_score
 
   const finished = match.status === 'finished'
   const scheduled = match.status === 'scheduled'
@@ -97,10 +100,23 @@ export function MatchRow({ match, tournamentStatus, isAdmin, onMatchClick }: Pro
   const lifecycleActions = tournamentLocked ? [] : lifecycleActionsFor(match.status)
 
   async function commit(action: LifecycleAction) {
+    if (action.next === 'finished' && isLevelKo && !winnerPick) {
+      toast.error('Pick who advances first.')
+      return
+    }
     setBusy(action.next)
+    if (action.next === 'finished' && isLevelKo && winnerPick) {
+      const w = await setMatchWinnerAction(match.id, winnerPick)
+      if ('error' in w) {
+        setBusy(null)
+        toast.error(w.error)
+        return
+      }
+    }
     const r = await transitionMatchAction(match.id, action.next, isAdmin)
     setBusy(null)
     setPrompt(null)
+    setWinnerPick(null)
     if ('error' in r) {
       toast.error(r.error)
       return
@@ -244,7 +260,7 @@ export function MatchRow({ match, tournamentStatus, isAdmin, onMatchClick }: Pro
       </div>
 
       {prompt && (
-        <AlertDialog open onOpenChange={(open) => !open && setPrompt(null)}>
+        <AlertDialog open onOpenChange={(open) => { if (!open) { setPrompt(null); setWinnerPick(null) } }}>
           <AlertDialogContent onClick={(e) => e.stopPropagation()}>
             <AlertDialogHeader>
               <AlertDialogTitle>{prompt.confirmTitle}</AlertDialogTitle>
@@ -254,6 +270,37 @@ export function MatchRow({ match, tournamentStatus, isAdmin, onMatchClick }: Pro
                   {match.status === 'scheduled' ? '—' : match.away_score} {match.away_team.name}
                 </span>
                 {prompt.confirmDescription}
+                {prompt.next === 'finished' && isLevelKo && (
+                  <span className="mt-3 block">
+                    <span className="mb-1.5 block text-foreground font-medium">
+                      Scores are level — who advances?
+                    </span>
+                    <span className="flex flex-col gap-1.5">
+                      {match.home_team_id && (
+                        <label className="flex items-center gap-2 text-sm text-foreground">
+                          <input
+                            type="radio"
+                            name="ko-winner"
+                            checked={winnerPick === match.home_team_id}
+                            onChange={() => setWinnerPick(match.home_team_id)}
+                          />
+                          {match.home_team?.name}
+                        </label>
+                      )}
+                      {match.away_team_id && (
+                        <label className="flex items-center gap-2 text-sm text-foreground">
+                          <input
+                            type="radio"
+                            name="ko-winner"
+                            checked={winnerPick === match.away_team_id}
+                            onChange={() => setWinnerPick(match.away_team_id)}
+                          />
+                          {match.away_team?.name}
+                        </label>
+                      )}
+                    </span>
+                  </span>
+                )}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

@@ -90,6 +90,31 @@ export async function updateScoreAction(
   }
 }
 
+export async function setMatchWinnerAction(
+  matchId: string,
+  winnerTeamId: string,
+): Promise<{ ok: true } | { error: string }> {
+  try {
+    const { match } = await ensureOrganizerOfMatch(matchId)
+    if (match.phase !== 'knockout') return { error: 'Only knockout matches have a winner pick.' }
+    if (winnerTeamId !== match.home_team_id && winnerTeamId !== match.away_team_id) {
+      return { error: 'Winner must be one of the two teams.' }
+    }
+    const r = await setMatchWinner(matchId, winnerTeamId)
+    if (r.error) return { error: r.error }
+    // Now that a winner exists, flow it into the next round.
+    if (match.status === 'finished') {
+      await advanceBracketIfReady(matchId)
+    }
+    revalidatePath(`/admin/tournaments/${match.tournament_id}`)
+    revalidatePath(`/admin/tournaments/${match.tournament_id}/ko-fixtures`)
+    revalidatePath(`/t/${match.tournament_id}`)
+    return { ok: true }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed.' }
+  }
+}
+
 export async function updateMatchTimeAction(
   matchId: string,
   match_time: string,
