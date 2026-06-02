@@ -1,17 +1,18 @@
 import type { MatchWithTeams } from '@/lib/supabase/types'
 import { teamInitials } from '@/lib/format'
-import { groupByKnockoutRound, knockoutRoundLabel, futureRoundsAfter, type KnockoutRound } from '@/lib/bracket'
+import { groupByKnockoutRound, knockoutRoundLabel, feederMatchLabel, KNOCKOUT_ROUND_ORDER, type KnockoutRound } from '@/lib/bracket'
 
 interface BracketViewProps {
   matches: MatchWithTeams[]
 }
 
-function BracketTeamRow({ name, score, winner, loser, tbd }: {
+function BracketTeamRow({ name, score, winner, loser, tbd, label }: {
   name: string
   score: number | null
   winner: boolean
   loser: boolean
   tbd?: boolean
+  label?: string
 }) {
   return (
     <div style={{
@@ -34,7 +35,7 @@ function BracketTeamRow({ name, score, winner, loser, tbd }: {
         color: tbd ? 'var(--ink-500)' : loser ? 'var(--ink-400)' : 'var(--ink-50)',
         fontStyle: tbd ? 'italic' : 'normal',
       }}>
-        {tbd ? 'TBD' : name}
+        {label ?? (tbd ? 'TBD' : name)}
       </span>
       <span style={{
         fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: 16,
@@ -47,7 +48,15 @@ function BracketTeamRow({ name, score, winner, loser, tbd }: {
   )
 }
 
-function BracketMatch({ match }: { match: MatchWithTeams | null }) {
+function BracketMatch({
+  match,
+  homeLabel,
+  awayLabel,
+}: {
+  match: MatchWithTeams | null
+  homeLabel?: string
+  awayLabel?: string
+}) {
   if (!match) {
     return (
       <div style={{
@@ -64,6 +73,8 @@ function BracketMatch({ match }: { match: MatchWithTeams | null }) {
   const isFinished = match.status === 'finished'
   const homeWon    = isFinished && match.home_score > match.away_score
   const awayWon    = isFinished && match.away_score > match.home_score
+  const homeResolved = !!match.home_team_id
+  const awayResolved = !!match.away_team_id
 
   return (
     <div style={{
@@ -81,14 +92,36 @@ function BracketMatch({ match }: { match: MatchWithTeams | null }) {
         }}>LIVE</span>
       )}
       <div style={{ borderBottom: '1px solid var(--ink-700)' }}>
-        <BracketTeamRow name={match.home_team.name} score={match.status === 'scheduled' ? null : match.home_score} winner={homeWon} loser={awayWon} />
+        <BracketTeamRow
+          name={homeResolved ? match.home_team!.name : ''}
+          score={match.status === 'scheduled' || !homeResolved ? null : match.home_score}
+          winner={homeWon} loser={awayWon}
+          tbd={!homeResolved}
+          label={homeResolved ? undefined : homeLabel ?? 'TBD'}
+        />
       </div>
-      <BracketTeamRow name={match.away_team.name} score={match.status === 'scheduled' ? null : match.away_score} winner={awayWon} loser={homeWon} />
+      <BracketTeamRow
+        name={awayResolved ? match.away_team!.name : ''}
+        score={match.status === 'scheduled' || !awayResolved ? null : match.away_score}
+        winner={awayWon} loser={homeWon}
+        tbd={!awayResolved}
+        label={awayResolved ? undefined : awayLabel ?? 'TBD'}
+      />
     </div>
   )
 }
 
-function BracketRound({ label, matches, slotCount }: { label: string; matches: (MatchWithTeams | null)[]; slotCount: number }) {
+function BracketRound({
+  label,
+  matches,
+  slotCount,
+  labelFor,
+}: {
+  label: string
+  matches: (MatchWithTeams | null)[]
+  slotCount: number
+  labelFor: (id: string | null) => string | undefined
+}) {
   const slots = Array.from({ length: slotCount }, (_, i) => matches[i] ?? null)
   return (
     <div style={{
@@ -100,32 +133,42 @@ function BracketRound({ label, matches, slotCount }: { label: string; matches: (
         letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ink-400)',
         textAlign: 'center', marginBottom: 12,
       }}>{label}</div>
-      {slots.map((m, i) => <BracketMatch key={i} match={m} />)}
+      {slots.map((m, i) => (
+        <BracketMatch
+          key={i}
+          match={m}
+          homeLabel={m ? labelFor(m.home_source_match_id) : undefined}
+          awayLabel={m ? labelFor(m.away_source_match_id) : undefined}
+        />
+      ))}
     </div>
   )
 }
 
 export function BracketView({ matches }: BracketViewProps) {
-  // Bucket matches into rounds by their authoritative knockout_round column.
   const rounds = groupByKnockoutRound(matches)
   const finalMatch = rounds.find((r) => r.round === 'final')?.matches[0]
   const champion =
     finalMatch?.status === 'finished'
       ? finalMatch.home_score > finalMatch.away_score
-        ? finalMatch.home_team.name
-        : finalMatch.away_team.name
+        ? finalMatch.home_team?.name ?? null
+        : finalMatch.away_team?.name ?? null
       : null
 
-  // Append TBD placeholder rounds after the last real round, down to the final,
-  // so the bracket previews upcoming rounds (e.g. a not-yet-created Final).
-  const displayRounds: { round: KnockoutRound; matches: (MatchWithTeams | null)[] }[] =
-    rounds.map((r) => ({ round: r.round, matches: r.matches }))
-  const lastReal = rounds[rounds.length - 1]
-  if (lastReal) {
-    for (const fr of futureRoundsAfter(lastReal.round, lastReal.matches.length)) {
-      displayRounds.push({ round: fr.round, matches: Array(fr.count).fill(null) })
-    }
+  // Index every match by id so a feeder reference resolves to "Winner of {round} #n".
+  const byId = new Map(matches.map((m) => [m.id, m]))
+  const positionInRound = new Map<string, { round: KnockoutRound; idx: number }>()
+  for (const r of rounds) {
+    r.matches.forEach((m, i) => positionInRound.set(m.id, { round: r.round, idx: i }))
   }
+  function labelFor(sourceMatchId: string | null): string | undefined {
+    if (!sourceMatchId) return undefined
+    const pos = positionInRound.get(sourceMatchId)
+    if (!pos) return undefined
+    return feederMatchLabel(pos.round, pos.idx + 1)
+  }
+
+  const displayRounds = rounds.map((r) => ({ round: r.round, matches: r.matches }))
 
   if (matches.length === 0) {
     return (
@@ -150,6 +193,7 @@ export function BracketView({ matches }: BracketViewProps) {
             label={knockoutRoundLabel(r.round)}
             matches={r.matches}
             slotCount={r.matches.length}
+            labelFor={labelFor}
           />
         ))}
 
