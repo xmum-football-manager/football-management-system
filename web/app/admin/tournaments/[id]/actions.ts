@@ -3,7 +3,8 @@
 import { revalidatePath } from 'next/cache'
 import { requireUser } from '@/lib/auth'
 import { isAdmin, isOrganizer } from '@/lib/db/roles'
-import { createMatchAdmin, getMatch, updateMatchScore, updateMatchStatus, updateMatchTime } from '@/lib/db/matches'
+import { getMatch, setMatchSlotTeam, setMatchWinner, updateMatchScore, updateMatchStatus, updateMatchTime } from '@/lib/db/matches'
+import { computeAutoWinner } from './advance'
 import { logMatchRevert } from '@/lib/db/audit'
 import { isValidTransition } from '@/lib/match-lifecycle'
 import { createClient } from '@/lib/supabase/server'
@@ -56,9 +57,9 @@ export async function transitionMatchAction(
       await logMatchRevert(user.id, matchId, match.tournament_id, 'finished')
     }
 
-    // Auto-advance knockout bracket when both matches in a pair finish
-    if (next === 'finished' && match.phase === 'knockout' && match.knockout_round) {
-      await advanceBracketIfReady({ ...match, knockout_round: match.knockout_round }, matchId)
+    // Auto-advance knockout bracket: flow this match's winner into the match it feeds.
+    if (next === 'finished' && match.phase === 'knockout') {
+      await advanceBracketIfReady(matchId)
     }
 
     revalidatePath(`/admin/tournaments/${match.tournament_id}`)
@@ -104,88 +105,38 @@ export async function updateMatchTimeAction(
   }
 }
 
-// Round progression for auto-advance
-const ROUND_ORDER = ['r32', 'r16', 'qf', 'sf', 'final'] as const
-type KnockoutRound = (typeof ROUND_ORDER)[number]
-
-function nextKnockoutRound(current: string): string | null {
-  const idx = ROUND_ORDER.indexOf(current as KnockoutRound)
-  if (idx < 0 || idx >= ROUND_ORDER.length - 1) return null
-  return ROUND_ORDER[idx + 1]
-}
-
-async function advanceBracketIfReady(
-  finishedMatch: {
-    id: string
-    tournament_id: string
-    knockout_round: string
-    home_team_id: string
-    away_team_id: string
-    home_score: number
-    away_score: number
-  },
-  matchId: string,
-) {
+/**
+ * Flow a finished knockout match's winner into the slot that references it.
+ * Reads `winner_team_id` (auto-derived from score here if unset; a level match
+ * with no admin pick is left for the draw UI and does NOT advance). Then finds
+ * the match whose home_source_match_id or away_source_match_id equals this id
+ * and fills that slot. No created_at pairing, no dedup heuristic.
+ */
+async function advanceBracketIfReady(matchId: string) {
   try {
+    const finished = await getMatch(matchId)
+    if (!finished || finished.phase !== 'knockout') return
+
+    // Resolve the winner: prefer an explicit (admin-picked) winner, else auto from score.
+    let winnerId = finished.winner_team_id
+    if (!winnerId) {
+      winnerId = computeAutoWinner(finished)
+      if (!winnerId) return // level score, no admin pick yet — draw UI handles it
+      await setMatchWinner(matchId, winnerId)
+    }
+
     const supabase = await createClient()
-    const { data: roundMatches } = await supabase
+    const { data: dependents } = await supabase
       .from('matches')
-      .select('id, home_team_id, away_team_id, home_score, away_score, status, created_at')
-      .eq('tournament_id', finishedMatch.tournament_id)
-      .eq('phase', 'knockout')
-      .eq('knockout_round', finishedMatch.knockout_round)
-      .order('created_at', { ascending: true })
+      .select('id, home_source_match_id, away_source_match_id')
+      .eq('tournament_id', finished.tournament_id)
+      .or(`home_source_match_id.eq.${matchId},away_source_match_id.eq.${matchId}`)
 
-    if (!roundMatches || roundMatches.length < 2) return
-
-    const idx = roundMatches.findIndex((m) => m.id === matchId)
-    if (idx < 0) return
-
-    const partnerIdx = idx % 2 === 0 ? idx + 1 : idx - 1
-    const partner = roundMatches[partnerIdx]
-    if (!partner || partner.status !== 'finished') return
-
-    // Skip if either match is a draw (no clear winner)
-    const thisWinner =
-      finishedMatch.home_score > finishedMatch.away_score
-        ? finishedMatch.home_team_id
-        : finishedMatch.away_score > finishedMatch.home_score
-          ? finishedMatch.away_team_id
-          : null
-    const partnerWinner =
-      partner.home_score > partner.away_score
-        ? partner.home_team_id
-        : partner.away_score > partner.home_score
-          ? partner.away_team_id
-          : null
-    if (!thisWinner || !partnerWinner) return
-
-    const nextRound = nextKnockoutRound(finishedMatch.knockout_round)
-    if (!nextRound) return
-
-    // Lower-indexed match's winner is home
-    const homeId = idx < partnerIdx ? thisWinner : partnerWinner
-    const awayId = idx < partnerIdx ? partnerWinner : thisWinner
-
-    // Don't create if a match involving these teams in this round already exists
-    const { count } = await supabase
-      .from('matches')
-      .select('id', { count: 'exact', head: true })
-      .eq('tournament_id', finishedMatch.tournament_id)
-      .eq('phase', 'knockout')
-      .eq('knockout_round', nextRound)
-      .or(`home_team_id.eq.${homeId},away_team_id.eq.${homeId}`)
-    if (count && count > 0) return
-
-    await createMatchAdmin({
-      tournament_id: finishedMatch.tournament_id,
-      home_team_id: homeId,
-      away_team_id: awayId,
-      match_time: null,
-      phase: 'knockout',
-      knockout_round: nextRound,
-    })
+    for (const dep of dependents ?? []) {
+      const slot: 'home' | 'away' = dep.home_source_match_id === matchId ? 'home' : 'away'
+      await setMatchSlotTeam(dep.id, slot, winnerId)
+    }
   } catch {
-    // Auto-advance is best-effort — don't fail the transition
+    // Auto-advance is best-effort — never fail the transition.
   }
 }
