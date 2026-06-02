@@ -3,7 +3,7 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import type { MatchWithTeams } from '@/lib/supabase/types'
 import { teamInitials } from '@/lib/format'
-import { groupByKnockoutRound, countStrayKnockoutMatches } from '@/lib/bracket'
+import { groupByKnockoutRound, countStrayKnockoutMatches, feederMatchLabel, type KnockoutRound } from '@/lib/bracket'
 
 export interface BracketGroupStanding {
   team_id: string
@@ -112,22 +112,21 @@ export function AdminBracketView({
       ? buildPlaceholderRounds(bracketTeamCount, firstRoundSourceLabels ?? null)
       : []
 
-  // For partial bracket: build TBD placeholder rounds for the rounds after the real ones
-  const partialFutureRounds: PlaceholderSlot[][] = []
-  if (hasPartialMatches && bracketTeamCount && bracketTeamCount >= 2) {
-    const totalRoundsNeeded = Math.round(Math.log2(bracketTeamCount))
-    let prevCount = partialRounds[partialRounds.length - 1]?.length ?? 1
-    for (let r = partialRounds.length; r < totalRoundsNeeded; r++) {
-      const count = Math.max(1, Math.floor(prevCount / 2))
-      partialFutureRounds.push(Array.from({ length: count }, () => ({ homeLabel: 'TBD', awayLabel: 'TBD' })))
-      prevCount = count
-    }
+  const groupedRounds = groupByKnockoutRound(matches)
+  const positionInRound = new Map<string, { round: KnockoutRound; idx: number }>()
+  for (const r of groupedRounds) {
+    r.matches.forEach((m, i) => positionInRound.set(m.id, { round: r.round, idx: i }))
+  }
+  const feederLabelFor = (sourceMatchId: string | null): string | undefined => {
+    if (!sourceMatchId) return undefined
+    const pos = positionInRound.get(sourceMatchId)
+    return pos ? feederMatchLabel(pos.round, pos.idx + 1) : undefined
   }
 
   const totalRounds = hasValidMatches
     ? matchRounds.length
     : hasPartialMatches
-      ? partialRounds.length + partialFutureRounds.length
+      ? partialRounds.length
       : placeholderRounds.length
   const hasGroupColumns = (groupColumns?.length ?? 0) > 0
   const hasAnything = totalRounds > 0 || hasGroupColumns
@@ -146,9 +145,9 @@ export function AdminBracketView({
   const champion =
     finalMatch?.status === 'finished'
       ? finalMatch.home_score > finalMatch.away_score
-        ? finalMatch.home_team.name
+        ? finalMatch.home_team?.name ?? null
         : finalMatch.away_score > finalMatch.home_score
-          ? finalMatch.away_team.name
+          ? finalMatch.away_team?.name ?? null
           : null
       : null
 
@@ -233,33 +232,22 @@ export function AdminBracketView({
                     columnHeight={effectiveColumnHeight}
                     isFinal={i === matchRounds.length - 1}
                     onMatchClick={onMatchClick}
+                    feederLabelFor={feederLabelFor}
                   />
                 ))
               : hasPartialMatches
-                ? <>
-                    {partialRounds.map((round, i) => (
-                      <BracketColumn
-                        key={`real-${i}`}
-                        label={roundLabel(round.length)}
-                        matches={round}
-                        placeholders={null}
-                        columnHeight={effectiveColumnHeight}
-                        isFinal={false}
-                        onMatchClick={onMatchClick}
-                      />
-                    ))}
-                    {partialFutureRounds.map((round, i) => (
-                      <BracketColumn
-                        key={`tbd-${i}`}
-                        label={roundLabel(round.length)}
-                        matches={null}
-                        placeholders={round}
-                        columnHeight={effectiveColumnHeight}
-                        isFinal={i === partialFutureRounds.length - 1}
-                        onMatchClick={undefined}
-                      />
-                    ))}
-                  </>
+                ? partialRounds.map((round, i) => (
+                    <BracketColumn
+                      key={`real-${i}`}
+                      label={roundLabel(round.length)}
+                      matches={round}
+                      placeholders={null}
+                      columnHeight={effectiveColumnHeight}
+                      isFinal={false}
+                      onMatchClick={onMatchClick}
+                      feederLabelFor={feederLabelFor}
+                    />
+                  ))
                 : placeholderRounds.map((round, i) => (
                     <BracketColumn
                       key={i}
@@ -269,6 +257,7 @@ export function AdminBracketView({
                       columnHeight={effectiveColumnHeight}
                       isFinal={i === placeholderRounds.length - 1}
                       onMatchClick={undefined}
+                      feederLabelFor={feederLabelFor}
                     />
                   ))}
 
@@ -276,7 +265,7 @@ export function AdminBracketView({
               <ChampionColumn
                 champion={champion}
                 columnHeight={effectiveColumnHeight}
-                hasFinal={!!finalMatch || placeholderRounds.length > 0 || partialFutureRounds.length > 0}
+                hasFinal={!!finalMatch || placeholderRounds.length > 0}
               />
             )}
           </div>
@@ -429,14 +418,14 @@ function GroupMatchCard({
       }
     >
       <BracketTeamRow
-        name={match.home_team.name}
+        name={match.home_team?.name ?? ''}
         score={match.status === 'scheduled' ? null : match.home_score}
         winner={homeWon}
         loser={awayWon}
       />
       <div style={{ height: 1, background: 'var(--admin-rule)' }} />
       <BracketTeamRow
-        name={match.away_team.name}
+        name={match.away_team?.name ?? ''}
         score={match.status === 'scheduled' ? null : match.away_score}
         winner={awayWon}
         loser={homeWon}
@@ -452,6 +441,7 @@ function BracketColumn({
   columnHeight,
   isFinal,
   onMatchClick,
+  feederLabelFor,
 }: {
   label: string
   matches: MatchWithTeams[] | null
@@ -459,6 +449,7 @@ function BracketColumn({
   columnHeight: number
   isFinal: boolean
   onMatchClick?: (m: MatchWithTeams) => void
+  feederLabelFor: (id: string | null) => string | undefined
 }) {
   return (
     <div className="flex flex-col" style={{ width: 220, flexShrink: 0 }}>
@@ -482,6 +473,8 @@ function BracketColumn({
                 match={m}
                 isFinal={isFinal}
                 onMatchClick={onMatchClick}
+                homeLabel={feederLabelFor(m.home_source_match_id)}
+                awayLabel={feederLabelFor(m.away_source_match_id)}
               />
             ))
           : placeholders?.map((p, i) => (
@@ -562,10 +555,14 @@ function BracketMatch({
   match,
   isFinal,
   onMatchClick,
+  homeLabel,
+  awayLabel,
 }: {
   match: MatchWithTeams
   isFinal: boolean
   onMatchClick?: (m: MatchWithTeams) => void
+  homeLabel?: string
+  awayLabel?: string
 }) {
   const isLive = match.status === 'live' || match.status === 'halftime'
   const isFinished = match.status === 'finished'
@@ -593,17 +590,19 @@ function BracketMatch({
       title={clickable ? 'Click to reschedule' : isFinished ? 'Match finished' : isLive ? 'Match in progress' : undefined}
     >
       <BracketTeamRow
-        name={match.home_team.name}
-        score={match.status === 'scheduled' ? null : match.home_score}
+        name={match.home_team_id ? (match.home_team?.name ?? '') : (homeLabel ?? 'TBD')}
+        score={match.status === 'scheduled' || !match.home_team_id ? null : match.home_score}
         winner={homeWon}
         loser={awayWon}
+        unresolved={!match.home_team_id}
       />
       <div style={{ height: 1, background: 'var(--admin-rule)' }} />
       <BracketTeamRow
-        name={match.away_team.name}
-        score={match.status === 'scheduled' ? null : match.away_score}
+        name={match.away_team_id ? (match.away_team?.name ?? '') : (awayLabel ?? 'TBD')}
+        score={match.status === 'scheduled' || !match.away_team_id ? null : match.away_score}
         winner={awayWon}
         loser={homeWon}
+        unresolved={!match.away_team_id}
       />
     </button>
   )
@@ -668,11 +667,13 @@ function BracketTeamRow({
   score,
   winner,
   loser,
+  unresolved,
 }: {
   name: string
   score: number | null
   winner: boolean
   loser: boolean
+  unresolved?: boolean
 }) {
   return (
     <div
@@ -690,13 +691,14 @@ function BracketTeamRow({
           border: '1px solid var(--admin-rule)',
         }}
       >
-        {teamInitials(name)}
+        {unresolved ? '?' : teamInitials(name)}
       </span>
       <span
         className="truncate text-sm"
         style={{
           fontWeight: winner ? 800 : 600,
-          color: loser ? 'var(--muted-foreground)' : 'var(--foreground)',
+          fontStyle: unresolved ? 'italic' : 'normal',
+          color: loser || unresolved ? 'var(--muted-foreground)' : 'var(--foreground)',
         }}
       >
         {name}
