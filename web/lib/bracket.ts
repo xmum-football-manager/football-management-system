@@ -40,28 +40,6 @@ export function groupByKnockoutRound<T extends { knockout_round: string | null }
 }
 
 /**
- * Given the last real round and its match count, list the upcoming rounds down
- * to the final (each halving the match count). Used to render TBD placeholder
- * columns so a partial bracket still previews what comes next. Returns [] when
- * the bracket already reaches a single final match.
- */
-export function futureRoundsAfter(
-  lastRound: KnockoutRound,
-  lastCount: number,
-): { round: KnockoutRound; count: number }[] {
-  const out: { round: KnockoutRound; count: number }[] = []
-  if (lastCount <= 1) return out
-  let count = lastCount
-  for (let i = KNOCKOUT_ROUND_ORDER.indexOf(lastRound) + 1; i < KNOCKOUT_ROUND_ORDER.length; i++) {
-    count = Math.floor(count / 2)
-    if (count < 1) break
-    out.push({ round: KNOCKOUT_ROUND_ORDER[i], count })
-    if (count === 1) break
-  }
-  return out
-}
-
-/**
  * Count matches that cannot be placed in the bracket because their
  * `knockout_round` is null or unrecognised. These are "stray" fixtures the
  * bracket can't render.
@@ -87,4 +65,9 @@ export function knockoutRoundLabel(round: KnockoutRound): string {
     case 'final':
       return 'Final'
   }
+}
+
+/** Human label for an unresolved feeder slot, e.g. "Winner of Quarterfinals #1". */
+export function feederMatchLabel(round: KnockoutRound, oneBasedIndex: number): string {
+  return `Winner of ${knockoutRoundLabel(round)} #${oneBasedIndex}`
 }

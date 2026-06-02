@@ -3,7 +3,7 @@ import {
   groupByKnockoutRound,
   knockoutRoundLabel,
   KNOCKOUT_ROUND_ORDER,
-  futureRoundsAfter,
+  feederMatchLabel,
   countStrayKnockoutMatches,
 } from '@/lib/bracket'
 
@@ -40,24 +40,10 @@ describe('KNOCKOUT_ROUND_ORDER', () => {
   })
 })
 
-describe('futureRoundsAfter', () => {
-  it('returns the single final round after a 2-match semifinal', () => {
-    expect(futureRoundsAfter('sf', 2)).toEqual([{ round: 'final', count: 1 }])
-  })
-
-  it('returns all remaining rounds down to the final after quarterfinals', () => {
-    expect(futureRoundsAfter('qf', 4)).toEqual([
-      { round: 'sf', count: 2 },
-      { round: 'final', count: 1 },
-    ])
-  })
-
-  it('returns nothing when already at the final', () => {
-    expect(futureRoundsAfter('final', 1)).toEqual([])
-  })
-
-  it('returns nothing when the last round has a single match (winner pending)', () => {
-    expect(futureRoundsAfter('sf', 1)).toEqual([])
+describe('feederMatchLabel', () => {
+  it('labels a feeder reference as "Winner of {round} #{n}"', () => {
+    expect(feederMatchLabel('qf', 1)).toBe('Winner of Quarterfinals #1')
+    expect(feederMatchLabel('sf', 2)).toBe('Winner of Semifinals #2')
   })
 })
 
