@@ -28,9 +28,9 @@ interface Props {
 }
 
 function matchLabel(m: MatchWithTeams): string {
-  const group = m.home_team.group_label
+  const group = m.home_team?.group_label
   const prefix = group ? `Group ${group}: ` : ''
-  return `${prefix}${m.home_team.name} vs ${m.away_team.name}`
+  return `${prefix}${m.home_team?.name ?? 'TBD'} vs ${m.away_team?.name ?? 'TBD'}`
 }
 
 function formatTime(isoString: string): string {
@@ -212,7 +212,7 @@ export function FixtureSchedulerPanel({
                           className="h-7 w-7"
                           disabled={pending}
                           onClick={() => unscheduleMatch(m.id)}
-                          aria-label={`Unschedule ${m.home_team.name} vs ${m.away_team.name}`}
+                          aria-label={`Unschedule ${m.home_team?.name ?? 'TBD'} vs ${m.away_team?.name ?? 'TBD'}`}
                         >
                           <X className="h-3 w-3" />
                         </Button>

@@ -28,7 +28,7 @@ export default async function ScorekeepersPage({ params }: Props) {
       id: r.id,
       email: emails.get(r.user_id) ?? '(unknown)',
       scope: r.tournament_id ? ('tournament' as const) : ('match' as const),
-      matchLabel: match ? `${match.home_team.name} vs ${match.away_team.name}` : null,
+      matchLabel: match ? `${match.home_team?.name ?? 'TBD'} vs ${match.away_team?.name ?? 'TBD'}` : null,
     }
   })
 
@@ -39,7 +39,7 @@ export default async function ScorekeepersPage({ params }: Props) {
         .filter((m) => m.status !== 'finished')
         .map((m) => ({
           id: m.id,
-          label: `${m.home_team.name} vs ${m.away_team.name}`,
+          label: `${m.home_team?.name ?? 'TBD'} vs ${m.away_team?.name ?? 'TBD'}`,
           time: m.match_time,
         }))}
       assignments={assignments}

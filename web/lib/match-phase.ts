@@ -10,11 +10,11 @@
  */
 
 type MatchTeamRef = { group_label: string | null }
-type MatchWithTeamRefs = { home_team: MatchTeamRef; away_team: MatchTeamRef }
+type MatchWithTeamRefs = { home_team: MatchTeamRef | null; away_team: MatchTeamRef | null }
 
 export function isGroupStageMatch(m: MatchWithTeamRefs): boolean {
-  const h = m.home_team.group_label
-  const a = m.away_team.group_label
+  const h = m.home_team?.group_label
+  const a = m.away_team?.group_label
   return !!h && !!a && h === a
 }
 

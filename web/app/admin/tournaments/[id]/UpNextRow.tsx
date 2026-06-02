@@ -38,7 +38,7 @@ export function UpNextRow({ match, isAdmin, hasLiveMatch }: Props) {
     <div className="flex items-center justify-between rounded-lg border px-4 py-3">
       <div>
         <p className="font-semibold text-sm">
-          {match.home_team.name} vs {match.away_team.name}
+          {match.home_team?.name ?? 'TBD'} vs {match.away_team?.name ?? 'TBD'}
         </p>
         {time
           ? <p className="text-xs text-muted-foreground mt-0.5">{time}</p>

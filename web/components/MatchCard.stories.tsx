@@ -22,6 +22,9 @@ const baseMatch = {
   knockout_round: null,
   created_at: '2026-05-01T00:00:00Z',
   updated_at: '2026-05-15T10:00:00Z',
+  home_source_match_id: null,
+  away_source_match_id: null,
+  winner_team_id: null,
   home_team: homeTeam,
   away_team: awayTeam,
 }

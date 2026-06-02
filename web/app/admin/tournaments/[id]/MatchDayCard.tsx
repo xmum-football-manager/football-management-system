@@ -120,7 +120,7 @@ export function MatchDayCard({ match, isAdmin, halftimeEnabled }: Props) {
           />
           {isHalftime ? 'HALF TIME' : 'LIVE'}
         </span>
-        {match.phase !== 'knockout' && match.home_team.group_label && (
+        {match.phase !== 'knockout' && match.home_team?.group_label && (
           <span className="text-xs text-muted-foreground">· Group {match.home_team.group_label}</span>
         )}
       </div>
@@ -128,7 +128,7 @@ export function MatchDayCard({ match, isAdmin, halftimeEnabled }: Props) {
       {/* Score row */}
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 text-center">
         <div>
-          <p className="mb-2 truncate font-semibold">{match.home_team.name}</p>
+          <p className="mb-2 truncate font-semibold">{match.home_team?.name ?? 'TBD'}</p>
           <div className="flex items-center justify-center gap-2">
             <Button variant="outline" size="sm" className="h-8 w-8 p-0 text-base" disabled={busy} onClick={() => adjustScore('home', -1)}>−</Button>
             <span className="admin-mono min-w-[2ch] text-center text-3xl font-bold tabular-nums">{scores.home}</span>
@@ -139,7 +139,7 @@ export function MatchDayCard({ match, isAdmin, halftimeEnabled }: Props) {
         <span className="text-sm text-muted-foreground">vs</span>
 
         <div>
-          <p className="mb-2 truncate font-semibold">{match.away_team.name}</p>
+          <p className="mb-2 truncate font-semibold">{match.away_team?.name ?? 'TBD'}</p>
           <div className="flex items-center justify-center gap-2">
             <Button variant="outline" size="sm" className="h-8 w-8 p-0 text-base" disabled={busy} onClick={() => adjustScore('away', -1)}>−</Button>
             <span className="admin-mono min-w-[2ch] text-center text-3xl font-bold tabular-nums">{scores.away}</span>
@@ -182,7 +182,7 @@ export function MatchDayCard({ match, isAdmin, halftimeEnabled }: Props) {
               <AlertDialogTitle>{prompt.confirmTitle}</AlertDialogTitle>
               <AlertDialogDescription>
                 <span className="mb-2 block font-medium text-foreground">
-                  {match.home_team.name} {scores.home} : {scores.away} {match.away_team.name}
+                  {match.home_team?.name ?? 'TBD'} {scores.home} : {scores.away} {match.away_team?.name ?? 'TBD'}
                 </span>
                 {prompt.confirmDescription}
               </AlertDialogDescription>

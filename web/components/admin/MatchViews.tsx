@@ -381,7 +381,7 @@ function StructureView({
     )
     const groupMatches = matches
       .filter(
-        (m) => m.home_team.group_label === label && m.away_team.group_label === label,
+        (m) => m.home_team?.group_label === label && m.away_team?.group_label === label,
       )
       .sort((a, b) => (a.match_time ?? '').localeCompare(b.match_time ?? ''))
     return { label: `Group ${label}`, standings, matches: groupMatches }
@@ -651,14 +651,14 @@ function MatchdayCard({
         <MatchStatusBadge status={match.status} />
       </div>
       <MatchdayTeamRow
-        name={match.home_team.name}
+        name={match.home_team?.name ?? 'TBD'}
         score={match.status === 'scheduled' ? null : match.home_score}
         winner={homeWon}
         loser={awayWon}
       />
       <div style={{ height: 1, background: 'var(--admin-rule-soft)' }} />
       <MatchdayTeamRow
-        name={match.away_team.name}
+        name={match.away_team?.name ?? 'TBD'}
         score={match.status === 'scheduled' ? null : match.away_score}
         winner={awayWon}
         loser={homeWon}
@@ -833,12 +833,12 @@ function computeGroupStandings(
   for (const m of matches) {
     if (m.status !== 'finished') continue
     if (
-      m.home_team.group_label !== groupLabel ||
-      m.away_team.group_label !== groupLabel
+      m.home_team?.group_label !== groupLabel ||
+      m.away_team?.group_label !== groupLabel
     )
       continue
-    const home = acc.get(m.home_team.id)
-    const away = acc.get(m.away_team.id)
+    const home = m.home_team ? acc.get(m.home_team.id) : undefined
+    const away = m.away_team ? acc.get(m.away_team.id) : undefined
     if (!home || !away) continue
     home.played++
     away.played++
@@ -893,8 +893,8 @@ function computeLeagueStandings(
   }
   for (const m of matches) {
     if (m.status !== 'finished') continue
-    const home = acc.get(m.home_team.id)
-    const away = acc.get(m.away_team.id)
+    const home = m.home_team ? acc.get(m.home_team.id) : undefined
+    const away = m.away_team ? acc.get(m.away_team.id) : undefined
     if (!home || !away) continue
     home.played++
     away.played++
@@ -1234,7 +1234,7 @@ function BoardView({
                     <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
                       {draggable && <GripVertical className="h-3 w-3 opacity-60" />}
                       <span className="font-mono">{formatClock(m.match_time ?? '')}</span>
-                      {m.home_team.group_label && m.home_team.group_label === m.away_team.group_label && (
+                      {m.home_team?.group_label && m.home_team.group_label === m.away_team?.group_label && (
                         <span
                           className="admin-tab rounded-full px-1.5 py-0.5 text-[9px]"
                           style={{
@@ -1335,7 +1335,7 @@ function TeamSlot({
         if (!draggable) return
         e.stopPropagation()
         e.dataTransfer.setData('text/team-slot', `${match.id}:${slot}`)
-        e.dataTransfer.setData('text/team-name', team.name)
+        e.dataTransfer.setData('text/team-name', team?.name ?? 'TBD')
         e.dataTransfer.effectAllowed = 'move'
         setDraggingSlot({ matchId: match.id, slot })
       }}
@@ -1360,7 +1360,7 @@ function TeamSlot({
         const sourceTeamName = e.dataTransfer.getData('text/team-name') || 'Other team'
         onSwap({
           source: { matchId: srcMatchId, slot: srcSlotRaw, teamName: sourceTeamName },
-          target: { matchId: match.id, slot, teamName: team.name },
+          target: { matchId: match.id, slot, teamName: team?.name ?? 'TBD' },
         })
         setDraggingSlot(null)
       }}
@@ -1372,7 +1372,7 @@ function TeamSlot({
       style={{ cursor: draggable ? 'grab' : 'default' }}
       title={draggable ? 'Drag onto another team to swap' : undefined}
     >
-      {team.name}
+      {team?.name ?? 'TBD'}
     </div>
   )
 }
@@ -1426,8 +1426,8 @@ function RescheduleDialog({
             {isNew ? 'Set kickoff time' : 'Reschedule fixture'}
           </DialogTitle>
           <DialogDescription>
-            <span className="font-semibold text-foreground">{match.home_team.name}</span> vs{' '}
-            <span className="font-semibold text-foreground">{match.away_team.name}</span>
+            <span className="font-semibold text-foreground">{match.home_team?.name ?? 'TBD'}</span> vs{' '}
+            <span className="font-semibold text-foreground">{match.away_team?.name ?? 'TBD'}</span>
             {isNew ? ' — set when this match will be played.' : ' — move to a new kickoff time.'}
           </DialogDescription>
         </DialogHeader>

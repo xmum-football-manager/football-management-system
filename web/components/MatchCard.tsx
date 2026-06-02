@@ -72,7 +72,7 @@ export function MatchCard({ match }: MatchCardProps) {
 
       {/* Home team row */}
       <TeamRow
-        name={match.home_team.name}
+        name={match.home_team?.name ?? 'TBD'}
         score={isUpcoming ? null : match.home_score}
         winner={homeWon}
         loser={awayWon}
@@ -80,7 +80,7 @@ export function MatchCard({ match }: MatchCardProps) {
       />
       {/* Away team row */}
       <TeamRow
-        name={match.away_team.name}
+        name={match.away_team?.name ?? 'TBD'}
         score={isUpcoming ? null : match.away_score}
         winner={awayWon}
         loser={homeWon}

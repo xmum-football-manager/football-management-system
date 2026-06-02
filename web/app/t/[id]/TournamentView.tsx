@@ -532,7 +532,7 @@ function GroupStandings({
         const teamIds = new Set(groups.get(label) ?? [])
         const groupStandings = standings.filter((s) => teamIds.has(s.team_id))
         const groupMatches = matches.filter(
-          (m) => teamIds.has(m.home_team_id) && teamIds.has(m.away_team_id),
+          (m) => !!m.home_team_id && !!m.away_team_id && teamIds.has(m.home_team_id) && teamIds.has(m.away_team_id),
         )
         return (
           <StandingsTable

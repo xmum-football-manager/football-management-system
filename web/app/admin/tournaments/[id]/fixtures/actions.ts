@@ -146,6 +146,9 @@ export async function swapTeamSlotsAction(
     if (srcMatch.status !== 'scheduled' || tgtMatch.status !== 'scheduled') {
       return { error: 'Both matches must be scheduled to swap teams.' }
     }
+    if (!srcMatch.home_team_id || !srcMatch.away_team_id || !tgtMatch.home_team_id || !tgtMatch.away_team_id) {
+      return { error: 'Cannot swap slots on matches with unresolved teams.' }
+    }
     const srcTeam = source.slot === 'home' ? srcMatch.home_team_id : srcMatch.away_team_id
     const tgtTeam = target.slot === 'home' ? tgtMatch.home_team_id : tgtMatch.away_team_id
 

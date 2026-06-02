@@ -32,7 +32,7 @@ export default async function KnockoutPage({ params }: Props) {
   const standings = tournament.num_groups && tournament.advance_per_group
     ? computeGroupStandings(
         teams,
-        groupMatches,
+        groupMatches.filter((m) => !!m.home_team_id && !!m.away_team_id) as Array<{ status: string; home_team_id: string; away_team_id: string; home_score: number; away_score: number }>,
         tournament.num_groups,
         tournament.advance_per_group,
       )

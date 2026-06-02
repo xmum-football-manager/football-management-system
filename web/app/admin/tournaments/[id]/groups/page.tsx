@@ -12,9 +12,9 @@ interface Props {
   params: Promise<{ id: string }>
 }
 
-function isGroupMatch(m: { home_team: { group_label: string | null }; away_team: { group_label: string | null } }) {
-  const h = m.home_team.group_label
-  const a = m.away_team.group_label
+function isGroupMatch(m: { home_team: { group_label: string | null } | null; away_team: { group_label: string | null } | null }) {
+  const h = m.home_team?.group_label
+  const a = m.away_team?.group_label
   return !!h && !!a && h === a
 }
 

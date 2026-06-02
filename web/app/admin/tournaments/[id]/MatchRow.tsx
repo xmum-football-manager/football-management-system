@@ -166,7 +166,7 @@ export function MatchRow({ match, tournamentStatus, isAdmin, onMatchClick }: Pro
       </div>
 
       <div className="flex min-w-[220px] flex-1 items-center gap-3">
-        <div className="flex-1 truncate text-right font-semibold">{match.home_team.name}</div>
+        <div className="flex-1 truncate text-right font-semibold">{match.home_team?.name ?? 'TBD'}</div>
         <div
           className="admin-mono inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-base font-bold tabular-nums"
           style={{
@@ -184,7 +184,7 @@ export function MatchRow({ match, tournamentStatus, isAdmin, onMatchClick }: Pro
           <span style={{ color: 'var(--muted-foreground)' }}>:</span>
           <span>{match.status === 'scheduled' ? '—' : match.away_score}</span>
         </div>
-        <div className="flex-1 truncate text-left font-semibold">{match.away_team.name}</div>
+        <div className="flex-1 truncate text-left font-semibold">{match.away_team?.name ?? 'TBD'}</div>
       </div>
 
       <MatchStateStepper status={match.status} />
@@ -238,8 +238,8 @@ export function MatchRow({ match, tournamentStatus, isAdmin, onMatchClick }: Pro
                 <AlertDialogTitle>Revert match to live?</AlertDialogTitle>
                 <AlertDialogDescription>
                   <span className="block mb-2 text-foreground font-medium">
-                    {match.home_team.name} {match.home_score} : {match.away_score}{' '}
-                    {match.away_team.name}
+                    {match.home_team?.name ?? 'TBD'} {match.home_score} : {match.away_score}{' '}
+                    {match.away_team?.name ?? 'TBD'}
                   </span>
                   Unlocks the result and lets scorekeepers update the score again. Standings will
                   recalculate.
@@ -266,8 +266,8 @@ export function MatchRow({ match, tournamentStatus, isAdmin, onMatchClick }: Pro
               <AlertDialogTitle>{prompt.confirmTitle}</AlertDialogTitle>
               <AlertDialogDescription>
                 <span className="block mb-2 text-foreground font-medium">
-                  {match.home_team.name} {match.status === 'scheduled' ? '—' : match.home_score} :{' '}
-                  {match.status === 'scheduled' ? '—' : match.away_score} {match.away_team.name}
+                  {match.home_team?.name ?? 'TBD'} {match.status === 'scheduled' ? '—' : match.home_score} :{' '}
+                  {match.status === 'scheduled' ? '—' : match.away_score} {match.away_team?.name ?? 'TBD'}
                 </span>
                 {prompt.confirmDescription}
                 {prompt.next === 'finished' && isLevelKo && (

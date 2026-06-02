@@ -108,7 +108,7 @@ export function HeroLive({ variant, match }: HeroLiveProps) {
                   boxShadow: isNextup
                     ? 'inset 0 0 0 4px rgba(255,255,255,0.05), 0 8px 20px rgba(0,0,0,0.3)'
                     : 'inset 0 0 0 4px rgba(255,255,255,0.12), 0 12px 32px rgba(0,0,0,0.45)',
-                }}>{teamInitials(match.home_team.name)}</div>
+                }}>{teamInitials(match.home_team?.name ?? 'TBD')}</div>
                 <div style={{
                   fontFamily: 'var(--font-display)', fontWeight: 900,
                   fontSize: 'clamp(12px, 3vw, 34px)', letterSpacing: '-0.02em',
@@ -116,7 +116,7 @@ export function HeroLive({ variant, match }: HeroLiveProps) {
                   color: isNextup ? 'var(--ink-500)' : 'var(--ink-50)',
                   lineHeight: 1.1,
                   wordBreak: 'break-word', overflowWrap: 'break-word',
-                }}>{match.home_team.name}</div>
+                }}>{match.home_team?.name ?? 'TBD'}</div>
               </div>
 
               {/* Centre column */}
@@ -183,7 +183,7 @@ export function HeroLive({ variant, match }: HeroLiveProps) {
                   boxShadow: isNextup
                     ? 'inset 0 0 0 4px rgba(255,255,255,0.05), 0 8px 20px rgba(0,0,0,0.3)'
                     : 'inset 0 0 0 4px rgba(255,255,255,0.12), 0 12px 32px rgba(0,0,0,0.45)',
-                }}>{teamInitials(match.away_team.name)}</div>
+                }}>{teamInitials(match.away_team?.name ?? 'TBD')}</div>
                 <div style={{
                   fontFamily: 'var(--font-display)', fontWeight: 900,
                   fontSize: 'clamp(14px, 2.5vw, 34px)', letterSpacing: '-0.02em',
@@ -191,7 +191,7 @@ export function HeroLive({ variant, match }: HeroLiveProps) {
                   color: isNextup ? 'var(--ink-500)' : 'var(--ink-50)',
                   lineHeight: 1.1,
                   wordBreak: 'break-word', overflowWrap: 'break-word',
-                }}>{match.away_team.name}</div>
+                }}>{match.away_team?.name ?? 'TBD'}</div>
               </div>
             </div>
           </>

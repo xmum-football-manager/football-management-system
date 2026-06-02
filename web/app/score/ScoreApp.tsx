@@ -85,7 +85,7 @@ export function ScoreApp({ email, initialMatches }: Props) {
                       : 'border-slate-700 bg-slate-800/60 text-slate-300'
                   }`}
                 >
-                  {m.home_team.name} vs {m.away_team.name}{' '}
+                  {m.home_team?.name ?? 'TBD'} vs {m.away_team?.name ?? 'TBD'}{' '}
                   {m.status === 'live' ? (
                     <span className="ml-1 text-emerald-300">● LIVE</span>
                   ) : m.status === 'halftime' ? (
@@ -259,14 +259,14 @@ function ScoreCard({ match, onChange }: { match: MatchWithTeams; onChange: () =>
 
       <div className="grid grid-cols-2 gap-3">
         <SideColumn
-          label={match.home_team.name}
+          label={match.home_team?.name ?? 'TBD'}
           value={home}
           onMinus={() => bump('home', -1)}
           onPlus={() => bump('home', 1)}
           disabled={!canScore || saving}
         />
         <SideColumn
-          label={match.away_team.name}
+          label={match.away_team?.name ?? 'TBD'}
           value={away}
           onMinus={() => bump('away', -1)}
           onPlus={() => bump('away', 1)}
@@ -375,7 +375,7 @@ function ConfirmOverlay({
         <div>
           <h2 className="text-lg font-bold text-white">{prompt.title}</h2>
           <p className="mt-2 text-slate-300 text-sm">
-            {match.home_team.name} {match.home_score} : {match.away_score} {match.away_team.name}
+            {match.home_team?.name ?? 'TBD'} {match.home_score} : {match.away_score} {match.away_team?.name ?? 'TBD'}
           </p>
           <p className="mt-1 text-slate-400 text-sm">{prompt.description}</p>
         </div>
