@@ -6,12 +6,14 @@ import { isAdmin, isOrganizer } from '@/lib/db/roles'
 import {
   createMatch,
   createMatchAdmin,
+  setMatchFeeders,
   deleteMatch,
   updateMatchTime,
   updateMatchTeams,
   getMatch,
   listMatches,
 } from '@/lib/db/matches'
+import { buildBracketSkeleton } from '@/lib/bracket-skeleton'
 import { listTeams } from '@/lib/db/teams'
 import { getTournament, updateKnockoutQualifiers } from '@/lib/db/tournaments'
 import { generateRoundRobin } from '@/lib/round-robin'
@@ -328,20 +330,48 @@ export async function createManualKnockoutAction(
     if (existingMatches.some((m) => m.phase === 'knockout')) {
       return { error: 'Knockout matches already exist.' }
     }
-    const round = knockoutRoundLabel(tournament, pairings.length * 2)
-    let created = 0
-    for (const p of pairings) {
-      const r = await createMatch({
+    // Build the FULL bracket (all rounds) from the round-1 pairings.
+    let skeleton
+    try {
+      skeleton = buildBracketSkeleton(
+        pairings.map((p) => ({
+          home_team_id: p.home_team_id,
+          away_team_id: p.away_team_id,
+          match_time: p.match_time ?? null,
+        })),
+      )
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : 'Invalid bracket size.' }
+    }
+
+    // Pass 1: insert every node, recording node-index -> created DB id.
+    const nodeIdByIndex: (string | null)[] = skeleton.map(() => null)
+    for (let i = 0; i < skeleton.length; i++) {
+      const node = skeleton[i]
+      const r = await createMatchAdmin({
         tournament_id: tournamentId,
-        home_team_id: p.home_team_id,
-        away_team_id: p.away_team_id,
-        match_time: p.match_time ?? null,
+        home_team_id: node.home_team_id,
+        away_team_id: node.away_team_id,
+        match_time: node.match_time,
         phase: 'knockout',
-        knockout_round: round,
+        knockout_round: node.knockout_round,
       })
       if ('error' in r) return { error: r.error }
-      created++
+      nodeIdByIndex[i] = r.id
     }
+
+    // Pass 2: wire feeder edges for later-round nodes now that ids exist.
+    // Service client (via setMatchFeeders) to match the service-client inserts.
+    for (let i = 0; i < skeleton.length; i++) {
+      const node = skeleton[i]
+      if (node.home_source_index === null && node.away_source_index === null) continue
+      const homeSrc = node.home_source_index === null ? null : nodeIdByIndex[node.home_source_index]
+      const awaySrc = node.away_source_index === null ? null : nodeIdByIndex[node.away_source_index]
+      const w = await setMatchFeeders(nodeIdByIndex[i]!, homeSrc, awaySrc)
+      if (w.error) return { error: w.error }
+    }
+
+    const created = skeleton.length
     revalidatePath(`/admin/tournaments/${tournamentId}/fixtures`)
     revalidatePath(`/admin/tournaments/${tournamentId}/ko-fixtures`)
     revalidatePath(`/admin/tournaments/${tournamentId}`)
