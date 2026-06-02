@@ -32,11 +32,13 @@ export async function getMatch(id: string): Promise<Match | null> {
 
 export interface CreateMatchInput {
   tournament_id: string
-  home_team_id: string
-  away_team_id: string
+  home_team_id: string | null
+  away_team_id: string | null
   match_time: string | null
   phase?: string
   knockout_round?: string
+  home_source_match_id?: string | null
+  away_source_match_id?: string | null
 }
 
 export async function createMatchAdmin(input: CreateMatchInput): Promise<{ id: string } | { error: string }> {
@@ -50,6 +52,8 @@ export async function createMatchAdmin(input: CreateMatchInput): Promise<{ id: s
       match_time: input.match_time,
       ...(input.phase != null && { phase: input.phase }),
       ...(input.knockout_round != null && { knockout_round: input.knockout_round }),
+      ...(input.home_source_match_id != null && { home_source_match_id: input.home_source_match_id }),
+      ...(input.away_source_match_id != null && { away_source_match_id: input.away_source_match_id }),
     })
     .select('id')
     .single()
@@ -122,6 +126,52 @@ export async function updateMatchTeams(
   const { error } = await supabase
     .from('matches')
     .update({ home_team_id, away_team_id })
+    .eq('id', id)
+  if (error) return { error: error.message }
+  return {}
+}
+
+/**
+ * Fill one team slot (home or away) of a knockout match with a concrete team.
+ * Uses the service client so auto-advance works regardless of the actor's RLS.
+ */
+export async function setMatchSlotTeam(
+  id: string,
+  slot: 'home' | 'away',
+  teamId: string,
+): Promise<{ error?: string }> {
+  const supabase = createServiceClient()
+  const patch = slot === 'home' ? { home_team_id: teamId } : { away_team_id: teamId }
+  const { error } = await supabase.from('matches').update(patch).eq('id', id)
+  if (error) return { error: error.message }
+  return {}
+}
+
+/** Record who advances from a match (auto from score or admin-picked on a draw). */
+export async function setMatchWinner(
+  id: string,
+  winnerTeamId: string,
+): Promise<{ error?: string }> {
+  const supabase = createServiceClient()
+  const { error } = await supabase.from('matches').update({ winner_team_id: winnerTeamId }).eq('id', id)
+  if (error) return { error: error.message }
+  return {}
+}
+
+/**
+ * Wire a later-round match to the two matches whose winners feed its slots.
+ * Service client so skeleton wiring matches the service-client inserts (no RLS
+ * UPDATE policy assumption).
+ */
+export async function setMatchFeeders(
+  id: string,
+  homeSourceMatchId: string | null,
+  awaySourceMatchId: string | null,
+): Promise<{ error?: string }> {
+  const supabase = createServiceClient()
+  const { error } = await supabase
+    .from('matches')
+    .update({ home_source_match_id: homeSourceMatchId, away_source_match_id: awaySourceMatchId })
     .eq('id', id)
   if (error) return { error: error.message }
   return {}
