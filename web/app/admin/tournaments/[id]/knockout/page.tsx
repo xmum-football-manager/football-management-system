@@ -7,13 +7,10 @@ import { canAddFixture } from '@/lib/lock-rules'
 import { computeGroupStandings } from '@/lib/qualifiers'
 import { notFound } from 'next/navigation'
 import { KnockoutStepper } from './KnockoutStepper'
+import { isGroupStageMatch } from '@/lib/match-phase'
 
 interface Props {
   params: Promise<{ id: string }>
-}
-
-function isGroupMatch(m: { home_team: { group_label: string | null }; away_team: { group_label: string | null } }) {
-  return !!m.home_team.group_label && m.home_team.group_label === m.away_team.group_label
 }
 
 export default async function KnockoutPage({ params }: Props) {
@@ -29,8 +26,8 @@ export default async function KnockoutPage({ params }: Props) {
     isAdmin(user.id),
   ])
 
-  const groupMatches = matches.filter(isGroupMatch)
-  const knockoutMatches = matches.filter((m) => !isGroupMatch(m) && m.phase === 'knockout')
+  const groupMatches = matches.filter(isGroupStageMatch)
+  const knockoutMatches = matches.filter((m) => m.phase === 'knockout')
 
   const standings = tournament.num_groups && tournament.advance_per_group
     ? computeGroupStandings(

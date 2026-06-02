@@ -16,7 +16,7 @@ export default async function HomePage() {
     const { data: tournaments } = await supabase
       .from('tournaments')
       .select('*')
-      .in('status', ['active', 'finished'])
+      .in('status', ['active'])
       .order('start_date', { ascending: false })
 
     list = (tournaments ?? []) as Tournament[]

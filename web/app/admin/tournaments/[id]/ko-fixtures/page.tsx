@@ -10,12 +10,6 @@ interface Props {
   params: Promise<{ id: string }>
 }
 
-function isGroupStageMatch(m: { home_team: { group_label: string | null }; away_team: { group_label: string | null } }): boolean {
-  const h = m.home_team.group_label
-  const a = m.away_team.group_label
-  return !!h && !!a && h === a
-}
-
 export default async function KOFixturesPage({ params }: Props) {
   const { id } = await params
   const user = await requireUser()
@@ -27,9 +21,9 @@ export default async function KOFixturesPage({ params }: Props) {
     isAdmin(user.id),
   ])
 
-  // For round_robin_knockout, only show knockout matches
+  // For round_robin_knockout, only show knockout matches (use authoritative phase column)
   const displayMatches = tournament.format === 'round_robin_knockout'
-    ? matches.filter((m) => !isGroupStageMatch(m))
+    ? matches.filter((m) => m.phase === 'knockout')
     : matches
 
   const canEdit = canAddFixture(tournament.status)

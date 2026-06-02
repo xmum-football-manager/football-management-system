@@ -8,6 +8,7 @@ import { listMatches } from '@/lib/db/matches'
 import { checkTournamentReadiness } from '@/lib/tournament-readiness'
 import { TournamentStatusBadge } from '@/components/admin/TournamentStatusBadge'
 import { TournamentNav } from './TournamentNav'
+import { isGroupStageMatch } from '@/lib/match-phase'
 import { ArrowLeft } from 'lucide-react'
 
 interface Props {
@@ -45,12 +46,6 @@ export default async function TournamentLayout({ params, children }: Props) {
     tournament.num_groups,
     tournament.teams_per_group,
   )
-
-  const isGroupStageMatch = (m: (typeof matches)[0]) => {
-    const h = m.home_team.group_label
-    const a = m.away_team.group_label
-    return !!h && !!a && h === a
-  }
 
   const groupMatches = tournament.format === 'round_robin_knockout'
     ? matches.filter(isGroupStageMatch)

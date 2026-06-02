@@ -37,6 +37,7 @@ import {
 import { setTeamGroupAction } from '@/app/admin/tournaments/[id]/teams/actions'
 import { usePersistedView } from '@/lib/hooks/use-persisted-view'
 import { formatClock } from '@/lib/format'
+import { isGroupStageMatch } from '@/lib/match-phase'
 import type {
   MatchWithTeams,
   TournamentFormat,
@@ -81,7 +82,9 @@ export function MatchViews({
 }: MatchViewsProps) {
   const [reschedulingMatch, setReschedulingMatch] = useState<MatchWithTeams | null>(null)
   const handleMatchClick = (m: MatchWithTeams) => {
-    if (m.status !== 'scheduled' || !canManageFixtures || !m.match_time) return
+    if (m.status !== 'scheduled' || !canManageFixtures) return
+    // Allow null-time KO matches to be clicked for scheduling; block other null-time matches
+    if (!m.match_time && m.phase !== 'knockout') return
     setReschedulingMatch(m)
   }
 
@@ -262,14 +265,8 @@ function ViewTab({
  * Match phase helpers
  * ========================================================== */
 
-function isGroupStageMatch(m: MatchWithTeams): boolean {
-  const h = m.home_team.group_label
-  const a = m.away_team.group_label
-  return !!h && !!a && h === a
-}
-
 function knockoutMatches(matches: MatchWithTeams[]): MatchWithTeams[] {
-  return matches.filter((m) => !isGroupStageMatch(m))
+  return matches.filter((m) => m.phase === 'knockout')
 }
 
 /* ============================================================
@@ -1396,7 +1393,8 @@ function RescheduleDialog({
   onClose: () => void
 }) {
   const router = useRouter()
-  const [time, setTime] = useState(() => toLocalDatetime(initialTime))
+  const isNew = !initialTime
+  const [time, setTime] = useState(() => initialTime ? toLocalDatetime(initialTime) : '')
   const [pending, startTransition] = useTransition()
 
   const minDatetime = `${tournamentStart}T00:00`
@@ -1413,7 +1411,7 @@ function RescheduleDialog({
         toast.error(r.error)
         return
       }
-      toast.success('Fixture rescheduled.')
+      toast.success(isNew ? 'Kickoff time set.' : 'Fixture rescheduled.')
       router.refresh()
       onClose()
     })
@@ -1424,16 +1422,17 @@ function RescheduleDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <CalendarClock className="h-4 w-4" /> Reschedule fixture
+            <CalendarClock className="h-4 w-4" />
+            {isNew ? 'Set kickoff time' : 'Reschedule fixture'}
           </DialogTitle>
           <DialogDescription>
-            Move <span className="font-semibold text-foreground">{match.home_team.name}</span> vs{' '}
-            <span className="font-semibold text-foreground">{match.away_team.name}</span> to a new
-            kickoff time.
+            <span className="font-semibold text-foreground">{match.home_team.name}</span> vs{' '}
+            <span className="font-semibold text-foreground">{match.away_team.name}</span>
+            {isNew ? ' — set when this match will be played.' : ' — move to a new kickoff time.'}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-1.5">
-          <Label htmlFor="rs-time">New kickoff</Label>
+          <Label htmlFor="rs-time">{isNew ? 'Kickoff time' : 'New kickoff'}</Label>
           <Input
             id="rs-time"
             type="datetime-local"
@@ -1444,7 +1443,10 @@ function RescheduleDialog({
             disabled={pending}
           />
           <p className="text-[11px] text-muted-foreground">
-            Currently scheduled for {new Date(match.match_time ?? '').toLocaleString()}. Must be within {tournamentStart} – {tournamentEnd}.
+            {isNew
+              ? `Must be within ${tournamentStart} – ${tournamentEnd}.`
+              : `Currently scheduled for ${new Date(match.match_time ?? '').toLocaleString()}. Must be within ${tournamentStart} – ${tournamentEnd}.`
+            }
           </p>
         </div>
         <DialogFooter>
@@ -1453,7 +1455,7 @@ function RescheduleDialog({
           </Button>
           <Button onClick={submit} disabled={pending || !time}>
             {pending && <Loader2 className="h-4 w-4 animate-spin" />}
-            Move fixture
+            {isNew ? 'Set time' : 'Move fixture'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1533,9 +1535,8 @@ function SwapTeamsDialog({
 function groupByDay(matches: MatchWithTeams[]) {
   const map = new Map<string, MatchWithTeams[]>()
   for (const m of matches) {
-    if (!m.match_time) continue
-    const d = new Date(m.match_time)
-    const key = d.toISOString().slice(0, 10)
+    if (!m.match_time && m.status !== 'finished') continue
+    const key = m.match_time ? new Date(m.match_time).toISOString().slice(0, 10) : '__no_time__'
     const arr = map.get(key) ?? []
     arr.push(m)
     map.set(key, arr)
@@ -1544,11 +1545,9 @@ function groupByDay(matches: MatchWithTeams[]) {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([key, ms]) => ({
       key,
-      label: new Date(key).toLocaleDateString('en-US', {
-        weekday: 'long',
-        month: 'short',
-        day: 'numeric',
-      }),
+      label: key === '__no_time__'
+        ? 'No date set'
+        : new Date(key).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }),
       matches: ms.sort((a, b) => (a.match_time ?? '').localeCompare(b.match_time ?? '')),
     }))
 }

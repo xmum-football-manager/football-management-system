@@ -28,6 +28,7 @@ const baseMatch = {
 
 export const Live: Story = {
   args: {
+    variant: 'live',
     match: {
       ...baseMatch,
       status: 'live',
@@ -41,6 +42,7 @@ export const Live: Story = {
 
 export const Halftime: Story = {
   args: {
+    variant: 'live',
     match: {
       ...baseMatch,
       status: 'halftime',
@@ -54,6 +56,7 @@ export const Halftime: Story = {
 
 export const JustStarted: Story = {
   args: {
+    variant: 'live',
     match: {
       ...baseMatch,
       status: 'live',
@@ -62,5 +65,25 @@ export const JustStarted: Story = {
       match_started_at: new Date(Date.now() - 3 * 60000).toISOString(),
       match_finished_at: null,
     } satisfies MatchWithTeams,
+  },
+}
+
+export const NextUp: Story = {
+  args: {
+    variant: 'nextup',
+    match: {
+      ...baseMatch,
+      status: 'scheduled',
+      home_score: 0,
+      away_score: 0,
+      match_started_at: null,
+      match_finished_at: null,
+    } satisfies MatchWithTeams,
+  },
+}
+
+export const Done: Story = {
+  args: {
+    variant: 'done',
   },
 }

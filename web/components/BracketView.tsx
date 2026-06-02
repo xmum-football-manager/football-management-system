@@ -1,5 +1,6 @@
 import type { MatchWithTeams } from '@/lib/supabase/types'
 import { teamInitials } from '@/lib/format'
+import { groupByKnockoutRound, knockoutRoundLabel, futureRoundsAfter, type KnockoutRound } from '@/lib/bracket'
 
 interface BracketViewProps {
   matches: MatchWithTeams[]
@@ -105,21 +106,26 @@ function BracketRound({ label, matches, slotCount }: { label: string; matches: (
 }
 
 export function BracketView({ matches }: BracketViewProps) {
-  // Bucket matches into rounds by position in the knockout draw.
-  // Without explicit round metadata we use match count heuristics:
-  // 8 teams → QF(4) SF(2) F(1); 4 teams → SF(2) F(1); 2 teams → F(1)
-  const total = matches.length
-  const qf = total >= 4 ? matches.slice(0, 4)  : []
-  const sf = total >= 4 ? matches.slice(4, 6)   : total >= 2 ? matches.slice(0, 2) : []
-  const f  = total >= 4 ? matches.slice(6, 7)   : total >= 2 ? matches.slice(2, 3) : matches.slice(0, 1)
-
-  const finalist = f[0]
+  // Bucket matches into rounds by their authoritative knockout_round column.
+  const rounds = groupByKnockoutRound(matches)
+  const finalMatch = rounds.find((r) => r.round === 'final')?.matches[0]
   const champion =
-    finalist?.status === 'finished'
-      ? finalist.home_score > finalist.away_score
-        ? finalist.home_team.name
-        : finalist.away_team.name
+    finalMatch?.status === 'finished'
+      ? finalMatch.home_score > finalMatch.away_score
+        ? finalMatch.home_team.name
+        : finalMatch.away_team.name
       : null
+
+  // Append TBD placeholder rounds after the last real round, down to the final,
+  // so the bracket previews upcoming rounds (e.g. a not-yet-created Final).
+  const displayRounds: { round: KnockoutRound; matches: (MatchWithTeams | null)[] }[] =
+    rounds.map((r) => ({ round: r.round, matches: r.matches }))
+  const lastReal = rounds[rounds.length - 1]
+  if (lastReal) {
+    for (const fr of futureRoundsAfter(lastReal.round, lastReal.matches.length)) {
+      displayRounds.push({ round: fr.round, matches: Array(fr.count).fill(null) })
+    }
+  }
 
   if (matches.length === 0) {
     return (
@@ -138,9 +144,14 @@ export function BracketView({ matches }: BracketViewProps) {
       overflowX: 'auto',
     }}>
       <div style={{ display: 'flex', gap: 'clamp(24px, 4vw, 64px)', minWidth: 720 }}>
-        {qf.length > 0 && <BracketRound label="Quarterfinals" matches={qf} slotCount={4} />}
-        {sf.length > 0 && <BracketRound label="Semifinals"    matches={sf} slotCount={2} />}
-        {             <BracketRound label="Final"          matches={f}  slotCount={1} />}
+        {displayRounds.map((r) => (
+          <BracketRound
+            key={r.round}
+            label={knockoutRoundLabel(r.round)}
+            matches={r.matches}
+            slotCount={r.matches.length}
+          />
+        ))}
 
         {/* Champion cell */}
         <div style={{

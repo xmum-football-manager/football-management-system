@@ -229,7 +229,7 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
         .eq('tournament_id', tournament.id).order('match_time', { ascending: true }),
       supabase.from('standings').select('*').eq('tournament_id', tournament.id),
     ])
-    if (m) setMatches((m as MatchWithTeams[]).filter(x => x.match_time !== null))
+    if (m) setMatches((m as MatchWithTeams[]).filter(x => x.match_time !== null || x.status !== 'scheduled'))
     if (s) setStandings(s as Standing[])
   }, [tournament.id])
 
@@ -254,8 +254,8 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
     return () => document.removeEventListener('visibilitychange', handler)
   }, [refetch])
 
-  // Filter out unscheduled (null match_time) matches — not yet public
-  const scheduledMatches = matches.filter((m) => m.match_time !== null)
+  // Hide only truly unscheduled matches (no time set AND not yet played)
+  const scheduledMatches = matches.filter((m) => m.match_time !== null || m.status !== 'scheduled')
 
   const liveMatches     = scheduledMatches.filter(m => m.status === 'live')
   const upcomingMatches = scheduledMatches.filter(m => m.status === 'scheduled')
@@ -341,8 +341,13 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
       {/* ── Tab strip ── */}
       <TabStrip tabs={tabs} tab={tab} setTab={handleTabClick} />
 
-      {/* ── Hero live scoreboard (first live match) ── */}
-      {liveMatches.length > 0 && <HeroLive match={liveMatches[0]} />}
+      {/* ── Hero: always visible — live / next up / all done ── */}
+      {liveMatches.length > 0
+        ? <HeroLive variant="live" match={liveMatches[0]} />
+        : upcomingMatches.length > 0
+          ? <HeroLive variant="nextup" match={upcomingMatches[0]} />
+          : <HeroLive variant="done" />
+      }
 
       {/* ── Tab content ── */}
       <main style={{ maxWidth: 1240, margin: '0 auto', padding: '0 28px' }}>

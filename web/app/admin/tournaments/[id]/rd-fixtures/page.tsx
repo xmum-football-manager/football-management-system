@@ -8,15 +8,10 @@ import { checkTournamentReadiness } from '@/lib/tournament-readiness'
 import { FixturesPanel } from '../fixtures/FixturesPanel'
 import { GenerateGroupFixturesButton } from './GenerateGroupFixturesButton'
 import { FixtureSchedulerPanel } from './FixtureSchedulerPanel'
+import { isGroupStageMatch } from '@/lib/match-phase'
 
 interface Props {
   params: Promise<{ id: string }>
-}
-
-function isGroupStageMatch(m: { home_team: { group_label: string | null }; away_team: { group_label: string | null } }): boolean {
-  const h = m.home_team.group_label
-  const a = m.away_team.group_label
-  return !!h && !!a && h === a
 }
 
 export default async function RDFixturesPage({ params }: Props) {

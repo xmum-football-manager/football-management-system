@@ -32,6 +32,7 @@ export function UpNextRow({ match, isAdmin, hasLiveMatch }: Props) {
   const time = match.match_time
     ? new Date(match.match_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })
     : null
+  const needsTime = !match.match_time
 
   return (
     <div className="flex items-center justify-between rounded-lg border px-4 py-3">
@@ -39,13 +40,19 @@ export function UpNextRow({ match, isAdmin, hasLiveMatch }: Props) {
         <p className="font-semibold text-sm">
           {match.home_team.name} vs {match.away_team.name}
         </p>
-        {time && <p className="text-xs text-muted-foreground mt-0.5">{time}</p>}
+        {time
+          ? <p className="text-xs text-muted-foreground mt-0.5">{time}</p>
+          : <p className="text-xs mt-0.5" style={{ color: 'var(--admin-lime)' }}>Set a kickoff time in KO Fixtures first</p>
+        }
       </div>
       <Button
         size="sm"
-        disabled={pending || hasLiveMatch}
+        disabled={pending || hasLiveMatch || needsTime}
         onClick={kickoff}
-        title={hasLiveMatch ? 'Finish the current match first' : undefined}
+        title={
+          needsTime ? 'Set a kickoff time before going live' :
+          hasLiveMatch ? 'Finish the current match first' : undefined
+        }
       >
         {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
         Kickoff

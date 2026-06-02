@@ -1,9 +1,18 @@
 'use client'
 
-import { useState, useTransition, useRef, useEffect, useCallback } from 'react'
+import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { Loader2, X } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Loader2, Plus } from 'lucide-react'
 import { createManualKnockoutAction } from '../fixtures/actions'
 import { teamInitials } from '@/lib/format'
 
@@ -15,46 +24,21 @@ interface Team {
 interface Props {
   tournamentId: string
   qualifiedTeams: Team[]
-  tournamentStart: string  // YYYY-MM-DD
-  tournamentEnd: string    // YYYY-MM-DD
+  tournamentStart: string
+  tournamentEnd: string
   onCreated: () => void
 }
 
-const TIME_OPTIONS: string[] = Array.from({ length: 34 }, (_, i) => {
-  const totalMins = 360 + i * 30 // 06:00 to 22:30
-  const h = Math.floor(totalMins / 60)
-  const m = totalMins % 60
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
-})
-
-function buildDayOptions(start: string, end: string): { label: string; date: string }[] {
-  const options: { label: string; date: string }[] = []
-  // Work purely with date strings (YYYY-MM-DD) to avoid timezone shifts
-  const startParts = start.split('-').map(Number)
-  const endParts = end.split('-').map(Number)
-  let [y, m, d] = startParts
-  const [ey, em, ed] = endParts
-  let day = 1
-  while (
-    y < ey || (y === ey && m < em) || (y === ey && m === em && d <= ed)
-  ) {
-    const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
-    options.push({ label: `Day ${day}`, date: dateStr })
-    day++
-    d++
-    // Roll over days within month (simplified: use Date for month boundary)
-    const next = new Date(y, m - 1, d)
-    y = next.getFullYear()
-    m = next.getMonth() + 1
-    d = next.getDate()
-  }
-  return options
+function toLocalDatetime(iso: string): string {
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 interface Pairing {
-  home: string      // team id or ''
-  away: string      // team id or ''
-  matchTime: string // datetime-local value or ''
+  home: string
+  away: string
+  matchTime: string
 }
 
 function buildEmptyPairings(count: number): Pairing[] {
@@ -65,18 +49,6 @@ function assignedIds(pairings: Pairing[]): Set<string> {
   return new Set(pairings.flatMap((p) => [p.home, p.away].filter(Boolean)))
 }
 
-function setSlot(pairings: Pairing[], matchIdx: number, slot: 'home' | 'away', teamId: string): Pairing[] {
-  return pairings.map((p, i) => (i === matchIdx ? { ...p, [slot]: teamId } : p))
-}
-
-function clearSlot(pairings: Pairing[], matchIdx: number, slot: 'home' | 'away'): Pairing[] {
-  return setSlot(pairings, matchIdx, slot, '')
-}
-
-function setMatchTime(pairings: Pairing[], matchIdx: number, value: string): Pairing[] {
-  return pairings.map((p, i) => (i === matchIdx ? { ...p, matchTime: value } : p))
-}
-
 function allFilled(pairings: Pairing[]): boolean {
   return pairings.every((p) => p.home && p.away && p.matchTime)
 }
@@ -84,12 +56,10 @@ function allFilled(pairings: Pairing[]): boolean {
 export function BracketSetupView({ tournamentId, qualifiedTeams, tournamentStart, tournamentEnd, onCreated }: Props) {
   const matchCount = Math.floor(qualifiedTeams.length / 2)
   const [pairings, setPairings] = useState<Pairing[]>(() => buildEmptyPairings(matchCount))
-  const [openPicker, setOpenPicker] = useState<{ matchIdx: number; slot: 'home' | 'away' } | null>(null)
+  const [editingIdx, setEditingIdx] = useState<number | null>(null)
   const [isPending, startTransition] = useTransition()
-  const handleClosePicker = useCallback(() => setOpenPicker(null), [])
 
   const assigned = assignedIds(pairings)
-  const dayOptions = buildDayOptions(tournamentStart, tournamentEnd)
 
   // Build placeholder rounds for subsequent rounds
   const placeholderRounds: Array<{ homeLabel: string; awayLabel: string }[]> = []
@@ -109,25 +79,32 @@ export function BracketSetupView({ tournamentId, qualifiedTeams, tournamentStart
     prevMatchNums = newMatchNums
   }
 
-  function submit() {
-    startTransition(async () => {
-      const r = await createManualKnockoutAction(
-        tournamentId,
-        pairings.map((p) => ({
-          home_team_id: p.home,
-          away_team_id: p.away,
-          match_time: p.matchTime ? new Date(p.matchTime).toISOString() : null,
-        })),
-      )
-      if ('error' in r) toast.error(r.error)
-      else {
-        toast.success(`${r.created} knockout match${r.created === 1 ? '' : 'es'} created.`)
-        onCreated()
-      }
-    })
+  function savePairing(idx: number, pairing: Pairing) {
+    const next = pairings.map((p, i) => (i === idx ? pairing : p))
+    setPairings(next)
+    setEditingIdx(null)
+    if (allFilled(next)) {
+      startTransition(async () => {
+        const r = await createManualKnockoutAction(
+          tournamentId,
+          next.map((p) => ({
+            home_team_id: p.home,
+            away_team_id: p.away,
+            match_time: p.matchTime ? new Date(p.matchTime).toISOString() : null,
+          }))
+        )
+        if ('error' in r) toast.error(r.error)
+        else {
+          toast.success(`${r.created} knockout match${r.created === 1 ? '' : 'es'} created.`)
+          onCreated()
+        }
+      })
+    }
   }
 
   const minWidth = 168 + 24 + 240 + placeholderRounds.length * (220 + 24) + 24 + 200
+
+  const editingPairing = editingIdx !== null ? pairings[editingIdx] : null
 
   return (
     <div className="space-y-4">
@@ -197,22 +174,22 @@ export function BracketSetupView({ tournamentId, qualifiedTeams, tournamentStart
                 Round 1
               </div>
               <div className="flex flex-col gap-5">
-                {pairings.map((pairing, matchIdx) => (
-                  <MatchCard
-                    key={matchIdx}
-                    matchIdx={matchIdx}
-                    pairing={pairing}
-                    qualifiedTeams={qualifiedTeams}
-                    assigned={assigned}
-                    dayOptions={dayOptions}
-                    openPicker={openPicker}
-                    onOpenPicker={setOpenPicker}
-                    onClosePicker={handleClosePicker}
-                    onSetSlot={(slot, teamId) => setPairings(setSlot(pairings, matchIdx, slot, teamId))}
-                    onClearSlot={(slot) => setPairings(clearSlot(pairings, matchIdx, slot))}
-                    onSetTime={(value) => setPairings(setMatchTime(pairings, matchIdx, value))}
-                  />
-                ))}
+                {pairings.map((pairing, matchIdx) => {
+                  const homeTeam = qualifiedTeams.find((t) => t.id === pairing.home)
+                  const awayTeam = qualifiedTeams.find((t) => t.id === pairing.away)
+                  const isFilled = !!(homeTeam && awayTeam && pairing.matchTime)
+                  return (
+                    <MatchSlot
+                      key={matchIdx}
+                      matchIdx={matchIdx}
+                      homeTeam={homeTeam}
+                      awayTeam={awayTeam}
+                      matchTime={pairing.matchTime}
+                      isFilled={isFilled}
+                      onClick={() => setEditingIdx(matchIdx)}
+                    />
+                  )
+                })}
               </div>
             </div>
 
@@ -244,20 +221,10 @@ export function BracketSetupView({ tournamentId, qualifiedTeams, tournamentStart
               <div className="flex flex-col justify-center h-full">
                 <div
                   className="flex flex-col items-center rounded-lg p-5 text-center"
-                  style={{
-                    border: '1.5px dashed var(--admin-rule)',
-                  }}
+                  style={{ border: '1.5px dashed var(--admin-rule)' }}
                 >
-                  <svg
-                    width="32"
-                    height="32"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="var(--muted-foreground)"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none"
+                    stroke="var(--muted-foreground)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
                     <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
                     <path d="M4 22h16" />
@@ -265,10 +232,7 @@ export function BracketSetupView({ tournamentId, qualifiedTeams, tournamentStart
                     <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
                     <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
                   </svg>
-                  <div
-                    className="admin-display mt-2"
-                    style={{ fontSize: 14, color: 'var(--muted-foreground)' }}
-                  >
+                  <div className="admin-display mt-2" style={{ fontSize: 14, color: 'var(--muted-foreground)' }}>
                     TBD
                   </div>
                 </div>
@@ -278,265 +242,233 @@ export function BracketSetupView({ tournamentId, qualifiedTeams, tournamentStart
         </div>
       </div>
 
-      <div className="flex justify-end">
-        <Button
-          onClick={submit}
-          disabled={!allFilled(pairings) || isPending || matchCount === 0}
-        >
-          {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Create Bracket
-        </Button>
-      </div>
+      {isPending && (
+        <div className="flex items-center justify-center gap-2 py-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Creating bracket…
+        </div>
+      )}
+
+      {editingIdx !== null && editingPairing !== null && (
+        <MatchSetupDialog
+          matchIdx={editingIdx}
+          pairing={editingPairing}
+          qualifiedTeams={qualifiedTeams}
+          assigned={assigned}
+          tournamentStart={tournamentStart}
+          tournamentEnd={tournamentEnd}
+          onSave={(p) => savePairing(editingIdx, p)}
+          onClose={() => setEditingIdx(null)}
+        />
+      )}
     </div>
   )
 }
 
-function MatchCard({
+// A clickable bracket-style match slot
+function MatchSlot({
+  matchIdx,
+  homeTeam,
+  awayTeam,
+  matchTime,
+  isFilled,
+  onClick,
+}: {
+  matchIdx: number
+  homeTeam: Team | undefined
+  awayTeam: Team | undefined
+  matchTime: string
+  isFilled: boolean
+  onClick: () => void
+}) {
+  const timeDisplay = matchTime
+    ? new Date(matchTime).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
+    : null
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group w-full rounded-md overflow-hidden text-left transition-all"
+      style={{
+        border: isFilled ? '1px solid var(--admin-lime)' : '1.5px dashed var(--admin-rule)',
+        background: 'var(--card)',
+        cursor: 'pointer',
+      }}
+      title={isFilled ? 'Click to edit this match' : 'Click to set up this match'}
+    >
+      <SlotRow team={homeTeam} placeholder={`Home — match ${matchIdx + 1}`} isFilled={isFilled} />
+      <div style={{ height: 1, background: 'var(--admin-rule)' }} />
+      <SlotRow team={awayTeam} placeholder={`Away — match ${matchIdx + 1}`} isFilled={isFilled} />
+      {isFilled && timeDisplay ? (
+        <div
+          className="flex items-center gap-1.5 px-3 py-1.5"
+          style={{
+            borderTop: '1px solid var(--admin-rule)',
+            background: 'var(--admin-lime-wash)',
+          }}
+        >
+          <span className="admin-mono text-[10px]" style={{ color: 'var(--admin-lime)' }}>
+            {timeDisplay}
+          </span>
+        </div>
+      ) : (
+        <div
+          className="flex items-center justify-center gap-1.5 px-3 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+          style={{ borderTop: '1px solid var(--admin-rule)' }}
+        >
+          <Plus className="h-3 w-3" style={{ color: 'var(--admin-lime)' }} />
+          <span className="admin-mono text-[10px]" style={{ color: 'var(--admin-lime)' }}>
+            Set up match
+          </span>
+        </div>
+      )}
+    </button>
+  )
+}
+
+function SlotRow({ team, placeholder, isFilled }: { team: Team | undefined; placeholder: string; isFilled: boolean }) {
+  return (
+    <div className="flex items-center gap-2 px-3 py-2.5">
+      <span
+        className="admin-display inline-flex h-5 w-5 items-center justify-center rounded-full text-[9px] shrink-0"
+        style={{
+          background: team ? 'var(--admin-surface-2)' : 'transparent',
+          color: team ? 'var(--muted-foreground)' : 'var(--muted-foreground)',
+          border: team ? '1px solid var(--admin-rule)' : '1px dashed var(--admin-rule)',
+        }}
+      >
+        {team ? teamInitials(team.name) : '?'}
+      </span>
+      <span
+        className="truncate text-xs"
+        style={{
+          color: team ? 'var(--foreground)' : 'var(--muted-foreground)',
+          fontStyle: team ? 'normal' : 'italic',
+        }}
+      >
+        {team ? team.name : placeholder}
+      </span>
+    </div>
+  )
+}
+
+// Popup dialog to configure a single match
+function MatchSetupDialog({
   matchIdx,
   pairing,
   qualifiedTeams,
   assigned,
-  dayOptions,
-  openPicker,
-  onOpenPicker,
-  onClosePicker,
-  onSetSlot,
-  onClearSlot,
-  onSetTime,
+  tournamentStart,
+  tournamentEnd,
+  onSave,
+  onClose,
 }: {
   matchIdx: number
   pairing: Pairing
   qualifiedTeams: Team[]
   assigned: Set<string>
-  dayOptions: { label: string; date: string }[]
-  openPicker: { matchIdx: number; slot: 'home' | 'away' } | null
-  onOpenPicker: (v: { matchIdx: number; slot: 'home' | 'away' }) => void
-  onClosePicker: () => void
-  onSetSlot: (slot: 'home' | 'away', teamId: string) => void
-  onClearSlot: (slot: 'home' | 'away') => void
-  onSetTime: (value: string) => void
+  tournamentStart: string
+  tournamentEnd: string
+  onSave: (p: Pairing) => void
+  onClose: () => void
 }) {
-  const [pendingDate, setPendingDate] = useState(
-    () => pairing.matchTime ? pairing.matchTime.slice(0, 10) : ''
-  )
-  const [pendingTime, setPendingTime] = useState(
-    () => pairing.matchTime ? pairing.matchTime.slice(11, 16) : ''
+  const [home, setHome] = useState(pairing.home)
+  const [away, setAway] = useState(pairing.away)
+  const [time, setTime] = useState(() =>
+    pairing.matchTime ? toLocalDatetime(new Date(pairing.matchTime).toISOString()) : ''
   )
 
-  function handleDayChange(date: string) {
-    setPendingDate(date)
-    onSetTime(date && pendingTime ? `${date}T${pendingTime}` : '')
+  const minDatetime = `${tournamentStart}T00:00`
+  const maxDatetime = `${tournamentEnd}T23:59`
+
+  // Available teams: unassigned + the teams already in this pairing's slots
+  const availableForHome = qualifiedTeams.filter(
+    (t) => !assigned.has(t.id) || t.id === pairing.home || t.id === away,
+  )
+  const availableForAway = qualifiedTeams.filter(
+    (t) => !assigned.has(t.id) || t.id === pairing.away || t.id === home,
+  )
+
+  const canSave = home && away && home !== away && time
+
+  function handleSave() {
+    if (!canSave) return
+    onSave({ home, away, matchTime: time })
   }
 
-  function handleTimeChange(time: string) {
-    setPendingTime(time)
-    onSetTime(pendingDate && time ? `${pendingDate}T${time}` : '')
-  }
-
-  const inputStyle = {
+  const selectStyle = {
     border: '1px solid var(--admin-rule)',
     background: 'var(--admin-surface-2)',
     color: 'var(--foreground)',
     outline: 'none',
-  }
+    borderRadius: 6,
+    padding: '6px 10px',
+    fontSize: 13,
+    width: '100%',
+  } as const
 
   return (
-    <div
-      className="rounded-md overflow-visible"
-      style={{
-        border: '1px solid var(--admin-rule)',
-        background: 'var(--card)',
-      }}
-    >
-      <TeamSlot
-        slot="home"
-        teamId={pairing.home}
-        matchIdx={matchIdx}
-        qualifiedTeams={qualifiedTeams}
-        assigned={assigned}
-        openPicker={openPicker}
-        onOpenPicker={onOpenPicker}
-        onClosePicker={onClosePicker}
-        onSetSlot={onSetSlot}
-        onClearSlot={onClearSlot}
-      />
-      <div style={{ height: 1, background: 'var(--admin-rule)' }} />
-      <TeamSlot
-        slot="away"
-        teamId={pairing.away}
-        matchIdx={matchIdx}
-        qualifiedTeams={qualifiedTeams}
-        assigned={assigned}
-        openPicker={openPicker}
-        onOpenPicker={onOpenPicker}
-        onClosePicker={onClosePicker}
-        onSetSlot={onSetSlot}
-        onClearSlot={onClearSlot}
-      />
-      <div style={{ height: 1, background: 'var(--admin-rule)' }} />
-      <div className="flex gap-2 px-3 py-2.5">
-        <select
-          value={pendingDate}
-          onChange={(e) => handleDayChange(e.target.value)}
-          className="flex-1 rounded text-xs px-2 py-1"
-          style={inputStyle}
-        >
-          <option value="">Day…</option>
-          {dayOptions.map((opt) => (
-            <option key={opt.date} value={opt.date}>{opt.label}</option>
-          ))}
-        </select>
-        <select
-          value={pendingTime}
-          onChange={(e) => handleTimeChange(e.target.value)}
-          className="w-24 rounded text-xs px-2 py-1"
-          style={inputStyle}
-        >
-          <option value="">Time…</option>
-          {TIME_OPTIONS.map((t) => (
-            <option key={t} value={t}>{t}</option>
-          ))}
-        </select>
-      </div>
-    </div>
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Set up Match {matchIdx + 1}</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          {/* Home team */}
+          <div className="space-y-1.5">
+            <label className="admin-tab text-[11px] tracking-wider text-muted-foreground">
+              Home Team
+            </label>
+            <select value={home} onChange={(e) => setHome(e.target.value)} style={selectStyle}>
+              <option value="">Select home team…</option>
+              {availableForHome.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Away team */}
+          <div className="space-y-1.5">
+            <label className="admin-tab text-[11px] tracking-wider text-muted-foreground">
+              Away Team
+            </label>
+            <select value={away} onChange={(e) => setAway(e.target.value)} style={selectStyle}>
+              <option value="">Select away team…</option>
+              {availableForAway.map((t) => (
+                <option key={t.id} value={t.id} disabled={t.id === home}>{t.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Kickoff time */}
+          <div className="space-y-1.5">
+            <Label htmlFor="match-kickoff">Kickoff time</Label>
+            <Input
+              id="match-kickoff"
+              type="datetime-local"
+              value={time}
+              min={minDatetime}
+              max={maxDatetime}
+              onChange={(e) => setTime(e.target.value)}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Must be within {tournamentStart} – {tournamentEnd}.
+            </p>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button onClick={handleSave} disabled={!canSave}>Confirm</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
-function TeamSlot({
-  slot,
-  teamId,
-  matchIdx,
-  qualifiedTeams,
-  assigned,
-  openPicker,
-  onOpenPicker,
-  onClosePicker,
-  onSetSlot,
-  onClearSlot,
-}: {
-  slot: 'home' | 'away'
-  teamId: string
-  matchIdx: number
-  qualifiedTeams: Team[]
-  assigned: Set<string>
-  openPicker: { matchIdx: number; slot: 'home' | 'away' } | null
-  onOpenPicker: (v: { matchIdx: number; slot: 'home' | 'away' }) => void
-  onClosePicker: () => void
-  onSetSlot: (slot: 'home' | 'away', teamId: string) => void
-  onClearSlot: (slot: 'home' | 'away') => void
-}) {
-  const pickerRef = useRef<HTMLDivElement>(null)
-  const isPickerOpen = openPicker?.matchIdx === matchIdx && openPicker?.slot === slot
-  const team = qualifiedTeams.find((t) => t.id === teamId)
-
-  useEffect(() => {
-    if (!isPickerOpen) return
-    function handleClickOutside(e: MouseEvent) {
-      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
-        onClosePicker()
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [isPickerOpen, onClosePicker])
-
-  // Teams available to pick: unassigned + the currently assigned team for this slot
-  const available = qualifiedTeams.filter((t) => !assigned.has(t.id) || t.id === teamId)
-
-  return (
-    <div style={{ position: 'relative' }}>
-      {team ? (
-        <div className="flex items-center gap-2 px-3 py-3">
-          <span
-            className="admin-display inline-flex h-5 w-5 items-center justify-center rounded-full text-[9px] shrink-0"
-            style={{
-              background: 'var(--admin-surface-2)',
-              color: 'var(--muted-foreground)',
-              border: '1px solid var(--admin-rule)',
-            }}
-          >
-            {teamInitials(team.name)}
-          </span>
-          <span className="truncate text-xs flex-1" style={{ color: 'var(--foreground)' }}>
-            {team.name}
-          </span>
-          <button
-            type="button"
-            onClick={() => onClearSlot(slot)}
-            className="shrink-0 rounded p-0.5 hover:bg-red-100"
-          >
-            <X className="h-3 w-3" style={{ color: 'var(--muted-foreground)' }} />
-          </button>
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => onOpenPicker({ matchIdx, slot })}
-          className="w-full text-left px-3 py-3 text-xs"
-          style={{
-            color: 'var(--admin-lime)',
-            border: 'none',
-            background: 'transparent',
-          }}
-        >
-          Pick {slot} team…
-        </button>
-      )}
-
-      {isPickerOpen && (
-        <div
-          ref={pickerRef}
-          className="absolute z-50 rounded-md shadow-lg"
-          style={{
-            top: '100%',
-            left: 0,
-            minWidth: 200,
-            border: '1px solid var(--admin-rule)',
-            background: 'var(--card)',
-          }}
-        >
-          {available.length === 0 ? (
-            <div className="px-3 py-2 text-xs italic" style={{ color: 'var(--muted-foreground)' }}>
-              All teams assigned
-            </div>
-          ) : (
-            available.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => {
-                  onSetSlot(slot, t.id)
-                  onClosePicker()
-                }}
-                className="flex items-center gap-2 w-full px-3 py-2 text-xs text-left hover:bg-accent"
-              >
-                <span
-                  className="admin-display inline-flex h-5 w-5 items-center justify-center rounded-full text-[9px] shrink-0"
-                  style={{
-                    background: 'var(--admin-surface-2)',
-                    color: 'var(--muted-foreground)',
-                    border: '1px solid var(--admin-rule)',
-                  }}
-                >
-                  {teamInitials(t.name)}
-                </span>
-                {t.name}
-              </button>
-            ))
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function PlaceholderCard({
-  homeLabel,
-  awayLabel,
-}: {
-  homeLabel: string
-  awayLabel: string
-}) {
+function PlaceholderCard({ homeLabel, awayLabel }: { homeLabel: string; awayLabel: string }) {
   return (
     <div
       className="rounded-md overflow-hidden"
