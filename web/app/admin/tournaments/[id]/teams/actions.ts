@@ -3,8 +3,8 @@
 import { revalidatePath } from 'next/cache'
 import { requireUser } from '@/lib/auth'
 import { isAdmin, isOrganizer } from '@/lib/db/roles'
-import { createTeam, deleteTeam, setTeamGroup, listTeams } from '@/lib/db/teams'
-import { createPlayer, deletePlayer } from '@/lib/db/players'
+import { createTeam, deleteTeam, setTeamGroup, setTeamLogo, listTeams } from '@/lib/db/teams'
+import { createPlayer, deletePlayer, setPlayerPhoto } from '@/lib/db/players'
 import { listMatches } from '@/lib/db/matches'
 
 async function ensureOrganizer(tournamentId: string) {
@@ -53,6 +53,40 @@ export async function setTeamGroupAction(
     revalidateTeams(tournamentId)
     revalidatePath(`/admin/tournaments/${tournamentId}/rd-fixtures`)
     revalidatePath(`/admin/tournaments/${tournamentId}/ko-fixtures`)
+    return { ok: true }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed.' }
+  }
+}
+
+export async function setTeamLogoAction(
+  teamId: string,
+  tournamentId: string,
+  logoPath: string | null,
+): Promise<{ ok: true } | { error: string }> {
+  try {
+    await ensureOrganizer(tournamentId)
+    const result = await setTeamLogo(teamId, logoPath)
+    if (result.error) return { error: result.error }
+    revalidateTeams(tournamentId)
+    revalidatePath(`/t/${tournamentId}`)
+    return { ok: true }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed.' }
+  }
+}
+
+export async function setPlayerPhotoAction(
+  playerId: string,
+  tournamentId: string,
+  photoPath: string | null,
+): Promise<{ ok: true } | { error: string }> {
+  try {
+    await ensureOrganizer(tournamentId)
+    const result = await setPlayerPhoto(playerId, photoPath)
+    if (result.error) return { error: result.error }
+    revalidateTeams(tournamentId)
+    revalidatePath(`/t/${tournamentId}`)
     return { ok: true }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed.' }

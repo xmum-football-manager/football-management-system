@@ -1,6 +1,6 @@
 {
-  "name": "Football Tournament",
-  "short_name": "Tournament",
+  "name": "Pitch — Football Tournaments",
+  "short_name": "Pitch",
   "description": "Live football tournament scores and standings",
   "start_url": "/",
   "display": "standalone",

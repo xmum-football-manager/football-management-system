@@ -150,9 +150,9 @@ export function AdminBracketView({
   const champion =
     finalMatch?.status === 'finished'
       ? finalMatch.home_score > finalMatch.away_score
-        ? finalMatch.home_team.name
+        ? finalMatch.home_team?.name ?? null
         : finalMatch.away_score > finalMatch.home_score
-          ? finalMatch.away_team.name
+          ? finalMatch.away_team?.name ?? null
           : null
       : null
 
@@ -406,14 +406,14 @@ function GroupMatchCard({
       }
     >
       <BracketTeamRow
-        name={match.home_team.name}
+        name={match.home_team?.name ?? 'TBD'}
         score={match.status === 'scheduled' ? null : match.home_score}
         winner={homeWon}
         loser={awayWon}
       />
       <div style={{ height: 1, background: 'var(--admin-rule)' }} />
       <BracketTeamRow
-        name={match.away_team.name}
+        name={match.away_team?.name ?? 'TBD'}
         score={match.status === 'scheduled' ? null : match.away_score}
         winner={awayWon}
         loser={homeWon}
@@ -570,14 +570,14 @@ function BracketMatch({
       title={clickable ? 'Click to reschedule' : isFinished ? 'Match finished' : isLive ? 'Match in progress' : undefined}
     >
       <BracketTeamRow
-        name={match.home_team.name}
+        name={match.home_team?.name ?? 'TBD'}
         score={match.status === 'scheduled' ? null : match.home_score}
         winner={homeWon}
         loser={awayWon}
       />
       <div style={{ height: 1, background: 'var(--admin-rule)' }} />
       <BracketTeamRow
-        name={match.away_team.name}
+        name={match.away_team?.name ?? 'TBD'}
         score={match.status === 'scheduled' ? null : match.away_score}
         winner={awayWon}
         loser={homeWon}

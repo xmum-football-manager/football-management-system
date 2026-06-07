@@ -5,6 +5,7 @@ export const mockTeamHome: Team = {
   tournament_id: 'tournament-1',
   name: 'Red Lions FC',
   group_label: null,
+  logo_path: null,
   created_at: '2026-01-01T00:00:00Z',
 }
 
@@ -13,13 +14,14 @@ export const mockTeamAway: Team = {
   tournament_id: 'tournament-1',
   name: 'Blue Eagles United',
   group_label: null,
+  logo_path: null,
   created_at: '2026-01-01T00:00:00Z',
 }
 
 export const mockPlayers: Player[] = [
-  { id: 'p1', team_id: 'team-home-1', name: 'Ali Hassan',  jersey_number: 9, position: 'FW', created_at: '2026-01-01T00:00:00Z' },
-  { id: 'p2', team_id: 'team-home-1', name: 'Raj Kumar',   jersey_number: 1, position: 'GK', created_at: '2026-01-01T00:00:00Z' },
-  { id: 'p3', team_id: 'team-home-1', name: 'Wei Liang',   jersey_number: 4, position: 'CB', created_at: '2026-01-01T00:00:00Z' },
+  { id: 'p1', team_id: 'team-home-1', name: 'Ali Hassan',  jersey_number: 9, position: 'FW', photo_path: null, created_at: '2026-01-01T00:00:00Z' },
+  { id: 'p2', team_id: 'team-home-1', name: 'Raj Kumar',   jersey_number: 1, position: 'GK', photo_path: null, created_at: '2026-01-01T00:00:00Z' },
+  { id: 'p3', team_id: 'team-home-1', name: 'Wei Liang',   jersey_number: 4, position: 'CB', photo_path: null, created_at: '2026-01-01T00:00:00Z' },
 ]
 
 export const mockMatchLive: MatchWithTeams = {
@@ -95,6 +97,8 @@ export const mockTournament: Tournament = {
   seeding_method: null,
   min_players_per_team: 11,
   knockout_qualifiers: null,
+  logo_path: null,
+  banner_path: null,
 }
 
 export const mockBracketMatches: MatchWithTeams[] = [

@@ -1,6 +1,8 @@
 import { Toaster } from '@/components/ui/sonner'
 
-export const metadata = { title: 'Scorekeeper' }
+// Re-declare the template — a plain-string title here would stop the root template
+// from applying to child segments (login, …)
+export const metadata = { title: { default: 'Scorekeeper · Pitch', template: '%s · Pitch' } }
 
 export default function ScoreLayout({ children }: { children: React.ReactNode }) {
   return (

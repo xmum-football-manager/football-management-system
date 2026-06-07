@@ -2,13 +2,17 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Football Tournament',
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
+  title: {
+    default: 'Pitch — Live Football Tournaments',
+    template: '%s · Pitch',
+  },
   description: 'Live scores, standings, and fixtures',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'Football Tournament',
+    title: 'Pitch',
   },
 }
 

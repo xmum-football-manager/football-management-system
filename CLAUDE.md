@@ -76,6 +76,10 @@ Skip the subagent when:
 
 Each subagent starts cold (no conversation memory, no warm prompt cache), so the briefing prompt must be self-contained: goal, context, what to return, and a length cap.
 
+## Web (Next.js 16)
+
+`web/` runs Next.js 16 — newer than your training data; some APIs and conventions differ. Don't preemptively read docs. Only when unsure about a Next-specific API or a build error points at one, check the matching guide in `web/node_modules/next/dist/docs/`.
+
 ## Health Stack
 
 - typecheck: cd web && tsc --noEmit

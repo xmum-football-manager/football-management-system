@@ -71,6 +71,8 @@ export interface CreateTournamentInput {
   name: string
   description?: string | null
   location?: string | null
+  logo_path?: string | null
+  banner_path?: string | null
   start_date: string
   end_date: string
   format: TournamentFormat
@@ -97,6 +99,8 @@ export async function createTournament(
       name: input.name,
       description: input.description ?? null,
       location: input.location ?? null,
+      logo_path: input.logo_path ?? null,
+      banner_path: input.banner_path ?? null,
       start_date: input.start_date,
       end_date: input.end_date,
       format: input.format,
@@ -115,6 +119,16 @@ export async function createTournament(
     .single()
   if (error) return { error: error.message }
   return { id: data.id }
+}
+
+export async function updateTournamentImages(
+  id: string,
+  patch: { logo_path?: string | null; banner_path?: string | null },
+): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { error } = await supabase.from('tournaments').update(patch).eq('id', id)
+  if (error) return { error: error.message }
+  return {}
 }
 
 export async function updateTournamentStatus(

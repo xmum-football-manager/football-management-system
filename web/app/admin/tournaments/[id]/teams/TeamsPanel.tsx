@@ -32,7 +32,12 @@ import {
   deleteTeamAction,
   addPlayerAction,
   deletePlayerAction,
+  setTeamLogoAction,
+  setPlayerPhotoAction,
 } from './actions'
+import { ImageUpload } from '@/components/admin/ImageUpload'
+import { mediaUrl } from '@/lib/storage'
+import { removeImage } from '@/lib/storage-client'
 import type { TournamentFormat } from '@/lib/supabase/types'
 import { CsvImport } from './CsvImport'
 
@@ -41,12 +46,14 @@ interface PlayerData {
   name: string
   jersey_number: number | null
   position: string | null
+  photo_path: string | null
 }
 
 interface TeamData {
   id: string
   name: string
   group_label: string | null
+  logo_path: string | null
   players: PlayerData[]
 }
 
@@ -107,6 +114,17 @@ export function TeamsPanel({
     })
   }
 
+  async function handleTeamLogo(team: TeamData, path: string | null) {
+    const r = await setTeamLogoAction(team.id, tournamentId, path)
+    if ('error' in r) {
+      toast.error(r.error)
+      if (path) void removeImage(path)
+      return
+    }
+    if (team.logo_path) void removeImage(team.logo_path)
+    router.refresh()
+  }
+
   const showGroups = format === 'round_robin_knockout'
   const showCsvImport = !(phase === 'ko' && format === 'round_robin_knockout')
 
@@ -121,7 +139,7 @@ export function TeamsPanel({
 
       {!canEdit && (
         <div className="rounded-md border bg-amber-50 border-amber-200 px-3 py-2 text-xs text-amber-900 flex items-center gap-2">
-          <Lock className="h-3 w-3" /> Teams are locked — a match has gone live or the tournament is finished.
+          <Lock className="h-3 w-3" /> Teams are locked — a match has gone live or the tournament is finished. Logos and photos can still be changed.
         </div>
       )}
 
@@ -178,6 +196,14 @@ export function TeamsPanel({
                   className="w-full flex items-center gap-3 px-4 py-3 text-left"
                 >
                   {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  {t.logo_path && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={mediaUrl(t.logo_path)!}
+                      alt=""
+                      className="h-6 w-6 rounded-full border object-cover"
+                    />
+                  )}
                   <span className="font-semibold flex-1 truncate">{t.name}</span>
                   {showGroups && t.group_label && (
                     <Badge variant="outline" className="text-[10px]">
@@ -195,6 +221,17 @@ export function TeamsPanel({
                 </button>
                 {isOpen && (
                   <CardContent className="p-4 pt-0 border-t space-y-3">
+                    {/* Images stay editable even when the team list is locked */}
+                    <div className="pt-3">
+                      <ImageUpload
+                        label="Team logo"
+                        value={t.logo_path}
+                        folder="team-logos"
+                        maxDim={512}
+                        onUploaded={(path) => handleTeamLogo(t, path)}
+                        onRemove={() => handleTeamLogo(t, null)}
+                      />
+                    </div>
                     <PlayerList
                       tournamentId={tournamentId}
                       players={t.players}
@@ -253,6 +290,18 @@ function PlayerList({
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
+
+  async function handlePhoto(player: PlayerData, path: string | null) {
+    const r = await setPlayerPhotoAction(player.id, tournamentId, path)
+    if ('error' in r) {
+      toast.error(r.error)
+      if (path) void removeImage(path)
+      return
+    }
+    if (player.photo_path) void removeImage(player.photo_path)
+    router.refresh()
+  }
+
   if (players.length === 0) {
     return <div className="text-sm text-muted-foreground">No players yet.</div>
   }
@@ -260,6 +309,16 @@ function PlayerList({
     <ul className="divide-y -mx-4">
       {players.map((p) => (
         <li key={p.id} className="flex items-center gap-3 px-4 py-2">
+          {/* Photos stay editable even when the team list is locked */}
+          <ImageUpload
+            value={p.photo_path}
+            folder="player-photos"
+            maxDim={512}
+            size="sm"
+            title="Player photo"
+            onUploaded={(path) => handlePhoto(p, path)}
+            onRemove={() => handlePhoto(p, null)}
+          />
           <span className="font-mono w-8 text-sm text-muted-foreground">
             {p.jersey_number ?? '—'}
           </span>

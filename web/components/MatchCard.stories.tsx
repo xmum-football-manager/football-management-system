@@ -9,8 +9,8 @@ export default meta
 
 type Story = StoryObj<typeof MatchCard>
 
-const homeTeam = { id: 'team-1', tournament_id: 'tour-1', name: 'Red Lions', group_label: null, created_at: '2026-05-01T00:00:00Z' }
-const awayTeam = { id: 'team-2', tournament_id: 'tour-1', name: 'Blue Hawks', group_label: null, created_at: '2026-05-01T00:00:00Z' }
+const homeTeam = { id: 'team-1', tournament_id: 'tour-1', name: 'Red Lions', group_label: null, logo_path: null, created_at: '2026-05-01T00:00:00Z' }
+const awayTeam = { id: 'team-2', tournament_id: 'tour-1', name: 'Blue Hawks', group_label: null, logo_path: null, created_at: '2026-05-01T00:00:00Z' }
 
 const baseMatch = {
   id: 'match-1',

@@ -9,10 +9,9 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-import { AlertCircle, CheckCircle2, X } from 'lucide-react'
+import { AlertCircle, CheckCircle2, GripVertical, X } from 'lucide-react'
 import { setTeamGroupAction } from '../teams/actions'
 
 interface TeamData {
@@ -32,16 +31,19 @@ interface Props {
 export function RDGroupsPanel({ tournamentId, initialTeams, numGroups, teamsPerGroup, canEdit }: Props) {
   const [pending, startTransition] = useTransition()
   const [teams, setTeams] = useState<TeamData[]>(initialTeams)
+  const [hoverTarget, setHoverTarget] = useState<string | null>(null)
 
   const groupLabels = Array.from({ length: numGroups }, (_, i) => String.fromCharCode(65 + i))
 
-  const unassigned = teams.filter(t => !t.group_label || !groupLabels.includes(t.group_label))
+  const effectiveGroup = (t: TeamData) =>
+    t.group_label && groupLabels.includes(t.group_label) ? t.group_label : null
+
+  const unassigned = teams.filter(t => effectiveGroup(t) === null)
   const byGroup = new Map<string, TeamData[]>()
   for (const l of groupLabels) byGroup.set(l, [])
   for (const t of teams) {
-    if (t.group_label && groupLabels.includes(t.group_label)) {
-      byGroup.get(t.group_label)!.push(t)
-    }
+    const g = effectiveGroup(t)
+    if (g) byGroup.get(g)!.push(t)
   }
 
   const groupsFull = teamsPerGroup != null
@@ -59,6 +61,38 @@ export function RDGroupsPanel({ tournamentId, initialTeams, numGroups, teamsPerG
       }
     })
   }
+
+  function onTeamDragStart(e: React.DragEvent, team: TeamData) {
+    e.dataTransfer.setData('text/team-id', team.id)
+    e.dataTransfer.setData('text/team-current-group', effectiveGroup(team) ?? '')
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  function onZoneDragOver(e: React.DragEvent, key: string) {
+    if (!e.dataTransfer.types.includes('text/team-id')) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setHoverTarget(h => (h === key ? h : key))
+  }
+
+  function onZoneDrop(e: React.DragEvent, label: string | null) {
+    e.preventDefault()
+    setHoverTarget(null)
+    const teamId = e.dataTransfer.getData('text/team-id')
+    if (!teamId) return
+    const currentGroup = e.dataTransfer.getData('text/team-current-group') || null
+    if (currentGroup === label) return
+    assign(teamId, label)
+  }
+
+  const dropZoneProps = (key: string, label: string | null) =>
+    canEdit
+      ? {
+          onDragOver: (e: React.DragEvent) => onZoneDragOver(e, key),
+          onDragLeave: () => setHoverTarget(h => (h === key ? null : h)),
+          onDrop: (e: React.DragEvent) => onZoneDrop(e, label),
+        }
+      : {}
 
   return (
     <div className="space-y-4">
@@ -78,37 +112,60 @@ export function RDGroupsPanel({ tournamentId, initialTeams, numGroups, teamsPerG
       )}
 
       {/* Unassigned pool */}
-      {(unassigned.length > 0) && (
-        <Card>
+      {(canEdit || unassigned.length > 0) && (
+        <Card
+          {...dropZoneProps('__unassigned__', null)}
+          className={`transition-colors ${canEdit ? 'border-dashed' : ''} ${
+            hoverTarget === '__unassigned__' ? 'border-emerald-500 bg-emerald-50' : ''
+          }`}
+        >
           <CardContent className="p-4 space-y-2">
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold">Unassigned</span>
               <Badge variant="secondary">{unassigned.length}</Badge>
+              {canEdit && unassigned.length > 0 && (
+                <span className="text-xs text-muted-foreground">Drag teams into a group below.</span>
+              )}
             </div>
-            {unassigned.length === 0 && (
-              <p className="text-xs text-muted-foreground">All teams assigned.</p>
-            )}
-            {unassigned.map(t => (
-              <div key={t.id} className="flex items-center justify-between gap-2">
-                <span className="text-sm">{t.name}</span>
-                {canEdit && (
-                  <Select
-                    value=""
-                    onValueChange={label => assign(t.id, label)}
-                    disabled={pending}
+            {unassigned.length === 0 ? (
+              <p className="text-xs italic text-muted-foreground">
+                All teams assigned — drag a team here to unassign it.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {unassigned.map(t => (
+                  <span
+                    key={t.id}
+                    draggable={canEdit && !pending}
+                    onDragStart={e => onTeamDragStart(e, t)}
+                    className={`inline-flex items-center gap-1 rounded-full border bg-background py-1 text-xs font-medium select-none ${
+                      canEdit ? 'pl-2 pr-1 cursor-grab' : 'px-2.5'
+                    }`}
+                    title={canEdit ? 'Drag into a group' : undefined}
                   >
-                    <SelectTrigger className="w-32 h-7 text-xs">
-                      <SelectValue placeholder="Assign…" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {groupLabels.map(l => (
-                        <SelectItem key={l} value={l}>Group {l}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
+                    {canEdit && <GripVertical className="h-3 w-3 text-muted-foreground" />}
+                    <span className="max-w-[12rem] truncate">{t.name}</span>
+                    {canEdit && (
+                      <Select
+                        value=""
+                        onValueChange={label => assign(t.id, label)}
+                        disabled={pending}
+                      >
+                        <SelectTrigger
+                          className="h-5 w-5 justify-center border-none bg-transparent p-0 focus:ring-0 focus:ring-offset-0"
+                          aria-label={`Assign ${t.name} to a group`}
+                        />
+                        <SelectContent>
+                          {groupLabels.map(l => (
+                            <SelectItem key={l} value={l}>Group {l}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </span>
+                ))}
               </div>
-            ))}
+            )}
           </CardContent>
         </Card>
       )}
@@ -120,7 +177,13 @@ export function RDGroupsPanel({ tournamentId, initialTeams, numGroups, teamsPerG
           const full = teamsPerGroup != null && groupTeams.length === teamsPerGroup
           const over = teamsPerGroup != null && groupTeams.length > teamsPerGroup
           return (
-            <Card key={label}>
+            <Card
+              key={label}
+              {...dropZoneProps(label, label)}
+              className={`transition-colors ${
+                hoverTarget === label ? 'border-emerald-500 bg-emerald-50' : ''
+              }`}
+            >
               <CardContent className="p-4 space-y-2">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-semibold">Group {label}</span>
@@ -136,11 +199,22 @@ export function RDGroupsPanel({ tournamentId, initialTeams, numGroups, teamsPerG
                   </Badge>
                 </div>
                 {groupTeams.length === 0 && (
-                  <p className="text-xs text-muted-foreground">No teams yet.</p>
+                  <p className="text-xs italic text-muted-foreground">
+                    {canEdit ? 'Drop teams here.' : 'No teams yet.'}
+                  </p>
                 )}
                 {groupTeams.map(t => (
-                  <div key={t.id} className="flex items-center justify-between gap-2">
-                    <span className="text-sm">{t.name}</span>
+                  <div
+                    key={t.id}
+                    draggable={canEdit && !pending}
+                    onDragStart={e => onTeamDragStart(e, t)}
+                    className={`flex items-center justify-between gap-2 ${canEdit ? 'cursor-grab select-none' : ''}`}
+                    title={canEdit ? 'Drag to another group or to Unassigned' : undefined}
+                  >
+                    <span className="flex items-center gap-1.5 text-sm">
+                      {canEdit && <GripVertical className="h-3 w-3 text-muted-foreground" />}
+                      {t.name}
+                    </span>
                     {canEdit && (
                       <Button
                         variant="ghost"

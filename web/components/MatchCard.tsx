@@ -1,8 +1,19 @@
-import type { MatchWithTeams } from '@/lib/supabase/types'
-import { LiveBadge } from './LiveBadge'
+import { teamColor, teamCode } from '@/lib/team-style'
+import { mediaUrl } from '@/lib/storage'
+import type { MatchWithTeams, Team } from '@/lib/supabase/types'
 
 interface MatchCardProps {
   match: MatchWithTeams
+  /** Opens the match detail modal (or anything else) when the card is clicked */
+  onClick?: () => void
+}
+
+const ROUND_LABELS: Record<string, string> = {
+  r32: 'Round of 32',
+  r16: 'Round of 16',
+  qf: 'Quarterfinal',
+  sf: 'Semifinal',
+  final: 'Final',
 }
 
 function formatTime(iso: string) {
@@ -13,100 +24,63 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-MY', { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
-function initials(name: string) {
-  return name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+export function matchStageLabel(match: MatchWithTeams): string {
+  if (match.phase === 'knockout') {
+    return (match.knockout_round && ROUND_LABELS[match.knockout_round]) ?? 'Knockout'
+  }
+  return match.home_team.group_label ? `Group ${match.home_team.group_label}` : ''
 }
 
-export function MatchCard({ match }: MatchCardProps) {
-  const isLive      = match.status === 'live'
-  const isFinished  = match.status === 'finished'
-  const isUpcoming  = match.status === 'scheduled'
+function liveMinute(startedAt: string) {
+  return Math.max(0, Math.floor((Date.now() - new Date(startedAt).getTime()) / 60000))
+}
+
+export function MatchCard({ match, onClick }: MatchCardProps) {
+  const isLive     = match.status === 'live'
+  const isFinished = match.status === 'finished'
+  const isUpcoming = match.status === 'scheduled'
 
   const homeWon = isFinished && match.home_score > match.away_score
   const awayWon = isFinished && match.away_score > match.home_score
 
-  const accentColor = isLive ? 'var(--red-card)' : isUpcoming ? 'var(--brand-lime)' : 'var(--ink-500)'
+  const statusClass = isLive ? 'live' : isFinished ? 'ft' : 'upcoming'
 
   return (
-    <div style={{
-      position: 'relative',
-      background: 'var(--ink-800)',
-      border: `1px solid ${isLive ? 'rgba(220,38,38,0.4)' : 'var(--ink-700)'}`,
-      borderRadius: 'var(--radius-lg)',
-      padding: 20,
-      overflow: 'hidden',
-      cursor: 'pointer',
-      transition: 'transform var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out)',
-    }}>
-      {/* Left accent bar */}
-      <span style={{
-        position: 'absolute', left: 0, top: 0, bottom: 0,
-        width: 3, background: accentColor,
-      }} />
-
-      {/* Card header: status + group */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+    <div
+      className={`match-card ${statusClass} ${onClick ? 'clickable' : ''}`}
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } } : undefined}
+    >
+      <div className="match-card-head">
         {isLive && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <LiveBadge size="sm" />
-            {match.match_started_at && (
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--ink-300)', fontWeight: 600 }}>
-                {/* eslint-disable-next-line react-hooks/purity */}
-                · {Math.floor((Date.now() - new Date(match.match_started_at).getTime()) / 60000)}&apos;
-              </span>
-            )}
-          </div>
-        )}
-        {isFinished && (
-          <span style={{
-            fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 11,
-            letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-400)',
-          }}>Full time</span>
-        )}
-        {isUpcoming && (
-          <span style={{
-            fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 11,
-            letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--brand-lime)',
-          }}>
-            Upcoming · {formatTime(match.match_time ?? '')}
+          /* suppressHydrationWarning: minute derives from Date.now(), SSR can lag the client */
+          <span className="match-status live" suppressHydrationWarning>
+            <span className="dot" />
+            LIVE{match.match_started_at ? ` · ${liveMinute(match.match_started_at)}'` : ''}
           </span>
         )}
+        {isFinished && <span className="match-status ft">Full time</span>}
+        {isUpcoming && (
+          <span className="match-status upcoming">
+            Upcoming{match.match_time ? ` · ${formatTime(match.match_time)}` : ''}
+          </span>
+        )}
+        <span className="group">{matchStageLabel(match)}</span>
       </div>
 
-      {/* Home team row */}
-      <TeamRow
-        name={match.home_team.name}
-        score={isUpcoming ? null : match.home_score}
-        winner={homeWon}
-        loser={awayWon}
-        dim={isUpcoming}
-      />
-      {/* Away team row */}
-      <TeamRow
-        name={match.away_team.name}
-        score={isUpcoming ? null : match.away_score}
-        winner={awayWon}
-        loser={homeWon}
-        dim={isUpcoming}
-      />
+      <TeamRow team={match.home_team} score={isUpcoming ? null : match.home_score} winner={homeWon} loser={awayWon} />
+      <TeamRow team={match.away_team} score={isUpcoming ? null : match.away_score} winner={awayWon} loser={homeWon} />
 
-      {/* Footer */}
-      <div style={{
-        marginTop: 14, paddingTop: 12,
-        borderTop: '1px solid var(--ink-700)',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        fontSize: 12, color: 'var(--ink-400)',
-      }}>
-        <span style={{ fontFamily: 'var(--font-mono)' }}>
-          {isUpcoming ? formatDate(match.match_time ?? '') : isFinished ? `FT · ${formatDate(match.match_time ?? '')}` : ''}
+      <div className="footer-row">
+        <span className="when">
+          {match.match_time
+            ? isFinished ? `FT · ${formatDate(match.match_time)}` : formatDate(match.match_time)
+            : ''}
         </span>
-        <span style={{
-          width: 24, height: 24, borderRadius: 999,
-          background: 'var(--ink-700)',
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          color: 'var(--ink-300)',
-        }}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <span className="arrow">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M5 12h14"/><path d="m13 5 7 7-7 7"/>
           </svg>
         </span>
@@ -115,40 +89,29 @@ export function MatchCard({ match }: MatchCardProps) {
   )
 }
 
-function TeamRow({ name, score, winner, loser, dim }: {
-  name: string
+function TeamRow({ team, score, winner, loser }: {
+  team: Team
   score: number | null
   winner: boolean
   loser: boolean
-  dim: boolean
 }) {
+  const logo = mediaUrl(team.logo_path)
   return (
-    <div style={{
-      display: 'grid', gridTemplateColumns: '1fr auto',
-      alignItems: 'center', gap: 12, padding: '8px 0',
-      borderTop: '1px dashed var(--ink-700)',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-        <span style={{
-          width: 28, height: 28, borderRadius: 999, flexShrink: 0,
-          background: 'var(--ink-600)',
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: 11, color: '#fff',
-          boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.1)',
-        }}>
-          {initials(name)}
+    <div className="match-row">
+      <div className={`match-team-cell ${winner ? 'winner' : loser ? 'loser' : ''}`}>
+        <span
+          className="crest"
+          style={
+            logo
+              ? { backgroundImage: `url(${logo})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+              : { background: teamColor(team.id) }
+          }
+        >
+          {logo ? null : teamCode(team.name)}
         </span>
-        <span style={{
-          fontWeight: 700, fontSize: 14,
-          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          color: loser ? 'var(--ink-400)' : 'var(--ink-50)',
-        }}>{name}</span>
+        <span className="nm">{team.name}</span>
       </div>
-      <span style={{
-        fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: 22,
-        fontVariantNumeric: 'tabular-nums',
-        color: dim ? 'var(--ink-500)' : winner ? 'var(--brand-lime)' : 'var(--ink-50)',
-      }}>
+      <span className={`sc ${score == null ? 'dim' : ''}`}>
         {score == null ? '—' : score}
       </span>
     </div>
