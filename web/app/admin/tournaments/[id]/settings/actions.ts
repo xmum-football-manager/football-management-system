@@ -9,7 +9,11 @@ import {
   isOrganizer,
   removeRole,
 } from '@/lib/db/roles'
-import { deleteTournament, updateTournamentStatus } from '@/lib/db/tournaments'
+import {
+  deleteTournament,
+  updateTournamentImages,
+  updateTournamentStatus,
+} from '@/lib/db/tournaments'
 
 async function ensureOrganizer(tournamentId: string) {
   const user = await requireUser()
@@ -26,6 +30,23 @@ export async function finishTournamentAction(
     if (r.error) return { error: r.error }
     revalidatePath('/admin')
     revalidatePath(`/admin/tournaments/${tournamentId}`)
+    revalidatePath(`/t/${tournamentId}`)
+    return { ok: true }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed.' }
+  }
+}
+
+export async function updateTournamentImagesAction(
+  tournamentId: string,
+  patch: { logo_path?: string | null; banner_path?: string | null },
+): Promise<{ ok: true } | { error: string }> {
+  try {
+    await ensureOrganizer(tournamentId)
+    const r = await updateTournamentImages(tournamentId, patch)
+    if (r.error) return { error: r.error }
+    revalidatePath('/admin')
+    revalidatePath(`/admin/tournaments/${tournamentId}/settings`)
     revalidatePath(`/t/${tournamentId}`)
     return { ok: true }
   } catch (e) {

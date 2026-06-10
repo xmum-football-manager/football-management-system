@@ -1,4 +1,5 @@
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { withTeamFallback } from '@/lib/match-teams'
 import type { Match, MatchStatus, MatchWithTeams } from '@/lib/supabase/types'
 
 export async function listMatches(tournamentId: string): Promise<MatchWithTeams[]> {
@@ -9,7 +10,7 @@ export async function listMatches(tournamentId: string): Promise<MatchWithTeams[
     .eq('tournament_id', tournamentId)
     .order('match_time', { ascending: true })
   if (error) throw error
-  return (data ?? []) as unknown as MatchWithTeams[]
+  return withTeamFallback((data ?? []) as unknown as MatchWithTeams[])
 }
 
 export async function listMatchesAdmin(tournamentId: string): Promise<MatchWithTeams[]> {
@@ -20,7 +21,7 @@ export async function listMatchesAdmin(tournamentId: string): Promise<MatchWithT
     .eq('tournament_id', tournamentId)
     .order('match_time', { ascending: true, nullsFirst: false })
   if (error) throw error
-  return (data ?? []) as unknown as MatchWithTeams[]
+  return withTeamFallback((data ?? []) as unknown as MatchWithTeams[])
 }
 
 export async function getMatch(id: string): Promise<Match | null> {

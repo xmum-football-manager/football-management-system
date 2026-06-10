@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { withTeamFallback } from '@/lib/match-teams'
 import { toast } from 'sonner'
 import { Loader2, LogOut, Minus, Plus, RefreshCcw, Play, Pause, CircleStop, FastForward } from 'lucide-react'
 import { scorekeeperTransitionMatch } from './actions'
@@ -38,7 +39,7 @@ export function ScoreApp({ email, initialMatches }: Props) {
       .select('*, home_team:teams!matches_home_team_id_fkey(*), away_team:teams!matches_away_team_id_fkey(*)')
       .in('id', ids)
     if (data) {
-      setMatches(data as unknown as MatchWithTeams[])
+      setMatches(withTeamFallback(data as unknown as MatchWithTeams[]))
     }
     setRefreshing(false)
   }

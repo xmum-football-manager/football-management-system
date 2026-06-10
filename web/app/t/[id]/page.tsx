@@ -1,5 +1,7 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import './tournament.css'
+import { withTeamFallback } from '@/lib/match-teams'
 import { TournamentView } from './TournamentView'
 import type { Tournament, MatchWithTeams, Standing, Team, Player } from '@/lib/supabase/types'
 
@@ -12,9 +14,21 @@ export async function generateMetadata({ params }: Props) {
   const supabase = await createClient()
   const { data: t } = await supabase.from('tournaments').select('name, description').eq('id', id).single()
   if (!t) return { title: 'Tournament Not Found' }
+  const description = t.description || `Follow ${t.name} live scores, standings, and fixtures.`
   return {
     title: `${t.name} — Live Scores`,
-    description: t.description || `Follow ${t.name} live scores, standings, and fixtures.`,
+    description,
+    openGraph: {
+      title: `${t.name} — Live Scores`,
+      description,
+      siteName: 'Pitch',
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${t.name} — Live Scores`,
+      description,
+    },
   }
 }
 
@@ -36,7 +50,7 @@ export default async function TournamentPage({ params }: Props) {
   return (
     <TournamentView
       tournament={tournamentRes.data as Tournament}
-      initialMatches={(matchesRes.data ?? []) as MatchWithTeams[]}
+      initialMatches={withTeamFallback((matchesRes.data ?? []) as MatchWithTeams[])}
       initialStandings={(standingsRes.data ?? []) as Standing[]}
       initialTeams={(teamsRes.data ?? []) as Array<Team & { players: Player[] }>}
     />

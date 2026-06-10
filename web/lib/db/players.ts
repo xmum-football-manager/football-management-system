@@ -35,6 +35,16 @@ export async function createPlayer(input: CreatePlayerInput): Promise<{ id: stri
   return { id: data.id }
 }
 
+export async function setPlayerPhoto(
+  id: string,
+  photo_path: string | null,
+): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { error } = await supabase.from('players').update({ photo_path }).eq('id', id)
+  if (error) return { error: error.message }
+  return {}
+}
+
 export async function deletePlayer(id: string): Promise<{ error?: string }> {
   const supabase = await createClient()
   const { error } = await supabase.from('players').delete().eq('id', id)

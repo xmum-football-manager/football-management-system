@@ -38,11 +38,13 @@ export default async function RDTeamsPage({ params }: Props) {
         id: t.id,
         name: t.name,
         group_label: t.group_label,
+        logo_path: t.logo_path,
         players: t.players.map((p) => ({
           id: p.id,
           name: p.name,
           jersey_number: p.jersey_number,
           position: p.position,
+          photo_path: p.photo_path,
         })),
       }))}
       canEdit={canEdit}

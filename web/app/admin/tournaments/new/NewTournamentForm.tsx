@@ -8,15 +8,53 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Loader2 } from 'lucide-react'
+import { Info, Loader2 } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { ImageUpload } from '@/components/admin/ImageUpload'
+import { removeImage } from '@/lib/storage-client'
 import type { TournamentFormat, KnockoutStartRound } from '@/lib/supabase/types'
 
-const KNOCKOUT_STAGES: { value: KnockoutStartRound; label: string; teams: number }[] = [
-  { value: 'final',  label: 'Final',         teams: 2  },
-  { value: 'semi',   label: 'Semi-final',    teams: 4  },
-  { value: 'top_8',  label: 'Quarter-final', teams: 8  },
-  { value: 'top_16', label: 'Round of 16',   teams: 16 },
-  { value: 'top_32', label: 'Round of 32',   teams: 32 },
+const KNOCKOUT_STAGES: {
+  value: KnockoutStartRound
+  label: string
+  teams: number
+  description: string
+}[] = [
+  {
+    value: 'final',
+    label: 'Final',
+    teams: 2,
+    description:
+      'Only 2 teams qualify from the groups. They play a single match for the title — no earlier knockout rounds.',
+  },
+  {
+    value: 'semi',
+    label: 'Semi-final',
+    teams: 4,
+    description:
+      '4 teams qualify and play two semi-final matches. The winners meet in the final.',
+  },
+  {
+    value: 'top_8',
+    label: 'Quarter-final',
+    teams: 8,
+    description:
+      '8 teams qualify and play quarter-finals, then semi-finals, then the final — 3 knockout rounds in total.',
+  },
+  {
+    value: 'top_16',
+    label: 'Round of 16',
+    teams: 16,
+    description:
+      '16 teams qualify. The bracket runs round of 16 → quarter-finals → semi-finals → final, 4 knockout rounds in total.',
+  },
+  {
+    value: 'top_32',
+    label: 'Round of 32',
+    teams: 32,
+    description:
+      '32 teams qualify. The bracket runs round of 32 → round of 16 → quarter-finals → semi-finals → final, 5 knockout rounds in total.',
+  },
 ]
 
 const FORMATS: { value: TournamentFormat; label: string; description: string }[] = [
@@ -54,6 +92,8 @@ export function NewTournamentForm() {
   const [numGroups, setNumGroups] = useState(4)
   const [teamsPerGroup, setTeamsPerGroup] = useState(4)
   const [knockoutStage, setKnockoutStage] = useState<KnockoutStartRound>('top_8')
+  const [logoPath, setLogoPath] = useState<string | null>(null)
+  const [bannerPath, setBannerPath] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -97,6 +137,8 @@ export function NewTournamentForm() {
       name: name.trim(),
       description: description.trim() || null,
       location: location.trim() || null,
+      logo_path: logoPath,
+      banner_path: bannerPath,
       start_date: startDate,
       end_date: endDate,
       format,
@@ -173,6 +215,43 @@ export function NewTournamentForm() {
       </div>
 
       <fieldset className="space-y-2">
+        <legend className="text-sm font-medium">Branding (optional)</legend>
+        <div className="flex items-start gap-4">
+          <ImageUpload
+            label="Logo"
+            value={logoPath}
+            folder="tournament-logos"
+            maxDim={512}
+            onUploaded={(p) => {
+              if (logoPath) void removeImage(logoPath)
+              setLogoPath(p)
+            }}
+            onRemove={() => {
+              if (logoPath) void removeImage(logoPath)
+              setLogoPath(null)
+            }}
+          />
+          <div className="flex-1">
+            <ImageUpload
+              label="Banner"
+              shape="banner"
+              value={bannerPath}
+              folder="tournament-banners"
+              maxDim={1600}
+              onUploaded={(p) => {
+                if (bannerPath) void removeImage(bannerPath)
+                setBannerPath(p)
+              }}
+              onRemove={() => {
+                if (bannerPath) void removeImage(bannerPath)
+                setBannerPath(null)
+              }}
+            />
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset className="space-y-2">
         <legend className="text-sm font-medium">Format</legend>
         <div className="grid grid-cols-1 gap-2">
           {FORMATS.map((f) => (
@@ -235,25 +314,32 @@ export function NewTournamentForm() {
                 const advPerGroup = valid ? stage.teams / numGroups : null
                 const active = knockoutStage === stage.value
                 return (
-                  <button
+                  <div
                     key={stage.value}
-                    type="button"
-                    disabled={!valid}
-                    onClick={() => setKnockoutStage(stage.value)}
-                    className="rounded-md border px-3 py-1.5 text-xs font-medium transition-colors"
+                    className="flex items-center rounded-md border transition-colors"
                     style={{
                       background: active ? 'var(--admin-lime)' : 'transparent',
                       color: active ? '#000' : valid ? 'var(--foreground)' : 'var(--muted-foreground)',
                       borderColor: active ? 'var(--admin-lime)' : 'var(--border)',
-                      opacity: valid ? 1 : 0.4,
-                      cursor: valid ? 'pointer' : 'not-allowed',
                     }}
                   >
-                    {stage.label}
-                    {valid && advPerGroup !== null && (
-                      <span className="ml-1 opacity-60">· top {advPerGroup}/group</span>
-                    )}
-                  </button>
+                    <button
+                      type="button"
+                      disabled={!valid}
+                      onClick={() => setKnockoutStage(stage.value)}
+                      className="py-1.5 pl-3 text-xs font-medium"
+                      style={{
+                        opacity: valid ? 1 : 0.4,
+                        cursor: valid ? 'pointer' : 'not-allowed',
+                      }}
+                    >
+                      {stage.label}
+                      {valid && advPerGroup !== null && (
+                        <span className="ml-1 opacity-60">· top {advPerGroup}/group</span>
+                      )}
+                    </button>
+                    <StageInfo stage={stage} />
+                  </div>
                 )
               })}
             </div>
@@ -339,6 +425,39 @@ export function NewTournamentForm() {
         </Button>
       </div>
     </form>
+  )
+}
+
+function StageInfo({ stage }: { stage: (typeof KNOCKOUT_STAGES)[number] }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={`About ${stage.label}`}
+          className="py-1.5 pl-1.5 pr-2 opacity-50 hover:opacity-100"
+          onPointerEnter={(e) => {
+            if (e.pointerType === 'mouse') setOpen(true)
+          }}
+          onPointerLeave={(e) => {
+            if (e.pointerType === 'mouse') setOpen(false)
+          }}
+        >
+          <Info className="h-3.5 w-3.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        side="top"
+        className="w-64 p-3"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
+        <p className="text-xs font-medium">
+          {stage.label} · {stage.teams} teams
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">{stage.description}</p>
+      </PopoverContent>
+    </Popover>
   )
 }
 

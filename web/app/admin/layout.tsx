@@ -7,7 +7,9 @@ import { ThemeToggle } from '@/components/admin/ThemeToggle'
 import { Toaster } from '@/components/ui/sonner'
 import { LogOut, ShieldCheck, Trophy, Users } from 'lucide-react'
 
-export const metadata = { title: 'Tournament Admin' }
+// Re-declare the template — a plain-string title here would stop the root template
+// from applying to child segments (login, users, tournaments, …)
+export const metadata = { title: { default: 'Admin · Pitch', template: '%s · Pitch' } }
 
 async function readTheme(): Promise<'light' | 'dark'> {
   const c = await cookies()

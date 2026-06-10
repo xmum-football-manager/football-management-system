@@ -68,6 +68,13 @@ export async function renameTeam(id: string, name: string): Promise<{ error?: st
   return {}
 }
 
+export async function setTeamLogo(id: string, logo_path: string | null): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { error } = await supabase.from('teams').update({ logo_path }).eq('id', id)
+  if (error) return { error: error.message }
+  return {}
+}
+
 export async function setTeamGroup(
   id: string,
   group_label: string | null,

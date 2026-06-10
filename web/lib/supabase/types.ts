@@ -10,6 +10,8 @@ export interface Tournament {
   name: string
   description: string | null
   location: string | null
+  logo_path: string | null
+  banner_path: string | null
   start_date: string
   end_date: string
   format: TournamentFormat
@@ -40,6 +42,7 @@ export interface Team {
   tournament_id: string
   name: string
   group_label: string | null
+  logo_path: string | null
   created_at: string
 }
 
@@ -49,6 +52,7 @@ export interface Player {
   name: string
   jersey_number: number | null
   position: string | null
+  photo_path: string | null
   created_at: string
 }
 

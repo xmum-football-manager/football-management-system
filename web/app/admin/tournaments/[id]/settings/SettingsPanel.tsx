@@ -25,7 +25,10 @@ import {
   deleteTournamentAction,
   assignOrganizerAction,
   removeOrganizerAction,
+  updateTournamentImagesAction,
 } from './actions'
+import { ImageUpload } from '@/components/admin/ImageUpload'
+import { removeImage } from '@/lib/storage-client'
 import type { Tournament } from '@/lib/supabase/types'
 
 interface Props {
@@ -42,6 +45,8 @@ export function SettingsPanel({ tournamentId, tournament, isAdmin, organizers }:
   return (
     <div className="space-y-5 max-w-3xl">
       <TournamentDetails tournament={tournament} />
+
+      <BrandingCard tournamentId={tournamentId} tournament={tournament} />
 
       {isAdmin && (
         <Card>
@@ -145,6 +150,66 @@ export function SettingsPanel({ tournamentId, tournament, isAdmin, organizers }:
         </Card>
       )}
     </div>
+  )
+}
+
+function BrandingCard({
+  tournamentId,
+  tournament,
+}: {
+  tournamentId: string
+  tournament: Tournament
+}) {
+  const router = useRouter()
+
+  async function save(
+    patch: { logo_path: string | null } | { banner_path: string | null },
+    oldPath: string | null,
+    newPath: string | null,
+  ) {
+    const r = await updateTournamentImagesAction(tournamentId, patch)
+    if ('error' in r) {
+      toast.error(r.error)
+      if (newPath) void removeImage(newPath)
+      return
+    }
+    if (oldPath) void removeImage(oldPath)
+    toast.success('Saved.')
+    router.refresh()
+  }
+
+  return (
+    <Card>
+      <CardContent className="p-4 space-y-3">
+        <div>
+          <h3 className="font-semibold text-sm">Branding</h3>
+          <p className="text-xs text-muted-foreground">
+            Logo and banner shown on the public tournament page.
+          </p>
+        </div>
+        <div className="flex items-start gap-4">
+          <ImageUpload
+            label="Logo"
+            value={tournament.logo_path}
+            folder="tournament-logos"
+            maxDim={512}
+            onUploaded={(p) => save({ logo_path: p }, tournament.logo_path, p)}
+            onRemove={() => save({ logo_path: null }, tournament.logo_path, null)}
+          />
+          <div className="flex-1">
+            <ImageUpload
+              label="Banner"
+              shape="banner"
+              value={tournament.banner_path}
+              folder="tournament-banners"
+              maxDim={1600}
+              onUploaded={(p) => save({ banner_path: p }, tournament.banner_path, p)}
+              onRemove={() => save({ banner_path: null }, tournament.banner_path, null)}
+            />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 

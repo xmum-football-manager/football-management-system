@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { requireScorekeeperUser } from '@/lib/auth'
 import { listScorekeeperMatchesForUser } from '@/lib/db/roles'
 import { createClient } from '@/lib/supabase/server'
+import { withTeamFallback } from '@/lib/match-teams'
 import type { MatchWithTeams } from '@/lib/supabase/types'
 import { ScoreApp } from './ScoreApp'
 
@@ -22,7 +23,7 @@ export default async function ScorePage() {
       .in('id', matchIds)
       .neq('status', 'finished')
       .order('match_time', { ascending: true })
-    matches = (data ?? []) as unknown as MatchWithTeams[]
+    matches = withTeamFallback((data ?? []) as unknown as MatchWithTeams[])
   }
 
   return <ScoreApp email={user.email ?? ''} initialMatches={matches} />

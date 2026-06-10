@@ -1,201 +1,163 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { LiveBadge } from './LiveBadge'
-import { teamInitials, formatClock } from '@/lib/format'
-import type { MatchWithTeams } from '@/lib/supabase/types'
+import { teamColor, teamCode } from '@/lib/team-style'
+import { mediaUrl } from '@/lib/storage'
+import type { MatchWithTeams, Team } from '@/lib/supabase/types'
 
 interface HeroLiveProps {
-  variant: 'live' | 'nextup' | 'done'
-  match?: MatchWithTeams
+  match: MatchWithTeams
+  /** All tournament matches — used to derive each team's recent form */
+  allMatches?: MatchWithTeams[]
+  /** "Tournament · Stage · Location" line shown next to the status pill */
+  metaText?: React.ReactNode
+  minutesPerHalf?: number
 }
 
-function ElapsedClock({ startedAt }: { startedAt: string }) {
-  const [min, setMin] = useState(() => Math.floor((Date.now() - new Date(startedAt).getTime()) / 60000))
+type FormResult = 'W' | 'D' | 'L'
+
+function teamForm(teamId: string, matches: MatchWithTeams[]): FormResult[] {
+  return matches
+    .filter(m => m.status === 'finished' && (m.home_team_id === teamId || m.away_team_id === teamId))
+    .slice(-5)
+    .map(m => {
+      const isHome = m.home_team_id === teamId
+      const gf = isHome ? m.home_score : m.away_score
+      const ga = isHome ? m.away_score : m.home_score
+      return gf > ga ? 'W' : gf < ga ? 'L' : 'D'
+    })
+}
+
+function BallIcon() {
+  return (
+    <svg className="clock-ball" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+      <circle cx="24" cy="24" r="20" fill="currentColor" />
+      <path d="M24 10 L32 16 L29 26 L19 26 L16 16 Z" fill="#0E1A12" />
+      <path d="M10 24 L16 27 L16 36 L10 32 Z" fill="#0E1A12" />
+      <path d="M38 24 L32 27 L32 36 L38 32 Z" fill="#0E1A12" />
+      <path d="M19 36 L29 36 L26 44 L22 44 Z" fill="#0E1A12" />
+    </svg>
+  )
+}
+
+/** Animated scoreboard digit — the key remount replays the tick-in animation on change. */
+function ScoreDigit({ value }: { value: number }) {
+  return (
+    <span className="score-digit-wrap">
+      <span key={value} className="score-digit tick">{value}</span>
+    </span>
+  )
+}
+
+function FormStrip({ form, align }: { form: FormResult[]; align: 'left' | 'right' }) {
+  if (form.length === 0) return null
+  return (
+    <div className="team-form" style={{ justifyContent: align === 'right' ? 'flex-end' : 'flex-start' }}>
+      {form.map((r, i) => <span key={i} className={`form-pip ${r}`}>{r}</span>)}
+    </div>
+  )
+}
+
+function LiveClock({ startedAt, minutesPerHalf }: { startedAt: string; minutesPerHalf: number }) {
+  const [sec, setSec] = useState(() => Math.max(0, Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000)))
 
   useEffect(() => {
     const id = setInterval(() => {
-      setMin(Math.floor((Date.now() - new Date(startedAt).getTime()) / 60000))
-    }, 30000)
+      setSec(Math.max(0, Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000)))
+    }, 1000)
     return () => clearInterval(id)
   }, [startedAt])
 
-  return <span style={{ fontVariantNumeric: 'tabular-nums' }}>{min}&apos;</span>
-}
-
-export function HeroLive({ variant, match }: HeroLiveProps) {
-  const isNextup = variant === 'nextup'
-  const isDone = variant === 'done'
+  const m = Math.floor(sec / 60)
+  const period = m >= minutesPerHalf ? '2H' : '1H'
+  const clock = `${String(m).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`
 
   return (
-    <section style={{
-      position: 'relative',
-      background: 'var(--ink-900)',
-      overflow: 'hidden',
-      borderBottom: '1px solid var(--ink-700)',
-    }}>
-      {/* Background glow */}
-      <div style={{
-        position: 'absolute', inset: 0, pointerEvents: 'none',
-        background: isDone
-          ? 'radial-gradient(ellipse 60% 40% at 50% 0%, rgba(163,230,53,0.06), transparent 65%)'
-          : isNextup
-            ? `radial-gradient(ellipse 80% 60% at 50% -10%, rgba(163,230,53,0.07), transparent 65%),
-               radial-gradient(ellipse 50% 40% at 12% 100%, rgba(163,230,53,0.03), transparent 60%)`
-            : `radial-gradient(ellipse 80% 60% at 50% -10%, rgba(163,230,53,0.18), transparent 65%),
-               radial-gradient(ellipse 50% 40% at 12% 100%, rgba(163,230,53,0.07), transparent 60%)`,
-      }} />
-      {/* Pitch stripe pattern */}
-      <div style={{
-        position: 'absolute', inset: 0, pointerEvents: 'none',
-        backgroundImage: 'repeating-linear-gradient(90deg, rgba(163,230,53,0.025) 0, rgba(163,230,53,0.025) 60px, transparent 60px, transparent 120px)',
-        opacity: isDone ? 0.5 : 1,
-      }} />
+    <div className="match-clock">
+      <BallIcon />
+      {/* suppressHydrationWarning: elapsed time is computed from Date.now(), so
+          SSR text is a few seconds behind the client; first tick corrects it */}
+      <span className="period" suppressHydrationWarning>{period}</span>
+      <span className="tnum" style={{ fontVariantNumeric: 'tabular-nums' }} suppressHydrationWarning>{clock}</span>
+    </div>
+  )
+}
 
-      <div style={{ position: 'relative', maxWidth: 1240, margin: '0 auto', padding: '48px 28px 56px' }}>
+function TeamSide({ team, side, form }: { team: Team; side: 'home' | 'away'; form: FormResult[] }) {
+  const logo = mediaUrl(team.logo_path)
+  return (
+    <div className={`team-side ${side}`}>
+      <div
+        className="team-crest"
+        style={
+          logo
+            ? { backgroundImage: `url(${logo})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+            : { background: teamColor(team.id) }
+        }
+      >
+        {logo ? null : teamCode(team.name)}
+      </div>
+      <div className="team-side-meta">
+        <div className="team-name">{team.name}</div>
+        <div className="team-tag">
+          {teamCode(team.name)}{team.group_label ? ` · GROUP ${team.group_label}` : ''}
+        </div>
+        <FormStrip form={form} align={side === 'home' ? 'right' : 'left'} />
+      </div>
+    </div>
+  )
+}
 
-        {/* ── Done state ── */}
-        {isDone && (
-          <div style={{ textAlign: 'center', padding: '16px 0 8px' }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>⚽</div>
-            <p style={{
-              fontFamily: 'var(--font-display)', fontWeight: 900,
-              fontSize: 'clamp(22px, 4vw, 40px)', letterSpacing: '-0.02em',
-              textTransform: 'uppercase', color: 'var(--ink-400)',
-              margin: 0,
-            }}>No matches remaining</p>
+export function HeroLive({ match, allMatches = [], metaText, minutesPerHalf = 45 }: HeroLiveProps) {
+  const isLive = match.status === 'live'
+  const isUpcoming = match.status === 'scheduled'
+
+  const kickoff = match.match_time
+    ? new Date(match.match_time).toLocaleString('en-MY', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })
+    : null
+
+  return (
+    <section className="hero" id="live">
+      <div className="hero-inner">
+
+        <div className="hero-meta">
+          {isLive ? (
+            <span className="live-pill"><span className="live-dot" />Live</span>
+          ) : isUpcoming ? (
+            <span className="live-pill lime">Up next</span>
+          ) : (
+            <span className="live-pill dim">Full time</span>
+          )}
+          {metaText && <span className="match-meta-text">{metaText}</span>}
+        </div>
+
+        <div className="scoreboard">
+          <TeamSide team={match.home_team} side="home" form={teamForm(match.home_team_id, allMatches)} />
+
+          <div className="score-column">
+            {isUpcoming ? (
+              <div className="score-display vs">VS</div>
+            ) : (
+              <div className="score-display">
+                <ScoreDigit value={match.home_score} />
+                <span className="sep">–</span>
+                <ScoreDigit value={match.away_score} />
+              </div>
+            )}
+            {isLive && match.match_started_at ? (
+              <LiveClock startedAt={match.match_started_at} minutesPerHalf={minutesPerHalf} />
+            ) : (
+              <div className="match-clock">
+                <BallIcon />
+                {isUpcoming
+                  ? <><span className="period">KO</span><span>{kickoff ?? 'TBD'}</span></>
+                  : <span className="period">FT</span>}
+              </div>
+            )}
           </div>
-        )}
 
-        {/* ── Live / Next Up state ── */}
-        {match && (
-          <>
-            {/* Meta row */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, marginBottom: 32 }}>
-              {variant === 'live' ? (
-                <LiveBadge size="md" />
-              ) : (
-                <div style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  padding: '5px 12px', borderRadius: 999,
-                  background: 'var(--ink-800)', border: '1px solid var(--ink-700)',
-                  fontFamily: 'var(--font-display)', fontWeight: 800,
-                  fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase',
-                  color: 'var(--ink-400)',
-                }}>
-                  Next Up
-                </div>
-              )}
-            </div>
-
-            {/* Scoreboard: home / score / away */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr auto 1fr',
-              alignItems: 'center',
-              gap: 'clamp(4px, 4vw, 64px)',
-            }}>
-              {/* Home */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', textAlign: 'right', gap: 12 }}>
-                <div style={{
-                  width: 'clamp(64px, 10vw, 104px)', height: 'clamp(64px, 10vw, 104px)',
-                  borderRadius: 999,
-                  background: isNextup ? 'var(--ink-800)' : 'var(--ink-600)',
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  fontFamily: 'var(--font-display)', fontWeight: 900,
-                  fontSize: 'clamp(20px, 4vw, 40px)',
-                  color: isNextup ? 'var(--ink-500)' : '#fff',
-                  boxShadow: isNextup
-                    ? 'inset 0 0 0 4px rgba(255,255,255,0.05), 0 8px 20px rgba(0,0,0,0.3)'
-                    : 'inset 0 0 0 4px rgba(255,255,255,0.12), 0 12px 32px rgba(0,0,0,0.45)',
-                }}>{teamInitials(match.home_team.name)}</div>
-                <div style={{
-                  fontFamily: 'var(--font-display)', fontWeight: 900,
-                  fontSize: 'clamp(12px, 3vw, 34px)', letterSpacing: '-0.02em',
-                  textTransform: 'uppercase',
-                  color: isNextup ? 'var(--ink-500)' : 'var(--ink-50)',
-                  lineHeight: 1.1,
-                  wordBreak: 'break-word', overflowWrap: 'break-word',
-                }}>{match.home_team.name}</div>
-              </div>
-
-              {/* Centre column */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
-                {variant === 'live' ? (
-                  <>
-                    <div style={{
-                      fontFamily: 'var(--font-display)', fontWeight: 900,
-                      fontSize: 'clamp(48px, 14vw, 160px)', lineHeight: 0.85,
-                      letterSpacing: '-0.05em', fontVariantNumeric: 'tabular-nums',
-                      display: 'flex', alignItems: 'baseline',
-                      gap: 'clamp(4px, 2vw, 24px)', color: 'var(--ink-50)',
-                      textShadow: '0 0 60px rgba(163,230,53,0.15)',
-                    }}>
-                      <span>{match.home_score}</span>
-                      <span style={{ color: 'var(--ink-600)', fontSize: '0.5em', fontWeight: 800, alignSelf: 'center' }}>–</span>
-                      <span>{match.away_score}</span>
-                    </div>
-                    {match.match_started_at && (
-                      <div style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 8,
-                        padding: '8px 16px', borderRadius: 999,
-                        background: 'var(--ink-800)', border: '1px solid var(--ink-700)',
-                        fontFamily: 'var(--font-mono)', fontWeight: 600, fontSize: 14,
-                        letterSpacing: '0.04em', color: 'var(--ink-50)',
-                      }}>
-                        <span style={{ color: 'var(--brand-lime)', fontWeight: 700 }}>1H</span>
-                        <ElapsedClock startedAt={match.match_started_at} />
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <div style={{
-                      fontFamily: 'var(--font-display)', fontWeight: 900,
-                      fontSize: 'clamp(28px, 8vw, 80px)', lineHeight: 0.9,
-                      letterSpacing: '-0.04em', color: 'var(--ink-700)',
-                    }}>VS</div>
-                    {match.match_time && (
-                      <div style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 8,
-                        padding: '8px 16px', borderRadius: 999,
-                        background: 'var(--ink-800)', border: '1px solid var(--ink-700)',
-                        fontFamily: 'var(--font-mono)', fontWeight: 600, fontSize: 14,
-                        letterSpacing: '0.04em', color: 'var(--ink-400)',
-                      }}>
-                        {formatClock(match.match_time)}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-
-              {/* Away */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left', gap: 12 }}>
-                <div style={{
-                  width: 'clamp(64px, 10vw, 104px)', height: 'clamp(64px, 10vw, 104px)',
-                  borderRadius: 999,
-                  background: isNextup ? 'var(--ink-800)' : 'var(--ink-600)',
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  fontFamily: 'var(--font-display)', fontWeight: 900,
-                  fontSize: 'clamp(24px, 4vw, 40px)',
-                  color: isNextup ? 'var(--ink-500)' : '#fff',
-                  boxShadow: isNextup
-                    ? 'inset 0 0 0 4px rgba(255,255,255,0.05), 0 8px 20px rgba(0,0,0,0.3)'
-                    : 'inset 0 0 0 4px rgba(255,255,255,0.12), 0 12px 32px rgba(0,0,0,0.45)',
-                }}>{teamInitials(match.away_team.name)}</div>
-                <div style={{
-                  fontFamily: 'var(--font-display)', fontWeight: 900,
-                  fontSize: 'clamp(14px, 2.5vw, 34px)', letterSpacing: '-0.02em',
-                  textTransform: 'uppercase',
-                  color: isNextup ? 'var(--ink-500)' : 'var(--ink-50)',
-                  lineHeight: 1.1,
-                  wordBreak: 'break-word', overflowWrap: 'break-word',
-                }}>{match.away_team.name}</div>
-              </div>
-            </div>
-          </>
-        )}
+          <TeamSide team={match.away_team} side="away" form={teamForm(match.away_team_id, allMatches)} />
+        </div>
 
       </div>
     </section>

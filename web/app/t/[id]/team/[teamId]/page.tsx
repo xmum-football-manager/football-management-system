@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { mediaUrl } from '@/lib/storage'
 import Link from 'next/link'
 import { teamInitials } from '@/lib/format'
 
@@ -64,16 +65,28 @@ export default async function TeamPage({ params }: Props) {
         </Link>
         
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
-          <div style={{
-            width: 48, height: 48,
-            borderRadius: 999, background: 'var(--ink-600)',
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            fontFamily: 'var(--font-display)', fontWeight: 900,
-            fontSize: 18, color: '#fff',
-            boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.12), 0 4px 12px rgba(0,0,0,0.3)',
-          }}>
-            {teamInitials(team.name)}
-          </div>
+          {team.logo_path ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={mediaUrl(team.logo_path)!}
+              alt=""
+              style={{
+                width: 48, height: 48, borderRadius: 999, objectFit: 'cover',
+                boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.12), 0 4px 12px rgba(0,0,0,0.3)',
+              }}
+            />
+          ) : (
+            <div style={{
+              width: 48, height: 48,
+              borderRadius: 999, background: 'var(--ink-600)',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              fontFamily: 'var(--font-display)', fontWeight: 900,
+              fontSize: 18, color: '#fff',
+              boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.12), 0 4px 12px rgba(0,0,0,0.3)',
+            }}>
+              {initials(team.name)}
+            </div>
+          )}
           <div>
             <h1 style={{ 
               margin: 0, 
@@ -196,7 +209,17 @@ export default async function TeamPage({ params }: Props) {
                         fontFamily: 'var(--font-sans)', fontWeight: 600,
                         color: 'var(--ink-50)',
                       }}>
-                        {p.name}
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+                          {p.photo_path && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={mediaUrl(p.photo_path)!}
+                              alt=""
+                              style={{ width: 28, height: 28, borderRadius: 999, objectFit: 'cover' }}
+                            />
+                          )}
+                          {p.name}
+                        </span>
                       </td>
                       <td className="hidden sm:table-cell" style={{
                         padding: '16px',

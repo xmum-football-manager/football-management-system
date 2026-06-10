@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { teamColor, teamCode } from '@/lib/team-style'
+import { mediaUrl } from '@/lib/storage'
 import type { Team, Player, Standing } from '@/lib/supabase/types'
 import { teamInitials } from '@/lib/format'
 
@@ -14,110 +16,54 @@ interface TeamCardProps {
 export function TeamCard({ team, standings, tournamentId }: TeamCardProps) {
   const [open, setOpen] = useState(false)
   const rec = standings.find(s => s.team_id === team.id)
+  const logo = mediaUrl(team.logo_path)
 
-  const initials = teamInitials(team.name)
+  const sub = [
+    team.group_label ? `Group ${team.group_label}` : null,
+    `${team.players.length} players`,
+    rec ? `${rec.points} pts` : null,
+  ].filter(Boolean).join(' · ')
 
   return (
-    <div style={{
-      background: 'var(--ink-800)',
-      border: `1px solid ${open ? 'var(--brand-lime)' : 'var(--ink-700)'}`,
-      borderRadius: 'var(--radius-lg)',
-      overflow: 'hidden',
-      transition: 'border-color var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out)',
-    }}>
-      {/* Header */}
-      <div
-        onClick={() => setOpen(o => !o)}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 14,
-          padding: '18px 18px 14px', cursor: 'pointer',
-        }}
-      >
-        <div style={{
-          width: 52, height: 52, borderRadius: 999, flexShrink: 0,
-          background: 'var(--ink-600)',
-          fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: 18, color: '#fff',
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: 'inset 0 0 0 3px rgba(255,255,255,0.12)',
-        }}>{initials}</div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{
-            fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: 22,
-            letterSpacing: '-0.01em', textTransform: 'uppercase', color: 'var(--ink-50)',
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}>{team.name}</div>
-          <div style={{ fontSize: 12, color: 'var(--ink-400)', marginTop: 2 }}>
-            {team.players.length} players{rec ? ` · ${rec.points} pts` : ''}
-          </div>
+    <div className={`team-card ${open ? 'open' : ''}`}>
+      <div className="team-card-head" onClick={() => setOpen(o => !o)}>
+        <div
+          className="crest"
+          style={
+            logo
+              ? { backgroundImage: `url(${logo})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+              : { background: teamColor(team.id) }
+          }
+        >
+          {logo ? null : teamCode(team.name)}
         </div>
-        <span style={{
-          width: 28, height: 28, borderRadius: 999, flexShrink: 0,
-          background: open ? 'var(--brand-lime)' : 'var(--ink-700)',
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          color: open ? 'var(--ink-900)' : 'var(--ink-300)',
-          transform: open ? 'rotate(180deg)' : 'none',
-          transition: 'transform var(--dur-base) var(--ease-out), background var(--dur-base) var(--ease-out)',
-        }}>
+        <div className="meta">
+          <div className="nm">{team.name}</div>
+          <div className="sub">{sub}</div>
+        </div>
+        <span className="toggle">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="m6 9 6 6 6-6"/>
+            <path d="M5 12h14"/><path d="M12 5v14"/>
           </svg>
         </span>
       </div>
 
-      {/* Record bar */}
       {rec && (
-        <div style={{
-          display: 'flex', padding: '0 18px 14px',
-          borderBottom: open ? '1px solid var(--ink-700)' : 'none',
-        }}>
-          {[
-            { v: rec.wins,   l: 'Won' },
-            { v: rec.draws,  l: 'Drew' },
-            { v: rec.losses, l: 'Lost' },
-            { v: rec.goal_difference >= 0 ? `+${rec.goal_difference}` : rec.goal_difference, l: 'GD', lime: rec.goal_difference > 0 },
-          ].map((s, i, arr) => (
-            <div key={s.l} style={{
-              flex: 1, display: 'flex', flexDirection: 'column',
-              padding: '8px 4px',
-              borderRight: i < arr.length - 1 ? '1px solid var(--ink-700)' : 'none',
-            }}>
-              <span style={{
-                fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: 22,
-                letterSpacing: '-0.01em', fontVariantNumeric: 'tabular-nums',
-                color: s.lime ? 'var(--brand-lime)' : 'var(--ink-50)',
-              }}>{s.v}</span>
-              <span style={{
-                fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 9,
-                letterSpacing: '0.12em', textTransform: 'uppercase',
-                color: 'var(--ink-400)', marginTop: 2,
-              }}>{s.l}</span>
-            </div>
-          ))}
+        <div className="team-record">
+          <div className="stat"><span className="v">{rec.wins}</span><span className="l">Won</span></div>
+          <div className="stat"><span className="v">{rec.draws}</span><span className="l">Drew</span></div>
+          <div className="stat"><span className="v">{rec.losses}</span><span className="l">Lost</span></div>
+          <div className="stat">
+            <span className="v" style={{ color: rec.goal_difference > 0 ? 'var(--brand-lime)' : rec.goal_difference < 0 ? 'var(--red-card)' : undefined }}>
+              {rec.goal_difference >= 0 ? `+${rec.goal_difference}` : rec.goal_difference}
+            </span>
+            <span className="l">GD</span>
+          </div>
         </div>
       )}
 
-      {/* Roster (collapsible) */}
-      <div style={{
-        maxHeight: open ? 600 : 0,
-        overflow: 'hidden',
-        transition: 'max-height 420ms var(--ease-out)',
-      }}>
-        <div style={{ padding: '14px 18px 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {/* Roster header */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '36px 1fr auto 48px',
-            alignItems: 'center', gap: 12, padding: '6px 4px',
-            borderBottom: '1px solid var(--ink-700)',
-            fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 10,
-            letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink-500)',
-          }}>
-            <span>#</span>
-            <span>Name</span>
-            <span>Pos</span>
-            <span style={{ textAlign: 'right' }}>Goals</span>
-          </div>
-
+      <div className="roster-list">
+        <div className="roster-inner">
           {team.players.length === 0 && (
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--ink-500)', padding: '8px 4px' }}>
               No players added yet.
@@ -125,46 +71,25 @@ export function TeamCard({ team, standings, tournamentId }: TeamCardProps) {
           )}
 
           {team.players.map(p => (
-            <div key={p.id} style={{
-              display: 'grid',
-              gridTemplateColumns: '36px 1fr auto 48px',
-              alignItems: 'center', gap: 12,
-              padding: '8px 4px',
-              borderBottom: '1px dashed var(--ink-700)',
-            }}>
-              <span style={{
-                width: 28, height: 28, borderRadius: 6,
-                background: 'var(--ink-700)',
-                fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: 13,
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                fontVariantNumeric: 'tabular-nums', color: 'var(--ink-200)',
-              }}>
-                {p.jersey_number ?? '—'}
+            <div className="roster-row" key={p.id}>
+              <span className="num">{p.jersey_number ?? '—'}</span>
+              <span className="nm">
+                {p.photo_path && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={mediaUrl(p.photo_path)!}
+                    alt=""
+                    // inline-block overrides Tailwind preflight's `img { display: block }`
+                    style={{ display: 'inline-block', width: 24, height: 24, borderRadius: 999, objectFit: 'cover', verticalAlign: 'middle', marginRight: 8 }}
+                  />
+                )}
+                {p.name}
               </span>
-              <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink-100)' }}>{p.name}</span>
-              <span style={{
-                fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 10,
-                letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink-400)',
-              }}>{p.position ?? '—'}</span>
-              <span style={{
-                fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: 16,
-                fontVariantNumeric: 'tabular-nums', color: 'var(--ink-300)',
-                textAlign: 'right',
-              }}>{'—'/* Update based on player goals if Goals table exists in database */}</span>
+              <span className="pos">{p.position ?? '—'}</span>
             </div>
           ))}
 
-          <Link
-            href={`/t/${tournamentId}/team/${team.id}`}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              marginTop: 4, padding: '10px 16px', borderRadius: 8,
-              background: 'var(--brand-lime)', color: 'var(--ink-900)',
-              fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 13,
-              letterSpacing: '0.04em', textTransform: 'uppercase',
-              textDecoration: 'none', alignSelf: 'flex-start',
-            }}
-          >
+          <Link href={`/t/${tournamentId}/team/${team.id}`} className="roster-link">
             View full roster page
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M5 12h14"/><path d="m13 5 7 7-7 7"/>

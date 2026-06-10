@@ -15,6 +15,12 @@ interface Props {
   children: React.ReactNode
 }
 
+export async function generateMetadata({ params }: Pick<Props, 'params'>) {
+  const { id } = await params
+  const tournament = await getTournament(id)
+  return { title: tournament ? `${tournament.name} — Admin` : 'Tournament Admin' }
+}
+
 export default async function TournamentLayout({ params, children }: Props) {
   const { id } = await params
   const user = await requireUser()
