@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { MatchCard } from './MatchCard'
 import type { MatchWithTeams } from '@/lib/supabase/types'
+import { mockTournament } from './__fixtures__'
 
 const meta: Meta<typeof MatchCard> = {
   component: MatchCard,
@@ -24,6 +25,9 @@ const baseMatch = {
   updated_at: '2026-05-15T10:00:00Z',
   home_team: homeTeam,
   away_team: awayTeam,
+  tournament: mockTournament,
+  halftime_started_at: null,
+  second_half_started_at: null,
 }
 
 export const Scheduled: Story = {

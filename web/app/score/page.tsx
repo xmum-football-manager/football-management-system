@@ -18,7 +18,7 @@ export default async function ScorePage() {
     const supabase = await createClient()
     const { data } = await supabase
       .from('matches')
-      .select('*, home_team:teams!matches_home_team_id_fkey(*), away_team:teams!matches_away_team_id_fkey(*)')
+      .select('*, home_team:teams!matches_home_team_id_fkey(*), away_team:teams!matches_away_team_id_fkey(*), tournament:tournaments(*)')
       .in('id', matchIds)
       .neq('status', 'finished')
       .order('match_time', { ascending: true })

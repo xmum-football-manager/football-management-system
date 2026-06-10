@@ -68,6 +68,8 @@ export interface Match {
   knockout_round: string | null
   match_started_at: string | null
   match_finished_at: string | null
+  halftime_started_at: string | null
+  second_half_started_at: string | null
   created_at: string
   updated_at: string
 }
@@ -98,6 +100,7 @@ export interface Standing {
 export interface MatchWithTeams extends Match {
   home_team: Team
   away_team: Team
+  tournament: Tournament
 }
 
 export interface TeamWithPlayers extends Team {

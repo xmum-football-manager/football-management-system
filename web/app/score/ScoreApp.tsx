@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { Loader2, LogOut, Minus, Plus, RefreshCcw, Play, Pause, CircleStop, FastForward } from 'lucide-react'
 import { scorekeeperTransitionMatch } from './actions'
 import type { MatchStatus, MatchWithTeams } from '@/lib/supabase/types'
+import { matchElapsedSeconds, formatElapsed, tournamentDayLabel, expectedMatchRange } from '@/lib/format'
 
 interface Props {
   email: string
@@ -35,7 +36,7 @@ export function ScoreApp({ email, initialMatches }: Props) {
     }
     const { data } = await supabase
       .from('matches')
-      .select('*, home_team:teams!matches_home_team_id_fkey(*), away_team:teams!matches_away_team_id_fkey(*)')
+      .select('*, home_team:teams!matches_home_team_id_fkey(*), away_team:teams!matches_away_team_id_fkey(*), tournament:tournaments(*)')
       .in('id', ids)
     if (data) {
       setMatches(data as unknown as MatchWithTeams[])
@@ -148,6 +149,11 @@ function ScoreCard({ match, onChange }: { match: MatchWithTeams; onChange: () =>
   const [saving, setSaving] = useState(false)
   const [prompt, setPrompt] = useState<LifecyclePrompt | null>(null)
   const [transitioning, setTransitioning] = useState(false)
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(t)
+  }, [])
 
   const canScore = match.status === 'live'
 
@@ -239,7 +245,7 @@ function ScoreCard({ match, onChange }: { match: MatchWithTeams; onChange: () =>
 
   return (
     <div className="w-full max-w-md">
-      <div className="text-center mb-4">
+      <div className="text-center mb-4 space-y-1">
         {match.status === 'live' ? (
           <span className="inline-flex items-center gap-2 text-emerald-300 text-sm font-semibold">
             <span className="relative flex h-2 w-2">
@@ -254,6 +260,21 @@ function ScoreCard({ match, onChange }: { match: MatchWithTeams; onChange: () =>
           <span className="text-slate-400 text-sm font-semibold">FULL TIME</span>
         ) : (
           <span className="text-slate-400 text-sm">SCHEDULED · {formatTime(match.match_time ?? '')}</span>
+        )}
+        {match.match_started_at && (
+          <div className="text-white text-lg font-mono font-semibold tabular-nums">
+            {formatElapsed(matchElapsedSeconds(match, now))}
+          </div>
+        )}
+        {match.tournament && match.match_time && (
+          <div className="text-slate-400 text-xs">
+            {tournamentDayLabel(match.tournament, match.match_time)}
+          </div>
+        )}
+        {match.tournament && match.match_time && (
+          <div className="text-slate-400 text-xs">
+            {expectedMatchRange(match.tournament, match.match_time)}
+          </div>
         )}
       </div>
 

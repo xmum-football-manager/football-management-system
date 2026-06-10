@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { BracketView } from './BracketView'
 import type { MatchWithTeams } from '@/lib/supabase/types'
+import { mockTournament } from './__fixtures__'
 
 const meta: Meta<typeof BracketView> = {
   component: BracketView,
@@ -27,10 +28,13 @@ function makeMatch(id: string, homeId: string, homeName: string, awayId: string,
     knockout_round: null,
     match_started_at: null,
     match_finished_at: null,
+    halftime_started_at: null,
+    second_half_started_at: null,
     created_at: '2026-05-01T00:00:00Z',
     updated_at: '2026-05-01T00:00:00Z',
     home_team: makeTeam(homeId, homeName),
     away_team: makeTeam(awayId, awayName),
+    tournament: mockTournament,
     ...overrides,
   }
 }
