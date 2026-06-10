@@ -1,0 +1,94 @@
+ABANDONED CONFLICTING CHANGES — from branch `finished-latest-tests` (commit 77ec7b2)
+================================================================================
+
+Decision: `main` is the source of truth. The big commit 77ec7b2 ("Finished latest
+tests and changes", 129 files) was NOT merged because 6 of its files conflict with
+main's lib/format refactor (commits db436c5 + ec5b610) and the knockout docs.
+
+main was left untouched at commit 0a24afd. The 125 non-conflicting files in 77ec7b2
+were NOT pulled in either, because the new screens they add depend on the rewritten
+versions of the components below — you cannot take half the rewrite.
+
+This file records WHAT those 6 conflicted files did, so the work can be re-applied
+later on top of main if wanted. The full code still lives on branch
+`finished-latest-tests` (and origin/finished-latest-tests on GitHub).
+
+To see any file's full version:
+    git show finished-latest-tests:<path>
+
+--------------------------------------------------------------------------------
+1. web/components/HeroLive.tsx   (biggest change — full rewrite)
+--------------------------------------------------------------------------------
+Features added in 77ec7b2 that are NOT in main:
+  - Live match clock now ticks every 1 SECOND and shows MM:SS (main: every 30s,
+    minutes only). New <LiveClock> with a period indicator ("1H" / "2H") derived
+    from a new `minutesPerHalf` prop. Uses suppressHydrationWarning for SSR drift.
+  - New props: `match` (required), `allMatches?`, `metaText?`, `minutesPerHalf?`.
+    (main's HeroLive uses `variant: 'live'|'nextup'|'done'` + optional `match`.)
+  - Team recent-form strip: teamForm() computes last-5 W/D/L from allMatches;
+    rendered as colored pips via <FormStrip>.
+  - Team crests: real uploaded logo via mediaUrl(team.logo_path), falling back to
+    teamColor()/teamCode() from lib/team-style (instead of teamInitials()).
+  - Animated <ScoreDigit> (tick-in animation on score change) and a <BallIcon> SVG.
+  NOTE: This is the component the SCOREKEEPER-style MM:SS running timer request maps
+  to. It already existed in 77ec7b2 but is abandoned with this decision.
+
+--------------------------------------------------------------------------------
+2. web/components/MatchCard.tsx   (full rewrite)
+--------------------------------------------------------------------------------
+  - New `onClick?` prop so a card can open a match detail modal.
+  - New EXPORT `matchStageLabel(match)` → "Round of 32/16", "Quarterfinal",
+    "Semifinal", "Final" for knockout, or "Group X" for group stage. Consumed by
+    web/components/MatchModal.tsx (a new file in 77ec7b2, also abandoned).
+  - liveMinute() helper; status-class styling instead of inline accent bar.
+  - Crests use uploaded logos (mediaUrl) + teamColor/teamCode fallback.
+  (main's MatchCard uses teamInitials() + LiveBadge, no onClick, no stage label.)
+
+--------------------------------------------------------------------------------
+3. web/components/BracketView.tsx   (full rewrite)
+--------------------------------------------------------------------------------
+  - New `onMatchClick?(match)` prop (open match modal from the bracket).
+  - Rewrote BracketTeamRow to take a `Team | null` object (was name string), with
+    proper null/TBD handling for unfilled bracket slots.
+  - Team crests via uploaded logo (mediaUrl) + teamColor/teamCode fallback.
+  - Layout constants for shared column height so rounds center between feeders:
+    CARD_HEIGHT=82, ROW_GAP=20, TROPHY_HEIGHT=230 (champion cell never cropped).
+  - Moved from inline styles to CSS classes (bracket-team-row, bracket-match, etc.).
+  (main's BracketView uses teamInitials() + inline styles, name strings, no click.)
+
+--------------------------------------------------------------------------------
+4. web/components/TeamCard.tsx   (~179 lines changed)
+--------------------------------------------------------------------------------
+  - Switched team avatar to uploaded logo (mediaUrl) with teamColor/teamCode
+    fallback instead of teamInitials().
+  (See `git diff main finished-latest-tests -- web/components/TeamCard.tsx` for full.)
+
+--------------------------------------------------------------------------------
+5. web/app/t/[id]/team/[teamId]/page.tsx   (public team page)
+--------------------------------------------------------------------------------
+  - Team header shows uploaded team logo (mediaUrl(team.logo_path)) when present,
+    else a local initials() badge.
+  - Player rows show uploaded player photo (mediaUrl(p.photo_path)) next to name.
+  - Dropped the `teamInitials` import from lib/format in favor of a local initials().
+
+--------------------------------------------------------------------------------
+6. CLAUDE.md
+--------------------------------------------------------------------------------
+  - Docs-only conflict. main's version (lib/ utility structure + "Previous Knowledge"
+    section pointing at docs/frontend/component-map.md) is kept. 77ec7b2 had an older
+    edit of the same region. No feature impact.
+
+================================================================================
+COMMON THREAD
+================================================================================
+Almost every conflict is the same theme: 77ec7b2 introduced an IMAGE/UPLOAD system
+(lib/storage.ts mediaUrl(), lib/team-style.ts teamColor/teamCode, ImageUpload,
+the 20260607092314_add_entity_images.sql migration) and replaced the text-initials
+avatars everywhere with real uploaded logos/photos. main instead consolidated the
+old initials logic into lib/format.ts (teamInitials). The two approaches edit the
+same lines, hence the conflicts.
+
+If you later want the uploads feature + the 1-second MM:SS match clock on main,
+cherry-pick 77ec7b2 onto main and resolve these 6 files by taking the 77ec7b2 side
+(it has to win — the new screens depend on it), keeping main's lib/format only where
+it doesn't clash.

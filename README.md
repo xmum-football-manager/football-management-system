@@ -131,7 +131,7 @@ supabase db push                      # apply to your linked project
 | `organizer`   | Per tournament   | Create/edit fixtures, rosters, scores; assign scorekeepers; trigger match transitions     |
 | `scorekeeper` | Per tournament/match | Update `home_score`/`away_score` on assigned live matches — nothing else              |
 
-A user can hold multiple roles. Enforcement is in Postgres via Row Level Security — see `docs/backend/rls.md`.
+A user can hold multiple roles. Enforcement is in Postgres via Row Level Security.
 
 ## Deployment (Vercel)
 
@@ -179,7 +179,7 @@ You haven't been assigned a role yet. See "Create the first admin account" above
 Run `supabase link --project-ref <your-ref>` from inside `web/`. The link is stored per-directory.
 
 **"401 / RLS error from an API route."**
-Either you're not signed in, or your role doesn't allow that action. Check `user_roles` in the dashboard. RLS rules are in `docs/backend/rls.md`.
+Either you're not signed in, or your role doesn't allow that action. Check `user_roles` in the dashboard.
 
 **"Auth callback redirects to `localhost` from a deployed environment."**
 `NEXT_PUBLIC_APP_URL` is wrong for that environment, or the URL isn't allowlisted in Supabase Auth settings.
@@ -187,28 +187,3 @@ Either you're not signed in, or your role doesn't allow that action. Check `user
 **"Build fails with a Supabase types error."**
 The generated `lib/supabase/types.ts` may be out of date. Regenerate against your linked project: `supabase gen types typescript --linked > lib/supabase/types.ts`.
 
-## Documentation
-
-Deeper documentation lives in `docs/`:
-
-- `docs/prd.md` — product requirements
-- `docs/plan-8-week.md` — delivery plan
-- `docs/backend/` — `schema.md`, `rls.md`, `roles.md`, `auth.md`, `api-routes.md`, `realtime.md`, `env.md`, `overview.md`
-- `docs/frontend/` — `overview.md`, `pages.md`, `screens.md`, `components.md`, `ux-spec.md`, `auth.md`
-- `docs/PITCH Design System/` — brand, tokens, iconography, and an interactive UI-kit prototype (see below)
-
-Read `docs/backend/overview.md` and `docs/frontend/overview.md` first.
-
-## Viewing the PITCH design system prototype
-
-```bash
-npx serve "docs/PITCH Design System"
-```
-
-Open the printed URL. Useful pages:
-
-- `/ui_kits/admin/` — admin dashboard click-thru
-- `/preview/` — design tokens (colors, type, components)
-- `/reference/Live Tournament.html` — participant view
-
-(Don't open the HTML files directly — they need a server.)
