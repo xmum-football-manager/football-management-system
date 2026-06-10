@@ -1,0 +1,274 @@
+/* ============================================================
+   PITCH — Colors & Type
+   Football Tournament Scoring & Sharing
+   EXCEED Football Cup Edition
+   ============================================================ */
+
+@import url("https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,400..900;1,400..900&family=Archivo+Narrow:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:wght@400..700&display=swap");
+
+:root {
+  /* ---------- BRAND CORE ---------- */
+  --brand-pitch:        #060C1C;  /* ultra-deep navy, almost black */
+  --brand-lime:         #1E78F0;  /* electric blue, signature accent */
+  --brand-lime-bright:  #38B4FF;  /* cyan hover/glow */
+  --brand-lime-deep:    #1558D0;  /* press */
+  --brand-chalk:        #E8EFF8;  /* off-white, cool blue tint */
+
+  /* ---------- ELECTRIC BLUE SCALE ---------- */
+  --grass-50:  #E8F4FF;
+  --grass-100: #C0DEFF;
+  --grass-200: #80BEFF;
+  --grass-300: #1E78F0;  /* === brand-lime */
+  --grass-400: #1558D0;
+  --grass-500: #0E44B0;
+  --grass-600: #093490;
+  --grass-700: #062670;
+  --grass-800: #031848;
+  --grass-900: #010C28;
+
+  /* ---------- PITCH NEUTRALS (ultra-dark navy) ---------- */
+  --ink-0:   #FFFFFF;
+  --ink-50:  #E8EFF8;  /* === chalk */
+  --ink-100: #C8D8E8;
+  --ink-200: #9DBAD0;
+  --ink-300: #6A88AA;
+  --ink-400: #3E5880;
+  --ink-500: #253D68;
+  --ink-600: #182C54;
+  --ink-700: #101E3C;
+  --ink-800: #0A1428;
+  --ink-900: #060C1C;  /* === brand-pitch */
+
+  /* ---------- SEMANTIC COLOR (match events) ---------- */
+  --goal:        #1E78F0;  /* GOAL! — electric blue */
+  --goal-bg:     #031848;
+  --foul:        #F59E0B;  /* yellow card — amber */
+  --foul-bg:     #422006;
+  --red-card:    #E82828;
+  --red-card-bg: #3A0808;
+  --penalty:     #FB923C;
+  --offside:     #7898B8;
+  --info:        #38B4FF;
+  --info-bg:     #031848;
+
+  /* ---------- TEAM CHIPS (default jersey palette) ---------- */
+  --jersey-1: #DC2626; /* red */
+  --jersey-2: #2563EB; /* blue */
+  --jersey-3: #F59E0B; /* amber */
+  --jersey-4: #7C3AED; /* purple */
+  --jersey-5: #0891B2; /* cyan */
+  --jersey-6: #DB2777; /* pink */
+  --jersey-7: #FFFFFF; /* white */
+  --jersey-8: #18181B; /* black */
+
+  /* ---------- SURFACE TOKENS (light mode) ---------- */
+  --bg:        #F0F5FF;
+  --bg-elev:   #FFFFFF;
+  --bg-sunken: #E8EFF8;
+  --fg:        var(--ink-900);
+  --fg-muted:  var(--ink-500);
+  --fg-faint:  var(--ink-400);
+  --border:    var(--ink-200);
+  --border-strong: var(--ink-300);
+
+  /* ---------- ACCENT TOKENS ---------- */
+  --accent:        var(--brand-lime);
+  --accent-fg:     var(--ink-0);     /* white text on electric blue */
+  --on-pitch:      var(--brand-chalk); /* text on dark */
+
+  /* ---------- TYPE FAMILIES ---------- */
+  --font-display: "Archivo Narrow", "Bebas Neue", "Impact", system-ui, sans-serif;
+  --font-sans:    "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono:    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-numeric: "Archivo Narrow", "Archivo", system-ui, sans-serif;
+
+  /* ---------- TYPE SCALE (mobile-first; clamp scales up) ---------- */
+  --fs-display: clamp(48px, 12vw, 96px);
+  --fs-h1:      clamp(34px, 8vw, 56px);
+  --fs-h2:      clamp(26px, 5vw, 36px);
+  --fs-h3:      22px;
+  --fs-h4:      18px;
+  --fs-body:    16px;
+  --fs-small:   14px;
+  --fs-micro:   12px;
+  --fs-score:   clamp(56px, 18vw, 120px); /* THE scoreboard number */
+
+  /* ---------- LINE HEIGHTS ---------- */
+  --lh-tight:   0.95;
+  --lh-snug:    1.1;
+  --lh-normal:  1.45;
+  --lh-relaxed: 1.6;
+
+  /* ---------- LETTER SPACING ---------- */
+  --tracking-display: -0.02em;
+  --tracking-caps:    0.08em;
+  --tracking-micro:   0.06em;
+
+  /* ---------- SPACING (4px base) ---------- */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+
+  /* ---------- RADII ---------- */
+  --radius-sm:   6px;
+  --radius-md:   12px;
+  --radius-lg:   18px;
+  --radius-xl:   24px;
+  --radius-pill: 999px;
+
+  /* ---------- SHADOWS (cool dark, navy) ---------- */
+  --shadow-sm: 0 1px 2px rgba(6, 12, 28, 0.12);
+  --shadow-md: 0 4px 12px rgba(6, 12, 28, 0.18), 0 1px 2px rgba(6, 12, 28, 0.10);
+  --shadow-lg: 0 12px 32px rgba(6, 12, 28, 0.28), 0 2px 6px rgba(6, 12, 28, 0.14);
+  --shadow-glow: 0 0 0 4px rgba(30, 120, 240, 0.35);
+  --shadow-press: inset 0 2px 0 rgba(6, 12, 28, 0.20);
+
+  /* ---------- BORDERS ---------- */
+  --border-width: 1.5px;
+  --border-width-bold: 3px;
+
+  /* ---------- MOTION ---------- */
+  --ease-out:    cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-fast:    120ms;
+  --dur-base:    220ms;
+  --dur-slow:    420ms;
+
+  /* ---------- LAYOUT ---------- */
+  --container-max: 1200px;
+  --mobile-max:    430px;
+  --safe-top:      env(safe-area-inset-top, 0);
+  --safe-bottom:   env(safe-area-inset-bottom, 0);
+}
+
+/* ============================================================
+   DARK MODE — "Stadium at Night"
+   ============================================================ */
+.dark, [data-theme="dark"] {
+  --bg:        var(--ink-900);
+  --bg-elev:   var(--ink-800);
+  --bg-sunken: var(--ink-700);
+  --fg:        var(--ink-50);
+  --fg-muted:  var(--ink-300);
+  --fg-faint:  var(--ink-400);
+  --border:    var(--ink-700);
+  --border-strong: var(--ink-600);
+}
+
+/* ============================================================
+   SEMANTIC ELEMENTS
+   ============================================================ */
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--fs-body);
+  line-height: var(--lh-normal);
+  color: var(--fg);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, .h1 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--fs-h1);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+  font-stretch: 75%;
+  margin: 0;
+}
+
+h2, .h2 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--fs-h2);
+  line-height: var(--lh-snug);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+  margin: 0;
+}
+
+h3, .h3 {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: var(--fs-h3);
+  line-height: var(--lh-snug);
+  margin: 0;
+}
+
+h4, .h4 {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: var(--fs-h4);
+  line-height: var(--lh-snug);
+  margin: 0;
+}
+
+p {
+  margin: 0 0 var(--space-4);
+  text-wrap: pretty;
+  max-width: 65ch;
+}
+
+small, .small { font-size: var(--fs-small); }
+.micro {
+  font-size: var(--fs-micro);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  font-weight: 700;
+}
+
+code, .mono, kbd, pre {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+.score {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: var(--fs-score);
+  line-height: 0.9;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.tnum { font-variant-numeric: tabular-nums; }
+
+.shout {
+  font-family: var(--font-display);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  font-style: italic;
+}
+
+a {
+  color: inherit;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+::selection { background: var(--accent); color: var(--accent-fg); }
+
+/* ============================================================
+   UTILITY HOOKS
+   ============================================================ */
+.bg-pitch  { background: var(--brand-pitch); color: var(--on-pitch); }
+.bg-lime   { background: var(--brand-lime);  color: var(--accent-fg); }
+.bg-chalk  { background: var(--brand-chalk); color: var(--ink-900); }
+.fg-lime   { color: var(--brand-lime); }
+.fg-muted  { color: var(--fg-muted); }
