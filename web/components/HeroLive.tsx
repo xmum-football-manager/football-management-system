@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { teamColor, teamCode } from '@/lib/team-style'
 import { mediaUrl } from '@/lib/storage'
+import { useMatchScorers } from '@/lib/use-match-scorers'
 import type { MatchWithTeams, Team } from '@/lib/supabase/types'
 
 interface HeroLiveProps {
@@ -130,6 +131,36 @@ function TeamSide({ team, side, form }: { team: Team; side: 'home' | 'away'; for
   )
 }
 
+function LastGoalLine({ match }: { match: MatchWithTeams }) {
+  const scorers = useMatchScorers(match.id, true)
+  const last = scorers[scorers.length - 1]
+  if (!last) return null
+  const team = last.team_id === match.home_team_id ? match.home_team : match.away_team
+  const name = last.player_name
+    ? `${last.jersey_number !== null ? `#${last.jersey_number} ` : ''}${last.player_name}`
+    : null
+  return (
+    <div
+      style={{
+        display: 'flex', alignItems: 'center', gap: 8, alignSelf: 'center',
+        marginTop: 14, padding: '7px 14px', borderRadius: 999,
+        background: 'rgba(30,120,240,0.12)', border: '1px solid rgba(30,120,240,0.35)',
+        fontSize: 13, color: 'var(--ink-50)',
+      }}
+    >
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="var(--brand-lime)" aria-hidden="true">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 6 L14 10 L18 10 L15 13 L16 17 L12 15 L8 17 L9 13 L6 10 L10 10 Z" fill="#060C1C" />
+      </svg>
+      <span style={{ color: 'var(--ink-300)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: 11 }}>
+        Last goal
+      </span>
+      <span style={{ fontWeight: 700 }}>{name ?? team.name}</span>
+      {name && <span style={{ color: 'var(--ink-300)' }}>· {team.name}</span>}
+    </div>
+  )
+}
+
 export function HeroLive({ match, allMatches = [], metaText, minutesPerHalf = 45 }: HeroLiveProps) {
   const isLive = match.status === 'live' || match.status === 'halftime'
   const isHalftime = match.status === 'halftime'
@@ -189,6 +220,8 @@ export function HeroLive({ match, allMatches = [], metaText, minutesPerHalf = 45
 
           <TeamSide team={match.away_team} side="away" form={teamForm(match.away_team_id, allMatches)} />
         </div>
+
+        {isLive && <LastGoalLine match={match} />}
 
       </div>
     </section>

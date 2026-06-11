@@ -115,8 +115,9 @@ export function MatchDayCard({ match, isAdmin, halftimeEnabled, homePlayers, awa
   function confirmGoal() {
     if (!goalPicker || !goalPlayerId) return
     const side = goalPicker.side
+    const teamId = side === 'home' ? match.home_team_id : match.away_team_id
     startTransition(async () => {
-      const r = await adminRecordGoalAction(match.id, goalPlayerId)
+      const r = await adminRecordGoalAction(match.id, teamId, goalPlayerId)
       setGoalPicker(null)
       setGoalPlayerId('')
       if ('error' in r) {

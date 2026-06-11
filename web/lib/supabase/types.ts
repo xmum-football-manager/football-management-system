@@ -81,7 +81,7 @@ export interface Goal {
   id: string
   match_id: string
   team_id: string
-  player_id: string
+  player_id: string | null
   created_at: string
 }
 
