@@ -18,10 +18,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { Loader2, Archive, CheckCircle2, Trash2, UserPlus, MapPin, Calendar } from 'lucide-react'
+import { Loader2, Archive, CheckCircle2, Trash2, UserPlus, MapPin, Calendar, RotateCcw } from 'lucide-react'
 import {
   archiveTournamentAction,
   finishTournamentAction,
+  reopenTournamentAction,
   deleteTournamentAction,
   assignOrganizerAction,
   removeOrganizerAction,
@@ -114,6 +115,24 @@ export function SettingsPanel({ tournamentId, tournament, isAdmin, organizers }:
                 }
               >
                 <CheckCircle2 className="h-4 w-4" /> Mark as Finished
+              </Button>
+            )}
+            {tournament.status === 'finished' && (
+              <Button
+                variant="outline"
+                disabled={pending}
+                onClick={() =>
+                  startTransition(async () => {
+                    const r = await reopenTournamentAction(tournamentId)
+                    if ('error' in r) toast.error(r.error)
+                    else {
+                      toast.success('Tournament reopened — now live.')
+                      router.refresh()
+                    }
+                  })
+                }
+              >
+                <RotateCcw className="h-4 w-4" /> Reopen as Live
               </Button>
             )}
             {tournament.status === 'finished' && isAdmin && (
@@ -348,9 +367,9 @@ function DetailRow({
   icon?: React.ReactNode
 }) {
   return (
-    <div className="flex items-start gap-3">
-      <span className="w-36 shrink-0 text-xs text-muted-foreground pt-px">{label}</span>
-      <span className="flex-1 text-sm flex items-center gap-1.5">
+    <div className="flex flex-col gap-0.5 sm:flex-row sm:items-start sm:gap-3">
+      <span className="w-full text-[11px] font-medium uppercase tracking-wide text-muted-foreground sm:w-36 sm:shrink-0 sm:pt-px sm:text-xs sm:normal-case sm:tracking-normal sm:font-normal">{label}</span>
+      <span className="flex flex-1 items-center gap-1.5 text-[13px] sm:text-sm">
         {icon}
         {value}
       </span>

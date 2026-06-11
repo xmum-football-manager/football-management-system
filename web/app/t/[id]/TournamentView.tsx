@@ -562,7 +562,7 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
             : (
               <Reveal>
                 <div className="fixtures-grid">
-                  {filteredFixtures.map(m => <MatchCard key={m.id} match={m} onClick={() => setSelectedMatchId(m.id)} />)}
+                  {filteredFixtures.map(m => <MatchCard key={m.id} match={m} tournamentStartDate={tournament.start_date} onClick={() => setSelectedMatchId(m.id)} />)}
                 </div>
               </Reveal>
             )
@@ -591,6 +591,7 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
                   matches={matches}
                   standings={standings}
                   advancePerGroup={tournament.advance_per_group ?? 2}
+                  cardCounts={cardCounts}
                 />
               ) : (
                 <div className="standings-shell">
@@ -600,6 +601,7 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
                     groupLabel={tournament.name}
                     advanceCount={0}
                     teamLogos={teamLogos}
+                    cardCounts={cardCounts}
                   />
                 </div>
               )}
@@ -635,7 +637,7 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
             <SectionHead
               eyebrow="Goal scorers"
               title="Top"
-              accent="players"
+              accent="scorers"
             />
             <Reveal>
               <div className="standings-shell">
@@ -718,11 +720,13 @@ function GroupStandings({
   matches,
   standings,
   advancePerGroup,
+  cardCounts,
 }: {
   initialTeams: Array<Team & { players: Player[] }>
   matches: MatchWithTeams[]
   standings: Standing[]
   advancePerGroup: number
+  cardCounts: TeamCardCount[]
 }) {
   const groups = new Map<string, string[]>()
   for (const t of initialTeams) {
@@ -743,6 +747,7 @@ function GroupStandings({
           groupLabel="Unassigned"
           advanceCount={advancePerGroup}
           teamLogos={teamLogos}
+          cardCounts={cardCounts}
         />
       </div>
     )
@@ -764,6 +769,7 @@ function GroupStandings({
             groupLabel={`Group ${label}`}
             advanceCount={advancePerGroup}
             teamLogos={teamLogos}
+            cardCounts={cardCounts}
           />
         )
       })}

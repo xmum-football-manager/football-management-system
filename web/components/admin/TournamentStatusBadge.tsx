@@ -5,7 +5,7 @@ const MAP: Record<
   { label: string; tone: 'live' | 'upcoming' | 'finished' | 'draft' }
 > = {
   setup: { label: 'Setup', tone: 'draft' },
-  active: { label: 'Active', tone: 'live' },
+  active: { label: 'Live', tone: 'live' },
   finished: { label: 'Finished', tone: 'finished' },
   archived: { label: 'Archived', tone: 'finished' },
 }

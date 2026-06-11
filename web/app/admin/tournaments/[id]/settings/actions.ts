@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { requireUser, requireAdmin } from '@/lib/auth'
+import { createClient } from '@/lib/supabase/server'
 import {
   assignRole,
   findUserIdByEmail,
@@ -26,7 +27,38 @@ export async function finishTournamentAction(
 ): Promise<{ ok: true } | { error: string }> {
   try {
     await ensureOrganizer(tournamentId)
+
+    // Every match must be finished before the tournament can be marked finished.
+    const supabase = await createClient()
+    const { count, error: cErr } = await supabase
+      .from('matches')
+      .select('id', { count: 'exact', head: true })
+      .eq('tournament_id', tournamentId)
+      .neq('status', 'finished')
+    if (cErr) return { error: cErr.message }
+    if ((count ?? 0) > 0) {
+      return {
+        error: `${count} match${count === 1 ? '' : 'es'} still unfinished. Finish all matches first, or delete the tournament instead.`,
+      }
+    }
+
     const r = await updateTournamentStatus(tournamentId, 'finished')
+    if (r.error) return { error: r.error }
+    revalidatePath('/admin')
+    revalidatePath(`/admin/tournaments/${tournamentId}`)
+    revalidatePath(`/t/${tournamentId}`)
+    return { ok: true }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed.' }
+  }
+}
+
+export async function reopenTournamentAction(
+  tournamentId: string,
+): Promise<{ ok: true } | { error: string }> {
+  try {
+    await ensureOrganizer(tournamentId)
+    const r = await updateTournamentStatus(tournamentId, 'active')
     if (r.error) return { error: r.error }
     revalidatePath('/admin')
     revalidatePath(`/admin/tournaments/${tournamentId}`)

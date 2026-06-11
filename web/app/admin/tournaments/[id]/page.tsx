@@ -2,7 +2,6 @@ import Link from 'next/link'
 import { listMatches } from '@/lib/db/matches'
 import { listTeams } from '@/lib/db/teams'
 import { listPlayers } from '@/lib/db/players'
-import { listTopScorers } from '@/lib/db/goals'
 import { getTournament } from '@/lib/db/tournaments'
 import { requireUser } from '@/lib/auth'
 import { isAdmin } from '@/lib/db/roles'
@@ -23,7 +22,7 @@ export default async function OverviewPage({ params }: Props) {
   if (!tournament) return null
   const admin = await isAdmin(user.id)
 
-  const [matches, teams, topScorers] = await Promise.all([listMatches(id), listTeams(id), listTopScorers(id)])
+  const [matches, teams] = await Promise.all([listMatches(id), listTeams(id)])
 
   const played = matches.filter((m) => m.status === 'finished').length
   const liveMatch = matches.find((m) => m.status === 'live' || m.status === 'halftime') ?? null
@@ -81,33 +80,6 @@ export default async function OverviewPage({ params }: Props) {
         </div>
       )}
 
-      {topScorers.length > 0 && (
-        <div>
-          <p className="admin-eyebrow mb-2">Top Players</p>
-          <div className="rounded-xl border overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b" style={{ background: 'var(--admin-surface-2)' }}>
-                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">#</th>
-                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">Player</th>
-                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">Team</th>
-                  <th className="px-4 py-2 text-right font-medium text-muted-foreground">Goals</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {topScorers.map((s, i) => (
-                  <tr key={s.player_id} className="hover:bg-accent/30">
-                    <td className="px-4 py-2 text-muted-foreground admin-mono text-xs">{i + 1}</td>
-                    <td className="px-4 py-2 font-medium">{s.player_name}</td>
-                    <td className="px-4 py-2 text-muted-foreground">{s.team_name}</td>
-                    <td className="px-4 py-2 text-right admin-mono font-bold">{String(s.goals)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
 
       <div>
         <div className="mb-2 flex items-center justify-between">

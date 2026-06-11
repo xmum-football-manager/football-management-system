@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { teamColor, teamCode } from '@/lib/team-style'
 import { mediaUrl } from '@/lib/storage'
-import type { Standing, MatchWithTeams } from '@/lib/supabase/types'
+import type { Standing, MatchWithTeams, TeamCardCount } from '@/lib/supabase/types'
 
 interface StandingsTableProps {
   standings: Standing[]
@@ -15,6 +15,8 @@ interface StandingsTableProps {
   advanceCount?: number
   /** team_id → logo_path lookup (standings view has no logo column) */
   teamLogos?: Record<string, string | null>
+  /** Card discipline counts per team; missing teams default to 0/0 */
+  cardCounts?: TeamCardCount[]
 }
 
 export function StandingsTable({
@@ -23,7 +25,9 @@ export function StandingsTable({
   groupLabel = 'Group A',
   advanceCount = 2,
   teamLogos,
+  cardCounts = [],
 }: StandingsTableProps) {
+  const cardsByTeam = new Map(cardCounts.map(c => [c.team_id, c]))
   const ref = useRef<HTMLDivElement>(null)
 
   // Grow the points bars once the card scrolls into view (.standings-card.in)
@@ -73,7 +77,10 @@ export function StandingsTable({
         <table className="standings-table">
           <thead>
             <tr>
-              <th>#</th><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>Pts</th>
+              <th>#</th><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th>
+              <th><span className="card-chip yellow" title="Yellow cards" /></th>
+              <th><span className="card-chip red" title="Red cards" /></th>
+              <th>Pts</th>
             </tr>
           </thead>
           <tbody>
@@ -117,6 +124,8 @@ export function StandingsTable({
                   <td>{r.losses}</td>
                   <td>{r.goals_scored}</td>
                   <td>{r.goals_conceded}</td>
+                  <td className="card-num">{cardsByTeam.get(r.team_id)?.yellow ?? 0}</td>
+                  <td className="card-num">{cardsByTeam.get(r.team_id)?.red ?? 0}</td>
                   <td>
                     <span className="pts">{r.points}</span>
                     <div className="pts-bar"><i style={{ '--w': r.points / maxPts } as React.CSSProperties} /></div>

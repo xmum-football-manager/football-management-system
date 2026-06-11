@@ -4,6 +4,8 @@ import type { MatchWithTeams, Team } from '@/lib/supabase/types'
 
 interface MatchCardProps {
   match: MatchWithTeams
+  /** Tournament start date (ISO) — used to compute the "Day N" label */
+  tournamentStartDate?: string
   /** Opens the match detail modal (or anything else) when the card is clicked */
   onClick?: () => void
 }
@@ -24,6 +26,12 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-MY', { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
+/** 1-based tournament day for a match, computed from the tournament start date (calendar days apart). */
+function tournamentDay(matchIso: string, startIso: string): number {
+  const toMidnight = (iso: string) => { const d = new Date(iso); return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) }
+  return Math.max(0, Math.round((toMidnight(matchIso) - toMidnight(startIso)) / 86400000)) + 1
+}
+
 export function matchStageLabel(match: MatchWithTeams): string {
   if (match.phase === 'knockout') {
     return (match.knockout_round && ROUND_LABELS[match.knockout_round]) ?? 'Knockout'
@@ -35,7 +43,7 @@ function liveMinute(startedAt: string) {
   return Math.max(0, Math.floor((Date.now() - new Date(startedAt).getTime()) / 60000))
 }
 
-export function MatchCard({ match, onClick }: MatchCardProps) {
+export function MatchCard({ match, tournamentStartDate, onClick }: MatchCardProps) {
   const isLive     = match.status === 'live'
   const isFinished = match.status === 'finished'
   const isUpcoming = match.status === 'scheduled'
@@ -61,7 +69,6 @@ export function MatchCard({ match, onClick }: MatchCardProps) {
             LIVE{match.match_started_at ? ` · ${liveMinute(match.match_started_at)}'` : ''}
           </span>
         )}
-        {isFinished && <span className="match-status ft">Full time</span>}
         {isUpcoming && (
           <span className="match-status upcoming">
             Upcoming{match.match_time ? ` · ${formatTime(match.match_time)}` : ''}
@@ -76,7 +83,11 @@ export function MatchCard({ match, onClick }: MatchCardProps) {
       <div className="footer-row">
         <span className="when">
           {match.match_time
-            ? isFinished ? `FT · ${formatDate(match.match_time)}` : formatDate(match.match_time)
+            ? [
+                tournamentStartDate ? `Day ${tournamentDay(match.match_time, tournamentStartDate)}` : null,
+                formatDate(match.match_time),
+                formatTime(match.match_time),
+              ].filter(Boolean).join(' · ')
             : ''}
         </span>
         <span className="arrow">

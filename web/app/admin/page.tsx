@@ -10,7 +10,12 @@ import { Calendar, ChevronRight, MapPin, Plus } from 'lucide-react'
 export default async function AdminHome() {
   const user = await requireUser()
   const admin = await isAdmin(user.id)
-  const tournaments = await listTournamentsForUser(user.id, admin)
+  const all = await listTournamentsForUser(user.id, admin)
+  // Surface order: live → setup → finished/archived (ties keep start-date order)
+  const STATUS_RANK: Record<string, number> = { active: 0, setup: 1, finished: 2, archived: 3 }
+  const tournaments = [...all].sort(
+    (a, b) => (STATUS_RANK[a.status] ?? 9) - (STATUS_RANK[b.status] ?? 9),
+  )
 
   return (
     <div className="space-y-6">
@@ -22,7 +27,7 @@ export default async function AdminHome() {
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
             {admin
-              ? `${tournaments.length} total · sorted by start date.`
+              ? `${tournaments.length} total · sorted by status.`
               : 'Tournaments you can manage.'}
           </p>
         </div>
@@ -49,18 +54,16 @@ export default async function AdminHome() {
           style={{ borderColor: 'var(--admin-rule)' }}
         >
           <div
-            className="admin-eyebrow grid items-center gap-4 px-5 py-2.5"
+            className="admin-eyebrow grid items-center gap-3 px-5 py-2.5 text-[10px] tracking-[0.5px] sm:gap-4 sm:text-[11px] sm:tracking-[1.5px] grid-cols-[minmax(0,1fr)_auto_16px] sm:grid-cols-[1fr_140px_130px_16px]"
             style={{
-              gridTemplateColumns: '1fr 140px 130px 16px',
               background: 'var(--admin-surface-2)',
               borderBottom: '1px solid var(--admin-rule)',
-              letterSpacing: '1.5px',
               color: 'var(--muted-foreground)',
             }}
           >
-            <div>Tournament</div>
-            <div className="text-right">Format</div>
-            <div className="text-right">Status</div>
+            <div className="truncate whitespace-nowrap">Tournament</div>
+            <div className="hidden text-right sm:block">Format</div>
+            <div className="whitespace-nowrap text-right">Status</div>
             <div />
           </div>
           <ul>
@@ -71,8 +74,7 @@ export default async function AdminHome() {
               >
                 <Link
                   href={`/admin/tournaments/${t.id}`}
-                  className="group grid items-center gap-4 px-5 py-3.5 transition-colors hover:bg-accent/60"
-                  style={{ gridTemplateColumns: '1fr 140px 130px 16px' }}
+                  className="group grid items-center gap-4 px-5 py-3.5 transition-colors hover:bg-accent/60 grid-cols-[minmax(0,1fr)_auto_16px] sm:grid-cols-[1fr_140px_130px_16px]"
                 >
                   <div className="min-w-0">
                     <div className="truncate font-semibold text-foreground">{t.name}</div>
@@ -87,9 +89,12 @@ export default async function AdminHome() {
                           {t.location}
                         </span>
                       )}
+                      <span className="admin-tab text-[11px] text-foreground/70 sm:hidden">
+                        {formatLabel(t.format)}
+                      </span>
                     </div>
                   </div>
-                  <div className="admin-tab text-right text-[11px] text-foreground/80">
+                  <div className="admin-tab hidden text-right text-[11px] text-foreground/80 sm:block">
                     {formatLabel(t.format)}
                   </div>
                   <div className="flex justify-end">

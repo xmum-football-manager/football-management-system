@@ -589,6 +589,16 @@
 }
 .match-team-cell.winner .nm { color: var(--ink-50); }
 .match-team-cell.loser  .nm { color: var(--ink-400); }
+
+/* Winner row of a finished match — subtle accent gradient across the row */
+.match-row:has(.match-team-cell.winner) {
+  background: linear-gradient(90deg, rgba(30,120,240,0.12) 0%, rgba(30,120,240,0.04) 55%, transparent 100%);
+  border-radius: 10px;
+  margin: 0 -8px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+.match-row:has(.match-team-cell.winner) .sc { color: var(--brand-lime); }
 .match-row .sc {
   font-family: var(--font-display);
   font-weight: 900;
@@ -714,6 +724,16 @@
   color: var(--ink-100);
 }
 .standings-table tbody tr:last-child td { border-bottom: 0; }
+/* Yellow / red card column header chips */
+.standings-table thead th .card-chip {
+  display: inline-block;
+  width: 11px; height: 15px;
+  border-radius: 2px;
+  vertical-align: middle;
+}
+.card-chip.yellow { background: #FACC15; box-shadow: 0 0 0 1px rgba(0,0,0,0.15); }
+.card-chip.red    { background: #DC2626; box-shadow: 0 0 0 1px rgba(0,0,0,0.15); }
+.standings-table td.card-num { color: var(--ink-300); }
 .standings-table td:first-child {
   text-align: left;
   padding-left: 18px;
