@@ -9,13 +9,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -45,7 +38,6 @@ interface PlayerData {
   id: string
   name: string
   jersey_number: number | null
-  position: string | null
   photo_path: string | null
 }
 
@@ -323,9 +315,6 @@ function PlayerList({
             {p.jersey_number ?? '—'}
           </span>
           <span className="flex-1 truncate text-sm">{p.name}</span>
-          {p.position && (
-            <span className="text-xs text-muted-foreground uppercase tracking-wide">{p.position}</span>
-          )}
           {canEdit && (
             <Button
               variant="ghost"
@@ -348,13 +337,10 @@ function PlayerList({
   )
 }
 
-const POSITIONS = ['GK', 'DEF', 'MID', 'FWD'] as const
-
 function AddPlayerForm({ teamId, tournamentId }: { teamId: string; tournamentId: string }) {
   const router = useRouter()
   const [name, setName] = useState('')
   const [num, setNum] = useState('')
-  const [pos, setPos] = useState('')
   const [pending, startTransition] = useTransition()
 
   async function handleSubmit(e: React.FormEvent) {
@@ -366,14 +352,12 @@ function AddPlayerForm({ teamId, tournamentId }: { teamId: string; tournamentId:
         team_id: teamId,
         name: trimmedName,
         jersey_number: num ? Number(num) : null,
-        position: pos.trim() || null,
         tournamentId,
       })
       if ('error' in r) toast.error(r.error)
       else {
         setName('')
         setNum('')
-        setPos('')
         router.refresh()
       }
     })
@@ -382,7 +366,7 @@ function AddPlayerForm({ teamId, tournamentId }: { teamId: string; tournamentId:
   return (
     <form onSubmit={handleSubmit} className="grid grid-cols-12 gap-2 pt-2">
       <Input
-        className="col-span-6"
+        className="col-span-8"
         placeholder="Player name"
         value={name}
         onChange={(e) => setName(e.target.value)}
@@ -398,18 +382,6 @@ function AddPlayerForm({ teamId, tournamentId }: { teamId: string; tournamentId:
         onChange={(e) => setNum(e.target.value)}
         disabled={pending}
       />
-      <Select value={pos} onValueChange={setPos} disabled={pending}>
-        <SelectTrigger className="col-span-2">
-          <SelectValue placeholder="Pos" />
-        </SelectTrigger>
-        <SelectContent>
-          {POSITIONS.map((p) => (
-            <SelectItem key={p} value={p}>
-              {p}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
       <Button type="submit" className="col-span-2" disabled={pending || !name.trim()}>
         <Plus className="h-4 w-4" />
         Add

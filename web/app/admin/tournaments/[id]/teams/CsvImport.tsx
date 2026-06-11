@@ -8,13 +8,13 @@ import { Download, Loader2, Upload } from 'lucide-react'
 import { parseTeamsCsv, type ParseResult } from './csv-utils'
 import { importTeamsAction, type ImportTeamInput } from './actions'
 
-const SAMPLE_CSV = `team,player_name,jersey_number,position
-Team A,John Smith,1,GK
-Team A,Jane Doe,5,DEF
-Team A,Bob Wilson,8,MID
-Team A,Alice Chen,10,FWD
-Team B,Carlos Rivera,1,GK
-Team B,Emily Tan,4,DEF
+const SAMPLE_CSV = `team,player_name,jersey_number
+Team A,John Smith,1
+Team A,Jane Doe,5
+Team A,Bob Wilson,8
+Team A,Alice Chen,10
+Team B,Carlos Rivera,1
+Team B,Emily Tan,4
 `
 
 interface Props {
@@ -60,7 +60,6 @@ export function CsvImport({ tournamentId, disabled }: Props) {
       players: t.players.map((p) => ({
         name: p.player_name,
         jersey_number: p.jersey_number,
-        position: p.position,
       })),
     }))
     startTransition(async () => {
@@ -140,7 +139,6 @@ export function CsvImport({ tournamentId, disabled }: Props) {
                     {team.players.map((p, i) => (
                       <li key={i} className="text-xs text-muted-foreground">
                         {p.jersey_number != null ? `#${p.jersey_number} ` : ''}{p.player_name}
-                        {p.position ? ` · ${p.position}` : ''}
                       </li>
                     ))}
                   </ul>

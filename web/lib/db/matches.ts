@@ -98,6 +98,15 @@ export async function updateMatchStatus(
     if (existing && !existing.match_started_at) {
       patch.match_started_at = new Date().toISOString()
     }
+    if (existing?.status === 'halftime' && !existing.second_half_started_at) {
+      patch.second_half_started_at = new Date().toISOString()
+    }
+  }
+  if (status === 'halftime') {
+    const existing = await getMatch(id)
+    if (existing && !existing.halftime_started_at) {
+      patch.halftime_started_at = new Date().toISOString()
+    }
   }
   if (status === 'finished') {
     patch.match_finished_at = new Date().toISOString()

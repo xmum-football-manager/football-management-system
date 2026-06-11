@@ -67,7 +67,6 @@ export default async function GroupsPage({ params }: Props) {
           id: p.id,
           name: p.name,
           jersey_number: p.jersey_number,
-          position: p.position,
         })),
       }))}
       numGroups={tournament.num_groups}

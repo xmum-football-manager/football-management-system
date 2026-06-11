@@ -40,24 +40,6 @@ describe('players.csv fixture import', () => {
     }
   })
 
-  it('normalises full position names to abbreviations', () => {
-    const { teams } = parseTeamsCsv(csv)
-    const allPositions = teams.flatMap(t => t.players.map(p => p.position))
-    // No full words should survive — all must be abbreviations
-    expect(allPositions.every(p => ['GK', 'DEF', 'MID', 'FWD', null].includes(p))).toBe(true)
-  })
-
-  it('every team has exactly 1 GK, 4 DEF, 3 MID, 3 FWD', () => {
-    const { teams } = parseTeamsCsv(csv)
-    for (const team of teams) {
-      const positions = team.players.map(p => p.position)
-      expect(positions.filter(p => p === 'GK').length, `${team.name}: 1 GK`).toBe(1)
-      expect(positions.filter(p => p === 'DEF').length, `${team.name}: 4 DEF`).toBe(4)
-      expect(positions.filter(p => p === 'MID').length, `${team.name}: 3 MID`).toBe(3)
-      expect(positions.filter(p => p === 'FWD').length, `${team.name}: 3 FWD`).toBe(3)
-    }
-  })
-
   it('jersey numbers run 1–11 per team', () => {
     const { teams } = parseTeamsCsv(csv)
     for (const team of teams) {

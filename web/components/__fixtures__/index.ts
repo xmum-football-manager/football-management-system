@@ -19,9 +19,9 @@ export const mockTeamAway: Team = {
 }
 
 export const mockPlayers: Player[] = [
-  { id: 'p1', team_id: 'team-home-1', name: 'Ali Hassan',  jersey_number: 9, position: 'FW', photo_path: null, created_at: '2026-01-01T00:00:00Z' },
-  { id: 'p2', team_id: 'team-home-1', name: 'Raj Kumar',   jersey_number: 1, position: 'GK', photo_path: null, created_at: '2026-01-01T00:00:00Z' },
-  { id: 'p3', team_id: 'team-home-1', name: 'Wei Liang',   jersey_number: 4, position: 'CB', photo_path: null, created_at: '2026-01-01T00:00:00Z' },
+  { id: 'p1', team_id: 'team-home-1', name: 'Ali Hassan',  jersey_number: 9, photo_path: null, created_at: '2026-01-01T00:00:00Z' },
+  { id: 'p2', team_id: 'team-home-1', name: 'Raj Kumar',   jersey_number: 1, photo_path: null, created_at: '2026-01-01T00:00:00Z' },
+  { id: 'p3', team_id: 'team-home-1', name: 'Wei Liang',   jersey_number: 4, photo_path: null, created_at: '2026-01-01T00:00:00Z' },
 ]
 
 export const mockMatchLive: MatchWithTeams = {
@@ -37,6 +37,8 @@ export const mockMatchLive: MatchWithTeams = {
   knockout_round: null,
   match_started_at: new Date(Date.now() - 37 * 60000).toISOString(),
   match_finished_at: null,
+  halftime_started_at: null,
+  second_half_started_at: null,
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-05-12T14:00:00Z',
   home_team: mockTeamHome,

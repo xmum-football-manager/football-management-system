@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache'
 import { requireUser } from '@/lib/auth'
 import { isAdmin, isOrganizer } from '@/lib/db/roles'
 import { getMatch, updateMatchScore, updateMatchStatus, updateMatchTime } from '@/lib/db/matches'
+import { recordGoal, undoGoal } from '@/lib/db/goals'
+import { insertCard, deleteCard } from '@/lib/db/cards'
 import { logMatchRevert } from '@/lib/db/audit'
 import { isValidTransition } from '@/lib/match-lifecycle'
 import { createClient } from '@/lib/supabase/server'
@@ -76,6 +78,77 @@ export async function updateScoreAction(
     revalidatePath(`/admin/tournaments/${match.tournament_id}`)
     revalidatePath(`/admin/tournaments/${match.tournament_id}/fixtures`)
     revalidatePath(`/t/${match.tournament_id}`)
+    return { ok: true }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed.' }
+  }
+}
+
+export async function adminRecordGoalAction(
+  matchId: string,
+  playerId: string,
+): Promise<{ home_score: number; away_score: number } | { error: string }> {
+  try {
+    const { match } = await ensureOrganizerOfMatch(matchId)
+    if (match.status !== 'live') return { error: 'Match is not live.' }
+    const result = await recordGoal(matchId, playerId)
+    if ('error' in result) return result
+    revalidatePath(`/admin/tournaments/${match.tournament_id}`)
+    revalidatePath(`/t/${match.tournament_id}`)
+    return result
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed.' }
+  }
+}
+
+export async function adminUndoGoalAction(
+  matchId: string,
+  teamId: string,
+): Promise<{ home_score: number; away_score: number } | { error: string }> {
+  try {
+    const { match } = await ensureOrganizerOfMatch(matchId)
+    if (match.status !== 'live') return { error: 'Match is not live.' }
+    const result = await undoGoal(matchId, teamId)
+    if ('error' in result) return result
+    revalidatePath(`/admin/tournaments/${match.tournament_id}`)
+    revalidatePath(`/t/${match.tournament_id}`)
+    return result
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed.' }
+  }
+}
+
+export async function adminAddCardAction(
+  matchId: string,
+  playerId: string,
+  teamId: string,
+  cardType: 'yellow' | 'red',
+): Promise<{ id: string } | { error: string }> {
+  try {
+    const { match } = await ensureOrganizerOfMatch(matchId)
+    if (match.status !== 'live') return { error: 'Match is not live.' }
+    const result = await insertCard({ match_id: matchId, team_id: teamId, player_id: playerId, card_type: cardType })
+    if ('error' in result) return result
+    revalidatePath(`/admin/tournaments/${match.tournament_id}`)
+    revalidatePath(`/t/${match.tournament_id}`)
+    return result
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed.' }
+  }
+}
+
+export async function adminRemoveCardAction(
+  cardId: string,
+  tournamentId: string,
+): Promise<{ ok: true } | { error: string }> {
+  try {
+    const user = await requireUser()
+    const admin = await isAdmin(user.id)
+    if (!admin && !(await isOrganizer(user.id, tournamentId))) throw new Error('Not authorized.')
+    const result = await deleteCard(cardId)
+    if (result.error) return { error: result.error }
+    revalidatePath(`/admin/tournaments/${tournamentId}`)
+    revalidatePath(`/t/${tournamentId}`)
     return { ok: true }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed.' }

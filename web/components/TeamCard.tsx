@@ -4,16 +4,17 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { teamColor, teamCode } from '@/lib/team-style'
 import { mediaUrl } from '@/lib/storage'
-import type { Team, Player, Standing } from '@/lib/supabase/types'
+import type { Team, Player, Standing, TeamCardCount } from '@/lib/supabase/types'
 import { teamInitials } from '@/lib/format'
 
 interface TeamCardProps {
   team: Team & { players: Player[] }
   standings: Standing[]
   tournamentId: string
+  cardCount?: TeamCardCount | null
 }
 
-export function TeamCard({ team, standings, tournamentId }: TeamCardProps) {
+export function TeamCard({ team, standings, tournamentId, cardCount }: TeamCardProps) {
   const [open, setOpen] = useState(false)
   const rec = standings.find(s => s.team_id === team.id)
   const logo = mediaUrl(team.logo_path)
@@ -39,7 +40,25 @@ export function TeamCard({ team, standings, tournamentId }: TeamCardProps) {
         </div>
         <div className="meta">
           <div className="nm">{team.name}</div>
-          <div className="sub">{sub}</div>
+          <div className="sub" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span>{sub}</span>
+            {cardCount && (cardCount.yellow > 0 || cardCount.red > 0) && (
+              <span style={{ display: 'inline-flex', gap: 4 }}>
+                {cardCount.yellow > 0 && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'rgba(234,179,8,0.15)', color: '#eab308', borderRadius: 4, padding: '1px 6px', fontSize: 11, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                    <span style={{ display: 'inline-block', width: 8, height: 10, background: '#eab308', borderRadius: 1 }} />
+                    {cardCount.yellow}
+                  </span>
+                )}
+                {cardCount.red > 0 && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'rgba(239,68,68,0.15)', color: '#ef4444', borderRadius: 4, padding: '1px 6px', fontSize: 11, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                    <span style={{ display: 'inline-block', width: 8, height: 10, background: '#ef4444', borderRadius: 1 }} />
+                    {cardCount.red}
+                  </span>
+                )}
+              </span>
+            )}
+          </div>
         </div>
         <span className="toggle">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -85,7 +104,6 @@ export function TeamCard({ team, standings, tournamentId }: TeamCardProps) {
                 )}
                 {p.name}
               </span>
-              <span className="pos">{p.position ?? '—'}</span>
             </div>
           ))}
 

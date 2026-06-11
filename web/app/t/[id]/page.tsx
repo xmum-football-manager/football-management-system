@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import './tournament.css'
 import { withTeamFallback } from '@/lib/match-teams'
 import { TournamentView } from './TournamentView'
+import { listTopScorers } from '@/lib/db/goals'
+import { listTeamCardCountsByTournament } from '@/lib/db/cards'
 import type { Tournament, MatchWithTeams, Standing, Team, Player } from '@/lib/supabase/types'
 
 interface Props {
@@ -47,12 +49,19 @@ export default async function TournamentPage({ params }: Props) {
 
   if (!tournamentRes.data) notFound()
 
+  const [topScorers, cardCounts] = await Promise.all([
+    listTopScorers(id).catch(() => []),
+    listTeamCardCountsByTournament(id).catch(() => []),
+  ])
+
   return (
     <TournamentView
       tournament={tournamentRes.data as Tournament}
       initialMatches={withTeamFallback((matchesRes.data ?? []) as MatchWithTeams[])}
       initialStandings={(standingsRes.data ?? []) as Standing[]}
       initialTeams={(teamsRes.data ?? []) as Array<Team & { players: Player[] }>}
+      topScorers={topScorers}
+      cardCounts={cardCounts}
     />
   )
 }

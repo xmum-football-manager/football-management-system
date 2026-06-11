@@ -4,9 +4,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { withTeamFallback } from '@/lib/match-teams'
 import { toast } from 'sonner'
-import { Loader2, LogOut, Minus, Plus, RefreshCcw, Play, Pause, CircleStop, FastForward } from 'lucide-react'
-import { scorekeeperTransitionMatch } from './actions'
-import type { MatchStatus, MatchWithTeams } from '@/lib/supabase/types'
+import { Loader2, LogOut, Minus, Plus, RefreshCcw, Play, Pause, CircleStop, FastForward, CreditCard } from 'lucide-react'
+import { scorekeeperTransitionMatch, recordGoalAction, undoGoalAction, addCardAction } from './actions'
+import type { MatchStatus, MatchWithTeams, Player } from '@/lib/supabase/types'
 
 interface Props {
   email: string
@@ -143,34 +143,126 @@ interface LifecyclePrompt {
   destructive: boolean
 }
 
+type PickerMode =
+  | { type: 'goal'; side: 'home' | 'away' }
+  | { type: 'card' }
+  | { type: 'card-player'; side: 'home' | 'away' }
+  | { type: 'card-type'; side: 'home' | 'away'; playerId: string }
+
+function useMatchClock(match: MatchWithTeams) {
+  const [now, setNow] = useState(() => Date.now())
+  const isHalftime = match.status === 'halftime'
+
+  useEffect(() => {
+    if (isHalftime) return
+    if (match.status !== 'live') return
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [isHalftime, match.status])
+
+  const elapsedSeconds = useMemo(() => {
+    if (!match.match_started_at) return null
+    const kickoff = new Date(match.match_started_at).getTime()
+    if (match.status === 'halftime' && match.halftime_started_at) {
+      const ht = new Date(match.halftime_started_at).getTime()
+      return Math.floor((ht - kickoff) / 1000)
+    }
+    if (match.status === 'live' && match.halftime_started_at && match.second_half_started_at) {
+      const ht = new Date(match.halftime_started_at).getTime()
+      const sh = new Date(match.second_half_started_at).getTime()
+      const firstHalf = ht - kickoff
+      const secondHalf = now - sh
+      return Math.floor((firstHalf + secondHalf) / 1000)
+    }
+    if (match.status === 'live') {
+      return Math.floor((now - kickoff) / 1000)
+    }
+    return null
+  }, [match, now])
+
+  return elapsedSeconds
+}
+
+function formatElapsed(seconds: number): string {
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return `${m}:${String(s).padStart(2, '0')}`
+}
+
 function ScoreCard({ match, onChange }: { match: MatchWithTeams; onChange: () => void }) {
   const [home, setHome] = useState(match.home_score)
   const [away, setAway] = useState(match.away_score)
   const [saving, setSaving] = useState(false)
   const [prompt, setPrompt] = useState<LifecyclePrompt | null>(null)
   const [transitioning, setTransitioning] = useState(false)
+  const [pickerMode, setPickerMode] = useState<PickerMode | null>(null)
+  const [homePlayers, setHomePlayers] = useState<Player[] | null>(null)
+  const [awayPlayers, setAwayPlayers] = useState<Player[] | null>(null)
 
   const canScore = match.status === 'live'
+  const elapsedSeconds = useMatchClock(match)
 
-  async function bump(side: 'home' | 'away', delta: number) {
-    if (!canScore) return
-    const newHome = side === 'home' ? Math.max(0, home + delta) : home
-    const newAway = side === 'away' ? Math.max(0, away + delta) : away
-    setHome(newHome)
-    setAway(newAway)
-    setSaving(true)
+  // Load rosters once (always — needed for cards even at halftime)
+  useEffect(() => {
     const supabase = createClient()
-    const { error } = await supabase
-      .from('matches')
-      .update({ home_score: newHome, away_score: newAway })
-      .eq('id', match.id)
+    supabase
+      .from('players')
+      .select('*')
+      .eq('team_id', match.home_team_id)
+      .order('jersey_number', { ascending: true, nullsFirst: false })
+      .then(({ data }) => setHomePlayers((data ?? []) as Player[]))
+    supabase
+      .from('players')
+      .select('*')
+      .eq('team_id', match.away_team_id)
+      .order('jersey_number', { ascending: true, nullsFirst: false })
+      .then(({ data }) => setAwayPlayers((data ?? []) as Player[]))
+  }, [match.id, match.home_team_id, match.away_team_id])
+
+  function openGoalPicker(side: 'home' | 'away') {
+    if (!canScore) return
+    setPickerMode({ type: 'goal', side })
+  }
+
+  async function handleGoalPlayerPick(playerId: string) {
+    setPickerMode(null)
+    setSaving(true)
+    const result = await recordGoalAction(match.id, playerId)
     setSaving(false)
-    if (error) {
-      toast.error(error.message)
-      setHome(match.home_score)
-      setAway(match.away_score)
+    if ('error' in result) {
+      toast.error(result.error)
       return
     }
+    setHome(result.home_score)
+    setAway(result.away_score)
+    onChange()
+  }
+
+  async function handleUndo(side: 'home' | 'away') {
+    if (!canScore) return
+    const teamId = side === 'home' ? match.home_team_id : match.away_team_id
+    setSaving(true)
+    const result = await undoGoalAction(match.id, teamId)
+    setSaving(false)
+    if ('error' in result) {
+      toast.error(result.error)
+      return
+    }
+    setHome(result.home_score)
+    setAway(result.away_score)
+    onChange()
+  }
+
+  async function handleCardTypePick(cardType: 'yellow' | 'red', side: 'home' | 'away', playerId: string) {
+    setPickerMode(null)
+    setSaving(true)
+    const result = await addCardAction(match.id, playerId, cardType)
+    setSaving(false)
+    if ('error' in result) {
+      toast.error(result.error)
+      return
+    }
+    toast.success(`${cardType === 'yellow' ? 'Yellow' : 'Red'} card recorded.`)
     onChange()
   }
 
@@ -238,19 +330,31 @@ function ScoreCard({ match, onChange }: { match: MatchWithTeams; onChange: () =>
     })
   }
 
+  const sideRoster = (side: 'home' | 'away') => side === 'home' ? (homePlayers ?? []) : (awayPlayers ?? [])
+
   return (
     <div className="w-full max-w-md">
       <div className="text-center mb-4">
         {match.status === 'live' ? (
-          <span className="inline-flex items-center gap-2 text-emerald-300 text-sm font-semibold">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-300" />
+          <div className="flex flex-col items-center gap-1">
+            <span className="inline-flex items-center gap-2 text-emerald-300 text-sm font-semibold">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-300" />
+              </span>
+              LIVE
             </span>
-            LIVE
-          </span>
+            {elapsedSeconds !== null && (
+              <span className="text-slate-400 text-xs tabular-nums">{formatElapsed(elapsedSeconds)}</span>
+            )}
+          </div>
         ) : match.status === 'halftime' ? (
-          <span className="text-amber-300 text-sm font-semibold">HALF TIME</span>
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-amber-300 text-sm font-semibold">HALF TIME</span>
+            {elapsedSeconds !== null && (
+              <span className="text-slate-400 text-xs tabular-nums">{formatElapsed(elapsedSeconds)}</span>
+            )}
+          </div>
         ) : match.status === 'finished' ? (
           <span className="text-slate-400 text-sm font-semibold">FULL TIME</span>
         ) : (
@@ -262,18 +366,32 @@ function ScoreCard({ match, onChange }: { match: MatchWithTeams; onChange: () =>
         <SideColumn
           label={match.home_team.name}
           value={home}
-          onMinus={() => bump('home', -1)}
-          onPlus={() => bump('home', 1)}
+          onMinus={() => handleUndo('home')}
+          onPlus={() => openGoalPicker('home')}
           disabled={!canScore || saving}
         />
         <SideColumn
           label={match.away_team.name}
           value={away}
-          onMinus={() => bump('away', -1)}
-          onPlus={() => bump('away', 1)}
+          onMinus={() => handleUndo('away')}
+          onPlus={() => openGoalPicker('away')}
           disabled={!canScore || saving}
         />
       </div>
+
+      {canScore && (
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={() => setPickerMode({ type: 'card' })}
+            disabled={saving}
+            className="w-full h-10 rounded-lg border-2 border-slate-700 bg-slate-800/40 text-slate-300 text-sm font-semibold hover:bg-slate-800 disabled:opacity-40 flex items-center justify-center gap-2"
+          >
+            <CreditCard className="h-4 w-4" />
+            Card
+          </button>
+        </div>
+      )}
 
       {lifecycleButtons.length > 0 && (
         <div className="mt-5 flex flex-col gap-3">
@@ -307,6 +425,181 @@ function ScoreCard({ match, onChange }: { match: MatchWithTeams; onChange: () =>
           pending={transitioning}
         />
       )}
+
+      {/* Goal player picker */}
+      {pickerMode?.type === 'goal' && (
+        <PlayerPickerOverlay
+          title={`Goal — ${pickerMode.side === 'home' ? match.home_team.name : match.away_team.name}`}
+          players={sideRoster(pickerMode.side)}
+          onPick={(pid) => handleGoalPlayerPick(pid)}
+          onCancel={() => setPickerMode(null)}
+        />
+      )}
+
+      {/* Card: choose team */}
+      {pickerMode?.type === 'card' && (
+        <ChooseTeamOverlay
+          homeTeamName={match.home_team.name}
+          awayTeamName={match.away_team.name}
+          onPick={(side) => setPickerMode({ type: 'card-player', side })}
+          onCancel={() => setPickerMode(null)}
+        />
+      )}
+
+      {/* Card: choose player */}
+      {pickerMode?.type === 'card-player' && (
+        <PlayerPickerOverlay
+          title={`Card — ${pickerMode.side === 'home' ? match.home_team.name : match.away_team.name}`}
+          players={sideRoster(pickerMode.side)}
+          onPick={(pid) => setPickerMode({ type: 'card-type', side: pickerMode.side, playerId: pid })}
+          onCancel={() => setPickerMode(null)}
+        />
+      )}
+
+      {/* Card: choose type */}
+      {pickerMode?.type === 'card-type' && (
+        <CardTypeOverlay
+          onPick={(ct) => handleCardTypePick(ct, pickerMode.side, pickerMode.playerId)}
+          onCancel={() => setPickerMode(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+function PlayerPickerOverlay({
+  title,
+  players,
+  onPick,
+  onCancel,
+}: {
+  title: string
+  players: Player[]
+  onPick: (playerId: string) => void
+  onCancel: () => void
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onCancel() }}
+    >
+      <div className="w-full max-w-md rounded-2xl bg-slate-900 border border-slate-700 p-5 space-y-3 max-h-[80vh] flex flex-col">
+        <h2 className="text-base font-bold text-white shrink-0">{title}</h2>
+        {players.length === 0 ? (
+          <p className="text-slate-400 text-sm">No players found for this team.</p>
+        ) : (
+          <div className="overflow-y-auto flex-1 space-y-1">
+            {players.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => onPick(p.id)}
+                className="w-full text-left px-3 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-sm flex items-center gap-3"
+              >
+                {p.jersey_number !== null && (
+                  <span className="text-xs text-slate-400 w-6 text-right shrink-0">#{p.jersey_number}</span>
+                )}
+                <span>{p.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={onCancel}
+          className="w-full h-10 rounded-lg border-2 border-slate-700 text-slate-200 font-semibold hover:bg-slate-800 text-sm shrink-0"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function ChooseTeamOverlay({
+  homeTeamName,
+  awayTeamName,
+  onPick,
+  onCancel,
+}: {
+  homeTeamName: string
+  awayTeamName: string
+  onPick: (side: 'home' | 'away') => void
+  onCancel: () => void
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onCancel() }}
+    >
+      <div className="w-full max-w-md rounded-2xl bg-slate-900 border border-slate-700 p-5 space-y-3">
+        <h2 className="text-base font-bold text-white">Card — Choose Team</h2>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => onPick('home')}
+            className="flex-1 h-12 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-semibold text-sm"
+          >
+            {homeTeamName}
+          </button>
+          <button
+            type="button"
+            onClick={() => onPick('away')}
+            className="flex-1 h-12 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-semibold text-sm"
+          >
+            {awayTeamName}
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="w-full h-10 rounded-lg border-2 border-slate-700 text-slate-200 font-semibold hover:bg-slate-800 text-sm"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function CardTypeOverlay({
+  onPick,
+  onCancel,
+}: {
+  onPick: (cardType: 'yellow' | 'red') => void
+  onCancel: () => void
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onCancel() }}
+    >
+      <div className="w-full max-w-md rounded-2xl bg-slate-900 border border-slate-700 p-5 space-y-3">
+        <h2 className="text-base font-bold text-white">Card — Choose Type</h2>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => onPick('yellow')}
+            className="flex-1 h-14 rounded-lg bg-amber-500 hover:bg-amber-400 text-white font-bold text-sm uppercase tracking-wide"
+          >
+            Yellow
+          </button>
+          <button
+            type="button"
+            onClick={() => onPick('red')}
+            className="flex-1 h-14 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-sm uppercase tracking-wide"
+          >
+            Red
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="w-full h-10 rounded-lg border-2 border-slate-700 text-slate-200 font-semibold hover:bg-slate-800 text-sm"
+        >
+          Cancel
+        </button>
+      </div>
     </div>
   )
 }

@@ -51,7 +51,6 @@ export interface Player {
   team_id: string
   name: string
   jersey_number: number | null
-  position: string | null
   photo_path: string | null
   created_at: string
 }
@@ -72,8 +71,42 @@ export interface Match {
   knockout_round: string | null
   match_started_at: string | null
   match_finished_at: string | null
+  halftime_started_at: string | null
+  second_half_started_at: string | null
   created_at: string
   updated_at: string
+}
+
+export interface Goal {
+  id: string
+  match_id: string
+  team_id: string
+  player_id: string
+  created_at: string
+}
+
+export interface Card {
+  id: string
+  match_id: string
+  team_id: string
+  player_id: string
+  card_type: 'yellow' | 'red'
+  created_at: string
+}
+
+export interface TopScorer {
+  player_id: string
+  player_name: string
+  team_id: string
+  team_name: string
+  tournament_id: string
+  goals: number
+}
+
+export interface TeamCardCount {
+  team_id: string
+  yellow: number
+  red: number
 }
 
 export interface UserRole {

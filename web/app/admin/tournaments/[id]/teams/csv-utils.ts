@@ -1,7 +1,6 @@
 export interface ParsedPlayer {
   player_name: string
   jersey_number: number | null
-  position: string | null
 }
 
 export interface ParsedTeam {
@@ -12,26 +11,6 @@ export interface ParsedTeam {
 export interface ParseResult {
   teams: ParsedTeam[]
   errors: string[]
-}
-
-const VALID_POSITIONS = new Set(['GK', 'DEF', 'MID', 'FWD'])
-
-const POSITION_ALIASES: Record<string, string> = {
-  GOALKEEPER: 'GK',
-  GOALIE: 'GK',
-  DEFENDER: 'DEF',
-  DEFENCE: 'DEF',
-  DEFENSE: 'DEF',
-  MIDFIELDER: 'MID',
-  MIDFIELD: 'MID',
-  FORWARD: 'FWD',
-  STRIKER: 'FWD',
-  ATTACKER: 'FWD',
-}
-
-function normalisePosition(raw: string): string | null {
-  if (VALID_POSITIONS.has(raw)) return raw
-  return POSITION_ALIASES[raw] ?? null
 }
 
 export function parseTeamsCsv(csvText: string): ParseResult {
@@ -46,7 +25,6 @@ export function parseTeamsCsv(csvText: string): ParseResult {
   const teamIdx = header.indexOf('team')
   const playerIdx = header.indexOf('player_name')
   const jerseyIdx = header.indexOf('jersey_number')
-  const posIdx = header.indexOf('position')
 
   if (teamIdx === -1 || playerIdx === -1) {
     return { teams: [], errors: ['CSV must have "team" and "player_name" columns.'] }
@@ -63,7 +41,6 @@ export function parseTeamsCsv(csvText: string): ParseResult {
     const teamName = cols[teamIdx]?.trim() ?? ''
     const playerName = cols[playerIdx]?.trim() ?? ''
     const jerseyRaw = jerseyIdx !== -1 ? (cols[jerseyIdx]?.trim() ?? '') : ''
-    const posRaw = posIdx !== -1 ? (cols[posIdx]?.trim().toUpperCase() ?? '') : ''
 
     if (!teamName) { errors.push(`Row ${row}: "team" is required.`); continue }
     if (!playerName) { errors.push(`Row ${row}: "player_name" is required.`); continue }
@@ -78,20 +55,11 @@ export function parseTeamsCsv(csvText: string): ParseResult {
       jerseyNumber = n
     }
 
-    let position: string | null = null
-    if (posRaw !== '') {
-      position = normalisePosition(posRaw)
-      if (position === null) {
-        errors.push(`Row ${row}: position must be one of GK, DEF, MID, FWD (or Goalkeeper, Defender, Midfielder, Forward).`)
-        continue
-      }
-    }
-
     if (!teamMap.has(teamName)) {
       teamMap.set(teamName, [])
       teamOrder.push(teamName)
     }
-    teamMap.get(teamName)!.push({ player_name: playerName, jersey_number: jerseyNumber, position })
+    teamMap.get(teamName)!.push({ player_name: playerName, jersey_number: jerseyNumber })
   }
 
   const teams = teamOrder.map((name) => ({ name, players: teamMap.get(name)! }))

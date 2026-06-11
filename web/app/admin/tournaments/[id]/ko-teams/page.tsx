@@ -50,7 +50,6 @@ export default async function KOTeamsPage({ params }: Props) {
           id: p.id,
           name: p.name,
           jersey_number: p.jersey_number,
-          position: p.position,
           photo_path: p.photo_path,
         })),
       }))}

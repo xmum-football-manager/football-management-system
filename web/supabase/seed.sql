@@ -39,27 +39,27 @@ begin
     (team_d, t_id, 'Arts & Humanity FC');
 
   -- ── Players (4 per team) ─────────────────────────────────────
-  insert into public.players (team_id, name, jersey_number, position) values
+  insert into public.players (team_id, name, jersey_number) values
     -- FC Engineering
-    (team_a, 'Ahmad Faiz',       1, 'GK'),
-    (team_a, 'Lim Wei Jie',      7, 'MF'),
-    (team_a, 'Ravi Kumar',       9, 'FW'),
-    (team_a, 'Zack Hazim',      14, 'DF'),
+    (team_a, 'Ahmad Faiz',       1),
+    (team_a, 'Lim Wei Jie',      7),
+    (team_a, 'Ravi Kumar',       9),
+    (team_a, 'Zack Hazim',      14),
     -- Business United
-    (team_b, 'Wan Haziq',        1, 'GK'),
-    (team_b, 'Chong Kai Ming',  10, 'MF'),
-    (team_b, 'Arif Danial',     11, 'FW'),
-    (team_b, 'Sanjay Pillai',    5, 'DF'),
+    (team_b, 'Wan Haziq',        1),
+    (team_b, 'Chong Kai Ming',  10),
+    (team_b, 'Arif Danial',     11),
+    (team_b, 'Sanjay Pillai',    5),
     -- Science City
-    (team_c, 'Johan Rahim',      1, 'GK'),
-    (team_c, 'Yap Wen Hao',      8, 'MF'),
-    (team_c, 'Idris Azman',     17, 'FW'),
-    (team_c, 'Chen Bo',          3, 'DF'),
+    (team_c, 'Johan Rahim',      1),
+    (team_c, 'Yap Wen Hao',      8),
+    (team_c, 'Idris Azman',     17),
+    (team_c, 'Chen Bo',          3),
     -- Arts & Humanity FC
-    (team_d, 'Harith Zafran',    1, 'GK'),
-    (team_d, 'Nurul Ain',       22, 'MF'),
-    (team_d, 'Faris Luqman',     6, 'FW'),
-    (team_d, 'Tang Yee Seng',   12, 'DF');
+    (team_d, 'Harith Zafran',    1),
+    (team_d, 'Nurul Ain',       22),
+    (team_d, 'Faris Luqman',     6),
+    (team_d, 'Tang Yee Seng',   12);
 
   -- ── Matches ──────────────────────────────────────────────────
   -- 1 LIVE match right now

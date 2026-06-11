@@ -112,7 +112,6 @@ export async function addPlayerAction(input: {
   team_id: string
   name: string
   jersey_number: number | null
-  position: string | null
   tournamentId: string
 }): Promise<{ id: string } | { error: string }> {
   try {
@@ -121,7 +120,6 @@ export async function addPlayerAction(input: {
       team_id: input.team_id,
       name: input.name,
       jersey_number: input.jersey_number,
-      position: input.position,
     })
     if ('id' in result) revalidateTeams(input.tournamentId)
     return result
@@ -148,7 +146,6 @@ export async function deletePlayerAction(
 export interface ImportPlayerInput {
   name: string
   jersey_number: number | null
-  position: string | null
 }
 
 export interface ImportTeamInput {
@@ -177,7 +174,6 @@ export async function importTeamsAction(
           team_id: teamResult.id,
           name: player.name,
           jersey_number: player.jersey_number,
-          position: player.position,
         })
         if ('error' in playerResult) return { error: `Failed to add player "${player.name}": ${playerResult.error}` }
         playerCount++

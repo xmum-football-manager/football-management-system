@@ -12,17 +12,17 @@ Team B,Bob Wilson,10,MID`
     expect(teams).toHaveLength(2)
     expect(teams[0].name).toBe('Team A')
     expect(teams[0].players).toHaveLength(2)
-    expect(teams[0].players[0]).toEqual({ player_name: 'John Smith', jersey_number: 1, position: 'GK' })
+    expect(teams[0].players[0]).toEqual({ player_name: 'John Smith', jersey_number: 1 })
     expect(teams[1].name).toBe('Team B')
-    expect(teams[1].players[0]).toEqual({ player_name: 'Bob Wilson', jersey_number: 10, position: 'MID' })
+    expect(teams[1].players[0]).toEqual({ player_name: 'Bob Wilson', jersey_number: 10 })
   })
 
-  it('treats optional jersey_number and position as null when empty', () => {
-    const csv = `team,player_name,jersey_number,position
-Team A,Alice,,`
+  it('treats optional jersey_number as null when empty', () => {
+    const csv = `team,player_name,jersey_number
+Team A,Alice,`
     const { teams, errors } = parseTeamsCsv(csv)
     expect(errors).toEqual([])
-    expect(teams[0].players[0]).toEqual({ player_name: 'Alice', jersey_number: null, position: null })
+    expect(teams[0].players[0]).toEqual({ player_name: 'Alice', jersey_number: null })
   })
 
   it('returns error when CSV has fewer than 2 lines', () => {
@@ -65,55 +65,6 @@ Team A,Alice,,`
     expect(errors[0]).toMatch(/Row 2.*jersey_number/)
   })
 
-  it('returns row-level error for invalid position', () => {
-    const csv = `team,player_name,position\nTeam A,John,WINGER`
-    const { errors } = parseTeamsCsv(csv)
-    expect(errors).toHaveLength(1)
-    expect(errors[0]).toMatch(/Row 2.*position/)
-  })
-
-  it('accepts position values case-insensitively', () => {
-    const csv = `team,player_name,position\nTeam A,John,gk`
-    const { teams, errors } = parseTeamsCsv(csv)
-    expect(errors).toEqual([])
-    expect(teams[0].players[0].position).toBe('GK')
-  })
-
-  it('accepts full position name "Goalkeeper" and normalises to GK', () => {
-    const csv = `team,player_name,position\nTeam A,John,Goalkeeper`
-    const { teams, errors } = parseTeamsCsv(csv)
-    expect(errors).toEqual([])
-    expect(teams[0].players[0].position).toBe('GK')
-  })
-
-  it('accepts full position name "Defender" and normalises to DEF', () => {
-    const csv = `team,player_name,position\nTeam A,John,Defender`
-    const { teams, errors } = parseTeamsCsv(csv)
-    expect(errors).toEqual([])
-    expect(teams[0].players[0].position).toBe('DEF')
-  })
-
-  it('accepts full position name "Midfielder" and normalises to MID', () => {
-    const csv = `team,player_name,position\nTeam A,John,Midfielder`
-    const { teams, errors } = parseTeamsCsv(csv)
-    expect(errors).toEqual([])
-    expect(teams[0].players[0].position).toBe('MID')
-  })
-
-  it('accepts full position name "Forward" and normalises to FWD', () => {
-    const csv = `team,player_name,position\nTeam A,John,Forward`
-    const { teams, errors } = parseTeamsCsv(csv)
-    expect(errors).toEqual([])
-    expect(teams[0].players[0].position).toBe('FWD')
-  })
-
-  it('accepts "Striker" and normalises to FWD', () => {
-    const csv = `team,player_name,position\nTeam A,John,Striker`
-    const { teams, errors } = parseTeamsCsv(csv)
-    expect(errors).toEqual([])
-    expect(teams[0].players[0].position).toBe('FWD')
-  })
-
   it('preserves team insertion order', () => {
     const csv = `team,player_name\nZebra FC,Alice\nAlpha FC,Bob`
     const { teams } = parseTeamsCsv(csv)
@@ -122,7 +73,7 @@ Team A,Alice,,`
   })
 
   it('collects multiple errors across rows', () => {
-    const csv = `team,player_name,position\n,John,GK\nTeam A,,DEF\nTeam A,Bob,BAD`
+    const csv = `team,player_name,jersey_number\n,John,1\nTeam A,,2\nTeam A,Bob,xyz`
     const { errors } = parseTeamsCsv(csv)
     expect(errors).toHaveLength(3)
   })
@@ -159,10 +110,10 @@ describe('parseTeamsCsv — adversarial / edge cases', () => {
   // ── Header format variants ─────────────────────────────────────────────
 
   it('handles headers with spaces after commas (Excel/Sheets export style)', () => {
-    const csv = `team, player_name, jersey_number, position\nTeam A,John,7,MID`
+    const csv = `team, player_name, jersey_number\nTeam A,John,7`
     const { teams, errors } = parseTeamsCsv(csv)
     expect(errors).toEqual([])
-    expect(teams[0].players[0]).toEqual({ player_name: 'John', jersey_number: 7, position: 'MID' })
+    expect(teams[0].players[0]).toEqual({ player_name: 'John', jersey_number: 7 })
   })
 
   it('handles UPPERCASE header columns', () => {
@@ -173,18 +124,18 @@ describe('parseTeamsCsv — adversarial / edge cases', () => {
   })
 
   it('handles scrambled column order', () => {
-    const csv = `position,player_name,team,jersey_number\nGK,John,Team A,1`
+    const csv = `player_name,team,jersey_number\nJohn,Team A,1`
     const { teams, errors } = parseTeamsCsv(csv)
     expect(errors).toEqual([])
     expect(teams[0].name).toBe('Team A')
-    expect(teams[0].players[0]).toEqual({ player_name: 'John', jersey_number: 1, position: 'GK' })
+    expect(teams[0].players[0]).toEqual({ player_name: 'John', jersey_number: 1 })
   })
 
   it('ignores extra unknown columns', () => {
-    const csv = `team,player_name,phone_number,jersey_number,position\nTeam A,John,012-345,7,FWD`
+    const csv = `team,player_name,phone_number,jersey_number\nTeam A,John,012-345,7`
     const { teams, errors } = parseTeamsCsv(csv)
     expect(errors).toEqual([])
-    expect(teams[0].players[0]).toEqual({ player_name: 'John', jersey_number: 7, position: 'FWD' })
+    expect(teams[0].players[0]).toEqual({ player_name: 'John', jersey_number: 7 })
   })
 
   it('handles Excel BOM prefix on the first line', () => {

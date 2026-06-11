@@ -35,6 +35,8 @@ export const Live: Story = {
       away_score: 1,
       match_started_at: new Date(Date.now() - 35 * 60000).toISOString(),
       match_finished_at: null,
+      halftime_started_at: null,
+      second_half_started_at: null,
     } satisfies MatchWithTeams,
   },
 }
@@ -46,8 +48,25 @@ export const Halftime: Story = {
       status: 'halftime',
       home_score: 1,
       away_score: 0,
-      match_started_at: new Date(Date.now() - 45 * 60000).toISOString(),
+      match_started_at: new Date(Date.now() - 50 * 60000).toISOString(),
       match_finished_at: null,
+      halftime_started_at: new Date(Date.now() - 5 * 60000).toISOString(),
+      second_half_started_at: null,
+    } satisfies MatchWithTeams,
+  },
+}
+
+export const SecondHalf: Story = {
+  args: {
+    match: {
+      ...baseMatch,
+      status: 'live',
+      home_score: 1,
+      away_score: 1,
+      match_started_at: new Date(Date.now() - 65 * 60000).toISOString(),
+      match_finished_at: null,
+      halftime_started_at: new Date(Date.now() - 20 * 60000).toISOString(),
+      second_half_started_at: new Date(Date.now() - 5 * 60000).toISOString(),
     } satisfies MatchWithTeams,
   },
 }
@@ -61,6 +80,8 @@ export const JustStarted: Story = {
       away_score: 0,
       match_started_at: new Date(Date.now() - 3 * 60000).toISOString(),
       match_finished_at: null,
+      halftime_started_at: null,
+      second_half_started_at: null,
     } satisfies MatchWithTeams,
   },
 }

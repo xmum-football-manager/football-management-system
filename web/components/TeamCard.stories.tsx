@@ -10,11 +10,11 @@ export default meta
 type Story = StoryObj<typeof TeamCard>
 
 const players: Player[] = [
-  { id: 'p-1', team_id: 'team-1', name: 'Ahmad Farid',    jersey_number: 1,  position: 'GK',  photo_path: null, created_at: '2026-05-01T00:00:00Z' },
-  { id: 'p-2', team_id: 'team-1', name: 'Haziq Syafiq',   jersey_number: 5,  position: 'DEF', photo_path: null, created_at: '2026-05-01T00:00:00Z' },
-  { id: 'p-3', team_id: 'team-1', name: 'Danial Razif',   jersey_number: 7,  position: 'MID', photo_path: null, created_at: '2026-05-01T00:00:00Z' },
-  { id: 'p-4', team_id: 'team-1', name: 'Izzat Hakim',    jersey_number: 10, position: 'FWD', photo_path: null, created_at: '2026-05-01T00:00:00Z' },
-  { id: 'p-5', team_id: 'team-1', name: 'Syazwan Helmi',  jersey_number: 11, position: 'FWD', photo_path: null, created_at: '2026-05-01T00:00:00Z' },
+  { id: 'p-1', team_id: 'team-1', name: 'Ahmad Farid',    jersey_number: 1,  photo_path: null, created_at: '2026-05-01T00:00:00Z' },
+  { id: 'p-2', team_id: 'team-1', name: 'Haziq Syafiq',   jersey_number: 5,  photo_path: null, created_at: '2026-05-01T00:00:00Z' },
+  { id: 'p-3', team_id: 'team-1', name: 'Danial Razif',   jersey_number: 7,  photo_path: null, created_at: '2026-05-01T00:00:00Z' },
+  { id: 'p-4', team_id: 'team-1', name: 'Izzat Hakim',    jersey_number: 10, photo_path: null, created_at: '2026-05-01T00:00:00Z' },
+  { id: 'p-5', team_id: 'team-1', name: 'Syazwan Helmi',  jersey_number: 11, photo_path: null, created_at: '2026-05-01T00:00:00Z' },
 ]
 
 const team: Team & { players: Player[] } = {

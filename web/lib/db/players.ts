@@ -16,7 +16,6 @@ export interface CreatePlayerInput {
   team_id: string
   name: string
   jersey_number?: number | null
-  position?: string | null
 }
 
 export async function createPlayer(input: CreatePlayerInput): Promise<{ id: string } | { error: string }> {
@@ -27,7 +26,6 @@ export async function createPlayer(input: CreatePlayerInput): Promise<{ id: stri
       team_id: input.team_id,
       name: input.name,
       jersey_number: input.jersey_number ?? null,
-      position: input.position ?? null,
     })
     .select('id')
     .single()

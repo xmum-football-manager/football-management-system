@@ -35,6 +35,8 @@ export const Scheduled: Story = {
       away_score: 0,
       match_started_at: null,
       match_finished_at: null,
+      halftime_started_at: null,
+      second_half_started_at: null,
     } satisfies MatchWithTeams,
   },
 }
@@ -48,6 +50,8 @@ export const Live: Story = {
       away_score: 1,
       match_started_at: new Date(Date.now() - 35 * 60000).toISOString(),
       match_finished_at: null,
+      halftime_started_at: null,
+      second_half_started_at: null,
     } satisfies MatchWithTeams,
   },
 }
@@ -61,6 +65,8 @@ export const Finished: Story = {
       away_score: 2,
       match_started_at: '2026-05-15T10:00:00+08:00',
       match_finished_at: '2026-05-15T10:50:00+08:00',
+      halftime_started_at: null,
+      second_half_started_at: null,
     } satisfies MatchWithTeams,
   },
 }
@@ -75,6 +81,8 @@ export const Draw: Story = {
       away_score: 1,
       match_started_at: '2026-05-15T12:00:00+08:00',
       match_finished_at: '2026-05-15T12:50:00+08:00',
+      halftime_started_at: null,
+      second_half_started_at: null,
     } satisfies MatchWithTeams,
   },
 }

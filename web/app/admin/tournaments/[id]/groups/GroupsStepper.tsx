@@ -17,7 +17,7 @@ interface Props {
     id: string
     name: string
     group_label: string | null
-    players: Array<{ id: string; name: string; jersey_number: number | null; position: string | null }>
+    players: Array<{ id: string; name: string; jersey_number: number | null }>
   }>
   numGroups: number
   teamsPerGroup: number | null

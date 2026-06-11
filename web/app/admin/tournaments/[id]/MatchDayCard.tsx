@@ -13,9 +13,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Loader2, Pause, CircleStop, FastForward } from 'lucide-react'
-import { transitionMatchAction, updateScoreAction } from './actions'
-import type { MatchWithTeams, MatchStatus } from '@/lib/supabase/types'
+import { transitionMatchAction, adminRecordGoalAction, adminUndoGoalAction, adminAddCardAction } from './actions'
+import type { MatchWithTeams, MatchStatus, Player } from '@/lib/supabase/types'
 
 interface LifecycleAction {
   next: MatchStatus
@@ -66,30 +73,30 @@ interface Props {
   match: MatchWithTeams
   isAdmin: boolean
   halftimeEnabled: boolean
+  homePlayers: Player[]
+  awayPlayers: Player[]
 }
 
-export function MatchDayCard({ match, isAdmin, halftimeEnabled }: Props) {
+type GoalPickerState = { side: 'home' | 'away' } | null
+type CardPickerState = { side: 'home' | 'away' } | null
+
+export function MatchDayCard({ match, isAdmin, halftimeEnabled, homePlayers, awayPlayers }: Props) {
   const [busy, startTransition] = useTransition()
   const [prompt, setPrompt] = useState<LifecycleAction | null>(null)
   const [scores, setScores] = useState({ home: match.home_score, away: match.away_score })
 
+  // Goal picker
+  const [goalPicker, setGoalPicker] = useState<GoalPickerState>(null)
+  const [goalPlayerId, setGoalPlayerId] = useState('')
+
+  // Card picker
+  const [cardPicker, setCardPicker] = useState<CardPickerState>(null)
+  const [cardPlayerId, setCardPlayerId] = useState('')
+  const [cardType, setCardType] = useState<'yellow' | 'red'>('yellow')
+
   const actions = lifecycleActions(match.status, halftimeEnabled)
   const isHalftime = match.status === 'halftime'
-
-  function adjustScore(side: 'home' | 'away', delta: number) {
-    const next = {
-      home: side === 'home' ? Math.max(0, scores.home + delta) : scores.home,
-      away: side === 'away' ? Math.max(0, scores.away + delta) : scores.away,
-    }
-    setScores(next)
-    startTransition(async () => {
-      const r = await updateScoreAction(match.id, next.home, next.away)
-      if ('error' in r) {
-        toast.error(r.error)
-        setScores({ home: match.home_score, away: match.away_score })
-      }
-    })
-  }
+  const isLive = match.status === 'live'
 
   function commit(action: LifecycleAction) {
     startTransition(async () => {
@@ -99,6 +106,64 @@ export function MatchDayCard({ match, isAdmin, halftimeEnabled }: Props) {
       else toast.success(action.label + (action.next === 'finished' ? '.' : ' started.'))
     })
   }
+
+  function openGoalPicker(side: 'home' | 'away') {
+    setGoalPlayerId('')
+    setGoalPicker({ side })
+  }
+
+  function confirmGoal() {
+    if (!goalPicker || !goalPlayerId) return
+    const side = goalPicker.side
+    startTransition(async () => {
+      const r = await adminRecordGoalAction(match.id, goalPlayerId)
+      setGoalPicker(null)
+      setGoalPlayerId('')
+      if ('error' in r) {
+        toast.error(r.error)
+      } else {
+        setScores({ home: r.home_score, away: r.away_score })
+        toast.success(`Goal recorded for ${side === 'home' ? match.home_team.name : match.away_team.name}.`)
+      }
+    })
+  }
+
+  function undoGoal(side: 'home' | 'away') {
+    const teamId = side === 'home' ? match.home_team_id : match.away_team_id
+    startTransition(async () => {
+      const r = await adminUndoGoalAction(match.id, teamId)
+      if ('error' in r) {
+        toast.error(r.error)
+      } else {
+        setScores({ home: r.home_score, away: r.away_score })
+        toast.success('Goal removed.')
+      }
+    })
+  }
+
+  function openCardPicker(side: 'home' | 'away') {
+    setCardPlayerId('')
+    setCardType('yellow')
+    setCardPicker({ side })
+  }
+
+  function confirmCard() {
+    if (!cardPicker || !cardPlayerId) return
+    const teamId = cardPicker.side === 'home' ? match.home_team_id : match.away_team_id
+    startTransition(async () => {
+      const r = await adminAddCardAction(match.id, cardPlayerId, teamId, cardType)
+      setCardPicker(null)
+      setCardPlayerId('')
+      if ('error' in r) {
+        toast.error(r.error)
+      } else {
+        toast.success(`${cardType === 'yellow' ? 'Yellow' : 'Red'} card recorded.`)
+      }
+    })
+  }
+
+  const goalPickerPlayers = goalPicker?.side === 'home' ? homePlayers : awayPlayers
+  const cardPickerPlayers = cardPicker?.side === 'home' ? homePlayers : awayPlayers
 
   return (
     <div
@@ -130,10 +195,30 @@ export function MatchDayCard({ match, isAdmin, halftimeEnabled }: Props) {
         <div>
           <p className="mb-2 truncate font-semibold">{match.home_team.name}</p>
           <div className="flex items-center justify-center gap-2">
-            <Button variant="outline" size="sm" className="h-8 w-8 p-0 text-base" disabled={busy} onClick={() => adjustScore('home', -1)}>−</Button>
+            <Button
+              variant="outline" size="sm" className="h-8 w-8 p-0 text-base"
+              disabled={busy || !isLive}
+              title="Undo last goal"
+              onClick={() => undoGoal('home')}
+            >−</Button>
             <span className="admin-mono min-w-[2ch] text-center text-3xl font-bold tabular-nums">{scores.home}</span>
-            <Button variant="outline" size="sm" className="h-8 w-8 p-0 text-base" disabled={busy} onClick={() => adjustScore('home', 1)}>+</Button>
+            <Button
+              variant="outline" size="sm" className="h-8 w-8 p-0 text-base"
+              disabled={busy || !isLive}
+              title="Record goal"
+              onClick={() => openGoalPicker('home')}
+            >+</Button>
           </div>
+          {isLive && (
+            <Button
+              variant="ghost" size="sm"
+              className="mt-1 text-[11px] text-muted-foreground h-7 px-2"
+              disabled={busy}
+              onClick={() => openCardPicker('home')}
+            >
+              Card
+            </Button>
+          )}
         </div>
 
         <span className="text-sm text-muted-foreground">vs</span>
@@ -141,10 +226,30 @@ export function MatchDayCard({ match, isAdmin, halftimeEnabled }: Props) {
         <div>
           <p className="mb-2 truncate font-semibold">{match.away_team.name}</p>
           <div className="flex items-center justify-center gap-2">
-            <Button variant="outline" size="sm" className="h-8 w-8 p-0 text-base" disabled={busy} onClick={() => adjustScore('away', -1)}>−</Button>
+            <Button
+              variant="outline" size="sm" className="h-8 w-8 p-0 text-base"
+              disabled={busy || !isLive}
+              title="Undo last goal"
+              onClick={() => undoGoal('away')}
+            >−</Button>
             <span className="admin-mono min-w-[2ch] text-center text-3xl font-bold tabular-nums">{scores.away}</span>
-            <Button variant="outline" size="sm" className="h-8 w-8 p-0 text-base" disabled={busy} onClick={() => adjustScore('away', 1)}>+</Button>
+            <Button
+              variant="outline" size="sm" className="h-8 w-8 p-0 text-base"
+              disabled={busy || !isLive}
+              title="Record goal"
+              onClick={() => openGoalPicker('away')}
+            >+</Button>
           </div>
+          {isLive && (
+            <Button
+              variant="ghost" size="sm"
+              className="mt-1 text-[11px] text-muted-foreground h-7 px-2"
+              disabled={busy}
+              onClick={() => openCardPicker('away')}
+            >
+              Card
+            </Button>
+          )}
         </div>
       </div>
 
@@ -174,7 +279,7 @@ export function MatchDayCard({ match, isAdmin, halftimeEnabled }: Props) {
         </div>
       )}
 
-      {/* Confirmation dialog */}
+      {/* Lifecycle confirmation dialog */}
       {prompt && (
         <AlertDialog open onOpenChange={(open) => !open && setPrompt(null)}>
           <AlertDialogContent>
@@ -200,6 +305,103 @@ export function MatchDayCard({ match, isAdmin, halftimeEnabled }: Props) {
               >
                 {busy && <Loader2 className="h-4 w-4 animate-spin" />}
                 Confirm
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
+      {/* Goal picker dialog */}
+      {goalPicker && (
+        <AlertDialog open onOpenChange={(open) => !open && setGoalPicker(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                Record goal — {goalPicker.side === 'home' ? match.home_team.name : match.away_team.name}
+              </AlertDialogTitle>
+              <AlertDialogDescription>Select the scorer (required).</AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="px-6 pb-2">
+              <Select value={goalPlayerId} onValueChange={setGoalPlayerId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select scorer…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {goalPickerPlayers.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.jersey_number != null ? `#${p.jersey_number} ` : ''}{p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmGoal}
+                disabled={busy || !goalPlayerId}
+              >
+                {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+                Confirm Goal
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
+      {/* Card picker dialog */}
+      {cardPicker && (
+        <AlertDialog open onOpenChange={(open) => !open && setCardPicker(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                Record card — {cardPicker.side === 'home' ? match.home_team.name : match.away_team.name}
+              </AlertDialogTitle>
+              <AlertDialogDescription>Select the player and card type.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="px-6 pb-2 space-y-3">
+              <Select value={cardPlayerId} onValueChange={setCardPlayerId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select player…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {cardPickerPlayers.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.jersey_number != null ? `#${p.jersey_number} ` : ''}{p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={cardType === 'yellow' ? 'default' : 'outline'}
+                  className="flex-1"
+                  onClick={() => setCardType('yellow')}
+                >
+                  Yellow
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={cardType === 'red' ? 'default' : 'outline'}
+                  className="flex-1"
+                  style={cardType === 'red' ? { background: '#DC2626' } : { color: '#DC2626', borderColor: 'rgba(220,38,38,0.4)' }}
+                  onClick={() => setCardType('red')}
+                >
+                  Red
+                </Button>
+              </div>
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmCard}
+                disabled={busy || !cardPlayerId}
+              >
+                {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+                Issue Card
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

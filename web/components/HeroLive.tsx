@@ -58,18 +58,40 @@ function FormStrip({ form, align }: { form: FormResult[]; align: 'left' | 'right
   )
 }
 
-function LiveClock({ startedAt, minutesPerHalf }: { startedAt: string; minutesPerHalf: number }) {
-  const [sec, setSec] = useState(() => Math.max(0, Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000)))
+interface LiveClockProps {
+  status: 'live' | 'halftime'
+  startedAt: string
+  halftimeStartedAt: string | null
+  secondHalfStartedAt: string | null
+  minutesPerHalf: number
+}
+
+function computeElapsed({ status, startedAt, halftimeStartedAt, secondHalfStartedAt }: Omit<LiveClockProps, 'minutesPerHalf'>): number {
+  const kickoff = new Date(startedAt).getTime()
+  if (status === 'halftime' && halftimeStartedAt) {
+    return Math.max(0, Math.floor((new Date(halftimeStartedAt).getTime() - kickoff) / 1000))
+  }
+  if (status === 'live' && halftimeStartedAt && secondHalfStartedAt) {
+    const firstHalf = Math.max(0, new Date(halftimeStartedAt).getTime() - kickoff)
+    const secondHalf = Math.max(0, Date.now() - new Date(secondHalfStartedAt).getTime())
+    return Math.floor((firstHalf + secondHalf) / 1000)
+  }
+  return Math.max(0, Math.floor((Date.now() - kickoff) / 1000))
+}
+
+function LiveClock({ status, startedAt, halftimeStartedAt, secondHalfStartedAt, minutesPerHalf }: LiveClockProps) {
+  const [sec, setSec] = useState(() => computeElapsed({ status, startedAt, halftimeStartedAt, secondHalfStartedAt }))
 
   useEffect(() => {
+    if (status === 'halftime') return
     const id = setInterval(() => {
-      setSec(Math.max(0, Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000)))
+      setSec(computeElapsed({ status, startedAt, halftimeStartedAt, secondHalfStartedAt }))
     }, 1000)
     return () => clearInterval(id)
-  }, [startedAt])
+  }, [status, startedAt, halftimeStartedAt, secondHalfStartedAt])
 
   const m = Math.floor(sec / 60)
-  const period = m >= minutesPerHalf ? '2H' : '1H'
+  const period = halftimeStartedAt ? '2H' : (m >= minutesPerHalf ? '2H' : '1H')
   const clock = `${String(m).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`
 
   return (
@@ -109,7 +131,8 @@ function TeamSide({ team, side, form }: { team: Team; side: 'home' | 'away'; for
 }
 
 export function HeroLive({ match, allMatches = [], metaText, minutesPerHalf = 45 }: HeroLiveProps) {
-  const isLive = match.status === 'live'
+  const isLive = match.status === 'live' || match.status === 'halftime'
+  const isHalftime = match.status === 'halftime'
   const isUpcoming = match.status === 'scheduled'
 
   const kickoff = match.match_time
@@ -121,7 +144,9 @@ export function HeroLive({ match, allMatches = [], metaText, minutesPerHalf = 45
       <div className="hero-inner">
 
         <div className="hero-meta">
-          {isLive ? (
+          {isHalftime ? (
+            <span className="live-pill dim">Half Time</span>
+          ) : isLive ? (
             <span className="live-pill"><span className="live-dot" />Live</span>
           ) : isUpcoming ? (
             <span className="live-pill lime">Up next</span>
@@ -145,7 +170,13 @@ export function HeroLive({ match, allMatches = [], metaText, minutesPerHalf = 45
               </div>
             )}
             {isLive && match.match_started_at ? (
-              <LiveClock startedAt={match.match_started_at} minutesPerHalf={minutesPerHalf} />
+              <LiveClock
+                status={match.status as 'live' | 'halftime'}
+                startedAt={match.match_started_at}
+                halftimeStartedAt={match.halftime_started_at}
+                secondHalfStartedAt={match.second_half_started_at}
+                minutesPerHalf={minutesPerHalf}
+              />
             ) : (
               <div className="match-clock">
                 <BallIcon />

@@ -15,7 +15,7 @@ import { BracketView } from '@/components/BracketView'
 import { Reveal } from '@/components/Reveal'
 import Link from 'next/link'
 import Image from 'next/image'
-import type { Tournament, MatchWithTeams, Standing, Team, Player } from '@/lib/supabase/types'
+import type { Tournament, MatchWithTeams, Standing, Team, Player, TopScorer, TeamCardCount } from '@/lib/supabase/types'
 
 type Tab = 'live' | 'fixtures' | 'standings' | 'bracket' | 'teams'
 
@@ -32,6 +32,8 @@ interface TournamentViewProps {
   initialMatches: MatchWithTeams[]
   initialStandings: Standing[]
   initialTeams: Array<Team & { players: Player[] }>
+  topScorers: TopScorer[]
+  cardCounts: TeamCardCount[]
 }
 
 // ── Tab Strip ──────────────────────────────────────────────────────────────────
@@ -132,9 +134,9 @@ function Ticker({ matches, onSelect }: { matches: MatchWithTeams[]; onSelect?: (
             onClick={onSelect ? () => onSelect(m.id) : undefined}
           >
             <span className="ic">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="#A3E635" aria-hidden="true">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="#1E78F0" aria-hidden="true">
                 <circle cx="12" cy="12" r="10"/>
-                <path d="M12 6 L14 10 L18 10 L15 13 L16 17 L12 15 L8 17 L9 13 L6 10 L10 10 Z" fill="#0E1A12"/>
+                <path d="M12 6 L14 10 L18 10 L15 13 L16 17 L12 15 L8 17 L9 13 L6 10 L10 10 Z" fill="#060C1C"/>
               </svg>
             </span>
             <span className="min">FT</span>
@@ -302,7 +304,7 @@ function ChampionHero({ team, note, metaText }: { team: Team; note: React.ReactN
 }
 
 // ── Main component ──────────────────────────────────────────────────────────────
-export function TournamentView({ tournament, initialMatches, initialStandings, initialTeams }: TournamentViewProps) {
+export function TournamentView({ tournament, initialMatches, initialStandings, initialTeams, topScorers, cardCounts }: TournamentViewProps) {
   const [tab, setTab] = useState<Tab>('live')
   const [matches, setMatches] = useState(initialMatches)
   const [standings, setStandings] = useState(initialStandings)
@@ -396,7 +398,7 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
   // Filter out unscheduled (null match_time) matches — not yet public
   const scheduledMatches = matches.filter((m) => m.match_time !== null)
 
-  const liveMatches     = scheduledMatches.filter(m => m.status === 'live')
+  const liveMatches     = scheduledMatches.filter(m => m.status === 'live' || m.status === 'halftime')
   const upcomingMatches = scheduledMatches.filter(m => m.status === 'scheduled')
   const finishedMatches = scheduledMatches.filter(m => m.status === 'finished')
 
@@ -626,6 +628,43 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
         </section>
       )}
 
+      {/* TOP PLAYERS */}
+      {topScorers.length > 0 && (
+        <section className="section" id="top-players" style={{ background: 'rgba(0,0,0,0.18)' }}>
+          <div className="container">
+            <SectionHead
+              eyebrow="Goal scorers"
+              title="Top"
+              accent="players"
+            />
+            <Reveal>
+              <div className="standings-shell">
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink-400)', borderBottom: '1px solid var(--ink-700)' }}>#</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink-400)', borderBottom: '1px solid var(--ink-700)' }}>Player</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink-400)', borderBottom: '1px solid var(--ink-700)' }}>Team</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'right', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink-400)', borderBottom: '1px solid var(--ink-700)' }}>Goals</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {topScorers.map((s, i) => (
+                      <tr key={s.player_id} style={{ borderBottom: i < topScorers.length - 1 ? '1px solid var(--ink-700)' : 'none' }}>
+                        <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--ink-500)', fontVariantNumeric: 'tabular-nums' }}>{i + 1}</td>
+                        <td style={{ padding: '12px 16px', fontFamily: 'var(--font-sans)', fontWeight: 600, color: 'var(--ink-50)' }}>{s.player_name}</td>
+                        <td style={{ padding: '12px 16px', fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--ink-400)' }}>{s.team_name}</td>
+                        <td style={{ padding: '12px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 15, color: 'var(--brand-lime)', fontVariantNumeric: 'tabular-nums' }}>{s.goals}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Reveal>
+          </div>
+        </section>
+      )}
+
       {/* TEAMS */}
       <section className="section" id="teams">
         <div className="container">
@@ -640,7 +679,15 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
             : (
               <Reveal>
                 <div className="teams-grid">
-                  {initialTeams.map(team => <TeamCard key={team.id} team={team} standings={standings} tournamentId={tournament.id} />)}
+                  {initialTeams.map(team => (
+                    <TeamCard
+                      key={team.id}
+                      team={team}
+                      standings={standings}
+                      tournamentId={tournament.id}
+                      cardCount={cardCounts.find(c => c.team_id === team.id) ?? null}
+                    />
+                  ))}
                 </div>
               </Reveal>
             )

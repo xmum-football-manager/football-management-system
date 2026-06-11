@@ -178,13 +178,6 @@ export default async function TeamPage({ params }: Props) {
                       textTransform: 'uppercase', color: 'var(--ink-400)',
                       borderBottom: '1px solid var(--ink-700)',
                     }}>Name</th>
-                    <th className="hidden sm:table-cell" style={{
-                      padding: '16px',
-                      fontFamily: 'var(--font-display)', fontWeight: 800,
-                      fontSize: 10, letterSpacing: '0.12em',
-                      textTransform: 'uppercase', color: 'var(--ink-400)',
-                      borderBottom: '1px solid var(--ink-700)',
-                    }}>Position</th>
                     <th style={{
                       padding: '16px', textAlign: 'right',
                       fontFamily: 'var(--font-display)', fontWeight: 800,
@@ -220,13 +213,6 @@ export default async function TeamPage({ params }: Props) {
                           )}
                           {p.name}
                         </span>
-                      </td>
-                      <td className="hidden sm:table-cell" style={{
-                        padding: '16px',
-                        fontFamily: 'var(--font-sans)', fontSize: 13,
-                        color: 'var(--ink-400)', textTransform: 'capitalize',
-                      }}>
-                        {p.position ?? '—'}
                       </td>
                       <td style={{
                         padding: '16px', textAlign: 'right',
