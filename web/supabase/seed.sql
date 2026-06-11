@@ -16,6 +16,13 @@ declare
   m3       uuid := gen_random_uuid();
   m4       uuid := gen_random_uuid();
   m5       uuid := gen_random_uuid();
+  -- scorer / card player ids (resolved after players insert)
+  pa_ravi  uuid;
+  pb_arif  uuid;
+  pb_chong uuid;
+  pc_idris uuid;
+  pc_yap   uuid;
+  pd_faris uuid;
 begin
 
   -- ── Tournament ──────────────────────────────────────────────
@@ -75,6 +82,31 @@ begin
   insert into public.matches (id, tournament_id, home_team_id, away_team_id, match_time, status) values
     (m4, t_id, team_d, team_a, now() + interval '2 hours',  'scheduled'),
     (m5, t_id, team_a, team_c, now() + interval '1 day',    'scheduled');
+
+  -- ── Goals (scorers) — totals match each match's score ────────
+  select id into pa_ravi  from public.players where team_id = team_a and name = 'Ravi Kumar';
+  select id into pb_arif  from public.players where team_id = team_b and name = 'Arif Danial';
+  select id into pb_chong from public.players where team_id = team_b and name = 'Chong Kai Ming';
+  select id into pc_idris from public.players where team_id = team_c and name = 'Idris Azman';
+  select id into pc_yap   from public.players where team_id = team_c and name = 'Yap Wen Hao';
+  select id into pd_faris from public.players where team_id = team_d and name = 'Faris Luqman';
+
+  insert into public.goals (match_id, team_id, player_id) values
+    -- m1 live: FC Engineering 2 - 1 Business United
+    (m1, team_a, pa_ravi), (m1, team_a, pa_ravi), (m1, team_b, pb_arif),
+    -- m2 finished: Science City 3 - 0 Arts & Humanity
+    (m2, team_c, pc_idris), (m2, team_c, pc_idris), (m2, team_c, pc_yap),
+    -- m3 finished: Business United 1 - 1 Science City
+    (m3, team_b, pb_arif), (m3, team_c, pc_idris);
+  -- Top scorers: Idris Azman 3, Ravi Kumar 2, Arif Danial 2, Yap Wen Hao 1
+
+  -- ── Cards (live + finished matches) ──────────────────────────
+  insert into public.cards (match_id, team_id, player_id, card_type) values
+    (m1, team_b, pb_chong, 'yellow'),
+    (m2, team_d, pd_faris, 'red'),
+    (m2, team_c, pc_yap,   'yellow'),
+    (m3, team_b, pb_arif,  'yellow');
+  -- Team cards: Business United 2Y, Science City 1Y, Arts & Humanity 1R
 
   -- ── Print the tournament URL ─────────────────────────────────
   raise notice '✅ Seed complete!';
