@@ -61,7 +61,7 @@
 /* ========== TOP NAV ========== */
 .topnav {
   position: sticky; top: 0; z-index: 80;
-  background: rgba(14,26,18,0.78);
+  background: rgba(6,12,28,0.78);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--ink-700);
@@ -73,7 +73,7 @@
   max-width: 1400px; margin: 0 auto;
 }
 .topnav-brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.topnav-brand img { width: 32px; height: 32px; }
+.topnav-brand img { width: clamp(42px, 5vw, 52px); height: clamp(42px, 5vw, 52px); }
 .topnav-brand .name {
   font-family: var(--font-display);
   font-weight: 900;
@@ -105,7 +105,7 @@
 
 .share-overlay {
   position: fixed; inset: 0; z-index: 90;
-  background: rgba(4, 10, 6, 0.65);
+  background: rgba(2, 5, 14, 0.65);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   animation: shareFade var(--dur-base) var(--ease-out);
@@ -189,7 +189,7 @@
 /* ========== STICKY TAB STRIP ========== */
 .tabstrip-wrap {
   position: sticky; top: 64px; z-index: 70;
-  background: rgba(14,26,18,0.92);
+  background: rgba(6,12,28,0.92);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--ink-700);
@@ -227,7 +227,7 @@
   background: var(--brand-lime);
   border-radius: 999px 999px 0 0;
   transition: transform 420ms var(--ease-out), width 420ms var(--ease-out);
-  box-shadow: 0 0 12px rgba(163,230,53,0.6);
+  box-shadow: 0 0 12px rgba(30,120,240,0.6);
   pointer-events: none;
 }
 
@@ -242,8 +242,8 @@
   content: "";
   position: absolute; inset: 0;
   background:
-    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(163,230,53,0.18), transparent 65%),
-    radial-gradient(ellipse 50% 40% at 12% 100%, rgba(163,230,53,0.07), transparent 60%);
+    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(30,120,240,0.18), transparent 65%),
+    radial-gradient(ellipse 50% 40% at 12% 100%, rgba(30,120,240,0.07), transparent 60%);
   pointer-events: none;
 }
 .hero::after {
@@ -251,8 +251,8 @@
   position: absolute; inset: 0;
   background-image: repeating-linear-gradient(
     90deg,
-    rgba(163,230,53,0.025) 0,
-    rgba(163,230,53,0.025) 60px,
+    rgba(30,120,240,0.025) 0,
+    rgba(30,120,240,0.025) 60px,
     transparent 60px,
     transparent 120px
   );
@@ -281,8 +281,8 @@
   color: #FCA5A5;
 }
 .live-pill.lime {
-  background: rgba(163,230,53,0.12);
-  border-color: rgba(163,230,53,0.4);
+  background: rgba(30,120,240,0.12);
+  border-color: rgba(30,120,240,0.4);
   color: var(--brand-lime);
 }
 .live-pill.dim {
@@ -384,7 +384,7 @@
   display: flex; align-items: baseline;
   gap: clamp(10px, 2vw, 32px);
   color: var(--ink-50);
-  text-shadow: 0 0 60px rgba(163,230,53,0.15);
+  text-shadow: 0 0 60px rgba(30,120,240,0.15);
 }
 .score-display .sep {
   color: var(--ink-600);
@@ -728,7 +728,7 @@
   color: var(--ink-400);
   display: flex; align-items: center; gap: 4px;
 }
-.standings-table tr.qualify { background: linear-gradient(90deg, rgba(163,230,53,0.08), transparent 60%); }
+.standings-table tr.qualify { background: linear-gradient(90deg, rgba(30,120,240,0.08), transparent 60%); }
 .standings-table tr.qualify .rank { color: var(--brand-lime); }
 .standings-table .team-cell {
   display: flex; align-items: center; gap: 10px;
@@ -774,7 +774,7 @@
 /* ========== BRACKET ========== */
 .bracket-shell {
   background:
-    radial-gradient(ellipse 80% 80% at 50% 50%, rgba(163,230,53,0.06), transparent 70%),
+    radial-gradient(ellipse 80% 80% at 50% 50%, rgba(30,120,240,0.06), transparent 70%),
     var(--ink-800);
   border: 1px solid var(--ink-700);
   border-radius: var(--radius-xl);
@@ -864,7 +864,7 @@
   font-variant-numeric: tabular-nums;
   color: var(--ink-50);
 }
-.bracket-team-row.winner { background: rgba(163,230,53,0.06); }
+.bracket-team-row.winner { background: rgba(30,120,240,0.06); }
 .bracket-team-row.winner .sc { color: var(--brand-lime); }
 .bracket-team-row.loser .nm,
 .bracket-team-row.loser .sc { color: var(--ink-400); }
@@ -876,7 +876,7 @@
   text-align: center;
   padding: 24px;
   background:
-    radial-gradient(circle at center, rgba(163,230,53,0.18), transparent 60%),
+    radial-gradient(circle at center, rgba(30,120,240,0.18), transparent 60%),
     var(--ink-900);
   border: 1.5px solid var(--brand-lime);
   border-radius: var(--radius-md);
@@ -1046,7 +1046,7 @@
   font-size: 13px;
 }
 .footer-inner .brandline { display: flex; align-items: center; gap: 10px; }
-.footer-inner .brandline img { width: 24px; height: 24px; }
+.footer-inner .brandline img { width: clamp(42px, 5vw, 52px); height: clamp(42px, 5vw, 52px); }
 .footer-inner .brandline .name {
   color: var(--ink-50);
   font-family: var(--font-display);
@@ -1234,7 +1234,7 @@
 
 .mmodal-overlay {
   position: fixed; inset: 0; z-index: 90;
-  background: rgba(4, 10, 6, 0.65);
+  background: rgba(2, 5, 14, 0.65);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   animation: shareFade var(--dur-base) var(--ease-out);
@@ -1355,7 +1355,7 @@
 }
 
 .trophy-cell.won {
-  box-shadow: 0 0 48px rgba(163,230,53,0.18), inset 0 0 32px rgba(163,230,53,0.06);
+  box-shadow: 0 0 48px rgba(30,120,240,0.18), inset 0 0 32px rgba(30,120,240,0.06);
 }
 .trophy-cell.won .crest {
   width: 38px; height: 38px; border-radius: 999px; flex-shrink: 0;
@@ -1382,8 +1382,8 @@
    ============================================================ */
 .hero.champion::before {
   background:
-    radial-gradient(ellipse 70% 70% at 50% 0%, rgba(163,230,53,0.30), transparent 65%),
-    radial-gradient(ellipse 50% 40% at 12% 100%, rgba(163,230,53,0.10), transparent 60%);
+    radial-gradient(ellipse 70% 70% at 50% 0%, rgba(30,120,240,0.30), transparent 65%),
+    radial-gradient(ellipse 50% 40% at 12% 100%, rgba(30,120,240,0.10), transparent 60%);
 }
 .champion-hero {
   display: flex; flex-direction: column; align-items: center;
@@ -1392,7 +1392,7 @@
 }
 .champion-hero > svg {
   width: 64px; height: 64px;
-  filter: drop-shadow(0 0 24px rgba(163,230,53,0.45));
+  filter: drop-shadow(0 0 24px rgba(30,120,240,0.45));
 }
 .champion-eyebrow {
   margin-top: 14px;
@@ -1425,7 +1425,7 @@
   letter-spacing: -0.02em;
   text-transform: uppercase;
   color: var(--ink-50);
-  text-shadow: 0 0 60px rgba(163,230,53,0.25);
+  text-shadow: 0 0 60px rgba(30,120,240,0.25);
 }
 .champion-note {
   margin: 16px 0 0;

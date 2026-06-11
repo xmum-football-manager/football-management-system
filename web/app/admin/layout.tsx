@@ -54,12 +54,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <span
               className="grid h-[30px] w-[30px] place-items-center rounded-lg"
               style={{
-                background: theme === 'dark' ? 'var(--admin-lime)' : '#0E1A12',
-                color: theme === 'dark' ? '#0E1A12' : 'var(--admin-lime)',
+                background: theme === 'dark' ? 'var(--admin-lime)' : '#060C1C',
+                color: theme === 'dark' ? '#060C1C' : 'var(--admin-lime)',
                 boxShadow:
                   theme === 'dark'
                     ? '0 0 0 1px rgba(163,230,53,0.3), 0 6px 16px -6px rgba(163,230,53,0.45)'
-                    : '0 6px 16px -8px #0E1A12',
+                    : '0 6px 16px -8px #060C1C',
               }}
             >
               <Trophy className="h-4 w-4" />

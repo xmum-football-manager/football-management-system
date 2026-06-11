@@ -56,7 +56,7 @@
 /* ========== TOP NAV ========== */
 .topnav {
   position: sticky; top: 0; z-index: 80;
-  background: rgba(14,26,18,0.78);
+  background: rgba(6,12,28,0.78);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--ink-700);
@@ -68,7 +68,7 @@
   max-width: 1400px; margin: 0 auto;
 }
 .topnav-brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.topnav-brand img { width: 32px; height: 32px; }
+.topnav-brand img { width: clamp(42px, 5vw, 52px); height: clamp(42px, 5vw, 52px); }
 .topnav-brand .name {
   font-family: var(--font-display);
   font-weight: 900;
@@ -103,7 +103,7 @@
   content: "";
   position: absolute; inset: 0;
   background:
-    radial-gradient(ellipse 70% 70% at 80% -20%, rgba(163,230,53,0.20), transparent 60%),
+    radial-gradient(ellipse 70% 70% at 80% -20%, rgba(30,120,240,0.20), transparent 60%),
     radial-gradient(ellipse 60% 50% at 0% 110%, rgba(56,189,248,0.10), transparent 60%);
   pointer-events: none;
 }
@@ -112,8 +112,8 @@
   position: absolute; inset: 0;
   background-image: repeating-linear-gradient(
     90deg,
-    rgba(163,230,53,0.022) 0,
-    rgba(163,230,53,0.022) 60px,
+    rgba(30,120,240,0.022) 0,
+    rgba(30,120,240,0.022) 60px,
     transparent 60px, transparent 120px
   );
   pointer-events: none;
@@ -476,7 +476,7 @@
 .tcard-banner::after {
   content: "";
   position: absolute; inset: 0;
-  background: linear-gradient(180deg, rgba(14,26,18,0.18) 0%, rgba(14,26,18,0) 35%, var(--ink-800) 100%);
+  background: linear-gradient(180deg, rgba(6,12,28,0.18) 0%, rgba(6,12,28,0) 35%, var(--ink-800) 100%);
   pointer-events: none;
 }
 
@@ -500,7 +500,7 @@
 .tcard .badge.live { background: rgba(69,10,10,0.6); border: 1px solid rgba(220,38,38,0.5); color: #FCA5A5; }
 .tcard .badge.live .dot { width: 6px; height: 6px; border-radius: 999px; background: var(--red-card); animation: pitchPulse 1.6s infinite; }
 .tcard .badge.active { background: rgba(12,40,52,0.6); border: 1px solid rgba(56,189,248,0.45); color: #7DD3FC; }
-.tcard .badge.upcoming { background: rgba(36,48,24,0.6); border: 1px solid rgba(163,230,53,0.4); color: var(--brand-lime); }
+.tcard .badge.upcoming { background: rgba(3,24,72,0.6); border: 1px solid rgba(30,120,240,0.4); color: var(--brand-lime); }
 .tcard .badge.finished { background: rgba(0,0,0,0.45); border: 1px solid var(--ink-600); color: var(--ink-200); }
 
 .tcard .sport-tag {
@@ -625,8 +625,8 @@
 /* Upcoming countdown / next kickoff strip */
 .tcard .upcoming-strip {
   margin-top: 20px;
-  background: rgba(163,230,53,0.06);
-  border: 1px solid rgba(163,230,53,0.22);
+  background: rgba(30,120,240,0.06);
+  border: 1px solid rgba(30,120,240,0.22);
   border-radius: var(--radius-md);
   padding: 14px 16px;
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -689,7 +689,7 @@
 .home-cta-band::after {
   content: "";
   position: absolute; inset: 0;
-  background-image: repeating-linear-gradient(90deg, rgba(14,26,18,0.05) 0, rgba(14,26,18,0.05) 60px, transparent 60px, transparent 120px);
+  background-image: repeating-linear-gradient(90deg, rgba(6,12,28,0.05) 0, rgba(6,12,28,0.05) 60px, transparent 60px, transparent 120px);
   pointer-events: none;
 }
 .home-cta-inner {
@@ -720,7 +720,7 @@
   font-size: 13px;
 }
 .footer-inner .brandline { display: flex; align-items: center; gap: 10px; }
-.footer-inner .brandline img { width: 24px; height: 24px; }
+.footer-inner .brandline img { width: clamp(42px, 5vw, 52px); height: clamp(42px, 5vw, 52px); }
 .footer-inner .brandline .name {
   color: var(--ink-50);
   font-family: var(--font-display);
