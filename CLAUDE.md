@@ -1,3 +1,7 @@
+## Superpowers
+
+Do not invoke superpowers skills automatically. Only invoke a skill if the user explicitly requests it (e.g. types `/skill-name`).
+
 ## Karpathy Guidelines
 
 Behavioral guidelines to reduce common LLM coding mistakes.
