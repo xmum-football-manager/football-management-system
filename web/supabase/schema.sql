@@ -99,12 +99,13 @@ create table if not exists public.admin_audit_log (
   created_at timestamptz not null default now()
 );
 
--- Goals (per-scorer record, kept in sync with match scores)
+-- Goals (per-scorer record, kept in sync with match scores).
+-- player_id is nullable: a goal can be logged without naming the scorer.
 create table if not exists public.goals (
   id uuid primary key default gen_random_uuid(),
   match_id uuid not null references public.matches(id) on delete cascade,
   team_id uuid not null references public.teams(id),
-  player_id uuid not null references public.players(id),
+  player_id uuid references public.players(id),
   created_at timestamptz not null default now()
 );
 
@@ -251,20 +252,20 @@ returns boolean language sql security definer stable as $$
   ) or public.is_organizer((select tournament_id from public.matches where id = m_id));
 $$;
 
--- record_goal: insert goals row + increment match score atomically
-create or replace function public.record_goal(p_match_id uuid, p_player_id uuid)
+-- record_goal: insert goals row + increment match score atomically.
+-- Takes the scoring team explicitly; p_player_id is optional (null = unspecified).
+create or replace function public.record_goal(
+  p_match_id uuid,
+  p_team_id uuid,
+  p_player_id uuid default null
+)
 returns table(home_score integer, away_score integer)
 language plpgsql security definer as $$
 declare
-  v_team_id uuid;
   v_home_team_id uuid;
   v_away_team_id uuid;
+  v_player_team_id uuid;
 begin
-  select team_id into v_team_id from public.players where id = p_player_id;
-  if v_team_id is null then
-    raise exception 'Player not found';
-  end if;
-
   select home_team_id, away_team_id
     into v_home_team_id, v_away_team_id
     from public.matches where id = p_match_id;
@@ -272,15 +273,27 @@ begin
     raise exception 'Match not found';
   end if;
 
-  insert into public.goals (match_id, team_id, player_id)
-  values (p_match_id, v_team_id, p_player_id);
+  if p_team_id <> v_home_team_id and p_team_id <> v_away_team_id then
+    raise exception 'Team is not participating in this match';
+  end if;
 
-  if v_team_id = v_home_team_id then
+  if p_player_id is not null then
+    select team_id into v_player_team_id from public.players where id = p_player_id;
+    if v_player_team_id is null then
+      raise exception 'Player not found';
+    end if;
+    if v_player_team_id <> p_team_id then
+      raise exception 'Player is not on the scoring team';
+    end if;
+  end if;
+
+  insert into public.goals (match_id, team_id, player_id)
+  values (p_match_id, p_team_id, p_player_id);
+
+  if p_team_id = v_home_team_id then
     update public.matches set home_score = home_score + 1 where id = p_match_id;
-  elsif v_team_id = v_away_team_id then
-    update public.matches set away_score = away_score + 1 where id = p_match_id;
   else
-    raise exception 'Player team is not participating in this match';
+    update public.matches set away_score = away_score + 1 where id = p_match_id;
   end if;
 
   return query

@@ -86,12 +86,16 @@ export async function updateScoreAction(
 
 export async function adminRecordGoalAction(
   matchId: string,
+  teamId: string,
   playerId: string,
 ): Promise<{ home_score: number; away_score: number } | { error: string }> {
   try {
     const { match } = await ensureOrganizerOfMatch(matchId)
     if (match.status !== 'live') return { error: 'Match is not live.' }
-    const result = await recordGoal(matchId, playerId)
+    if (teamId !== match.home_team_id && teamId !== match.away_team_id) {
+      return { error: 'Team is not in this match.' }
+    }
+    const result = await recordGoal(matchId, teamId, playerId)
     if ('error' in result) return result
     revalidatePath(`/admin/tournaments/${match.tournament_id}`)
     revalidatePath(`/t/${match.tournament_id}`)

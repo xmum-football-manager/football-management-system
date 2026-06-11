@@ -20,12 +20,16 @@ async function ensureScorekeeperForMatch(matchId: string) {
 
 export async function recordGoalAction(
   matchId: string,
-  playerId: string,
+  teamId: string,
+  playerId: string | null,
 ): Promise<{ home_score: number; away_score: number } | { error: string }> {
   try {
     const { match } = await ensureScorekeeperForMatch(matchId)
     if (match.status !== 'live') return { error: 'Match is not live.' }
-    const result = await recordGoal(matchId, playerId)
+    if (teamId !== match.home_team_id && teamId !== match.away_team_id) {
+      return { error: 'Team is not in this match.' }
+    }
+    const result = await recordGoal(matchId, teamId, playerId)
     if ('error' in result) return result
     revalidatePath('/score')
     revalidatePath(`/t/${match.tournament_id}`)
