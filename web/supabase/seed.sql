@@ -26,16 +26,17 @@ declare
 begin
 
   -- ── Tournament ──────────────────────────────────────────────
-  insert into public.tournaments (id, name, description, location, start_date, end_date, format, status)
+  insert into public.tournaments (id, name, description, location, start_date, end_date, format, status, minutes_per_half)
   values (
     t_id,
     'XMU Cup 2025',
     'Annual inter-faculty football tournament at Xiamen University Malaysia',
     'XMU Sports Complex · Sepang',
-    '2025-05-01',
-    '2025-05-31',
+    (now() - interval '3 days')::date,
+    (now() + interval '3 days')::date,
     'round_robin',   -- change to 'round_robin_knockout' to see Bracket tab
-    'active'
+    'active',
+    45
   );
 
   -- ── Teams ────────────────────────────────────────────────────
