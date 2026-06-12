@@ -17,6 +17,7 @@ import { listTeams } from '@/lib/db/teams'
 import { getTournament, updateKnockoutQualifiers } from '@/lib/db/tournaments'
 import { generateRoundRobin } from '@/lib/round-robin'
 import { groupStageComplete, expectedBracketSize, validatePairingEdit } from '@/lib/qualifiers'
+import { canRegenerateFixtures } from '@/lib/lock-rules'
 
 async function ensureOrganizer(tournamentId: string) {
   const user = await requireUser()
@@ -517,7 +518,17 @@ export async function generateGroupFixturesAction(
     ])
     if (!tournament) return { error: 'Tournament not found.' }
     if (!tournament.num_groups) return { error: 'No groups configured.' }
-    if (existing.length > 0) return { error: 'Fixtures already exist for this tournament.' }
+    const existingGroup = existing.filter((m) => m.phase === 'group')
+    if (existingGroup.length > 0) {
+      if (!canRegenerateFixtures(existingGroup)) {
+        return { error: 'A match has already gone live — fixtures can no longer be regenerated.' }
+      }
+      // All existing group matches are still scheduled — delete them before regenerating.
+      for (const m of existingGroup) {
+        const del = await deleteMatch(m.id)
+        if (del.error) return { error: del.error }
+      }
+    }
 
     const validLabels = Array.from(
       { length: tournament.num_groups },

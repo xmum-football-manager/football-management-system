@@ -70,3 +70,10 @@ export function canEditFormat(
 ): boolean {
   return tournamentStatus === 'setup' && firstMatchScheduledAt === null
 }
+
+/** Returns true if group fixtures can be regenerated (deleted + recreated).
+ *  Safe when there are no existing matches OR every existing match is still
+ *  scheduled. Returns false if any match is live or finished. */
+export function canRegenerateFixtures(existingMatches: Array<{ status: string }>): boolean {
+  return existingMatches.every((m) => m.status === 'scheduled')
+}

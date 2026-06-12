@@ -11,6 +11,16 @@ import {
   SelectTrigger,
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { AlertCircle, CheckCircle2, GripVertical, X } from 'lucide-react'
 import { setTeamGroupAction } from '../teams/actions'
 
@@ -26,12 +36,18 @@ interface Props {
   numGroups: number
   teamsPerGroup: number | null
   canEdit: boolean
+  /** True when group fixtures have already been generated (all still scheduled).
+   *  When true, reassigning a team's group will show a warning that fixtures
+   *  must be regenerated (deleting all current fixtures). */
+  groupFixturesExist?: boolean
 }
 
-export function RDGroupsPanel({ tournamentId, initialTeams, numGroups, teamsPerGroup, canEdit }: Props) {
+export function RDGroupsPanel({ tournamentId, initialTeams, numGroups, teamsPerGroup, canEdit, groupFixturesExist }: Props) {
   const [pending, startTransition] = useTransition()
   const [teams, setTeams] = useState<TeamData[]>(initialTeams)
   const [hoverTarget, setHoverTarget] = useState<string | null>(null)
+  // Pending reassignment awaiting confirmation (when fixtures exist)
+  const [pendingAssign, setPendingAssign] = useState<{ teamId: string; label: string | null } | null>(null)
 
   const groupLabels = Array.from({ length: numGroups }, (_, i) => String.fromCharCode(65 + i))
 
@@ -51,6 +67,14 @@ export function RDGroupsPanel({ tournamentId, initialTeams, numGroups, teamsPerG
     : unassigned.length === 0
 
   function assign(teamId: string, label: string | null) {
+    if (groupFixturesExist) {
+      setPendingAssign({ teamId, label })
+      return
+    }
+    doAssign(teamId, label)
+  }
+
+  function doAssign(teamId: string, label: string | null) {
     const prev = teams
     setTeams(t => t.map(t => t.id === teamId ? { ...t, group_label: label } : t))
     startTransition(async () => {
@@ -234,6 +258,32 @@ export function RDGroupsPanel({ tournamentId, initialTeams, numGroups, teamsPerG
           )
         })}
       </div>
+
+      {/* Confirm dialog — shown when reassigning a team while fixtures already exist */}
+      <AlertDialog open={pendingAssign !== null} onOpenChange={(open) => { if (!open) setPendingAssign(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reassign team?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Group fixtures have already been generated. Reassigning this team will
+              require regenerating all group fixtures — this will delete every fixture
+              and its scheduled time. You will need to regenerate and reschedule from
+              scratch.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingAssign(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingAssign) doAssign(pendingAssign.teamId, pendingAssign.label)
+                setPendingAssign(null)
+              }}
+            >
+              Reassign anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -26,7 +26,7 @@ Status: TODO / DOING / REVIEW / DONE
 | P0-3 | status check on `addPlayerAction` | DONE | web/app/admin/tournaments/[id]/teams/actions.ts |
 | P1-5 | block qualifiers until all group matches finished | DONE | web/app/admin/tournaments/[id]/fixtures/actions.ts (saveQualifiersAction); helper groupStageComplete in qualifiers.ts |
 | P1-4 | seed-time bracket-size guard | DONE | fixtures/actions.ts (seedKnockoutBracketAction); helper expectedBracketSize in qualifiers.ts |
-| P1-6 | warn+wipe fixtures on pre-live group reassign | TODO | teams/actions.ts (setTeamGroupAction), fixtures generate; UI confirm dialog |
+| P1-6 | warn+wipe fixtures on pre-live group reassign | DONE | lock-rules.ts (canRegenerateFixtures), fixtures/actions.ts (generateGroupFixturesAction replaces group-phase-only fixtures), rd-groups/RDGroupsPanel.tsx + page.tsx + GroupsStepper.tsx (confirm dialog) |
 | P2-9b | editable Qualifiers UI using `detectBoundaryTies` | DONE | qualifiers.ts (_groupBoundary + validateQualifierSelection), QualifiersStep.tsx (toggle UI). Nit: confirm+edit buttons both show when !alreadySaved (cosmetic, left as-is) |
 | P2-10 | clear winner on KO revert + force re-pick | DONE | match-lifecycle.ts (shouldClearKnockoutWinner), db/matches.ts (clearMatchWinner), admin actions.ts (transitionMatchAction) |
 | P2-11 | edit first-round pairing (no delete) | DONE | qualifiers.ts (validatePairingEdit + occupiedByOthers dup-guard), fixtures/actions.ts (updateFirstRoundPairingAction), knockout/KnockoutStepper.tsx (EditPairingDialog) |
