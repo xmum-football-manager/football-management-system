@@ -80,6 +80,27 @@ export interface BoundaryTie {
   contestedTeamIds: string[]
 }
 
+/** Internal: compute guaranteed qualifiers, contested teams, and remaining slots for one group. */
+function _groupBoundary(
+  group: TeamStanding[],
+  advancePerGroup: number,
+): { guaranteed: TeamStanding[]; contested: TeamStanding[]; slots: number } {
+  const sorted = [...group].sort(
+    (a, b) => (b.points !== a.points ? b.points - a.points : b.gd - a.gd),
+  )
+  const cutoff = sorted[advancePerGroup - 1]
+  if (!cutoff) return { guaranteed: [], contested: [], slots: 0 }
+
+  const guaranteed = sorted.filter(
+    (s) => s.points > cutoff.points || (s.points === cutoff.points && s.gd > cutoff.gd),
+  )
+  const contested = sorted.filter(
+    (s) => s.points === cutoff.points && s.gd === cutoff.gd,
+  )
+  const slots = advancePerGroup - guaranteed.length
+  return { guaranteed, contested, slots }
+}
+
 /**
  * Finds groups where the qualification cutoff falls inside a set of teams that
  * are level on points AND goal difference — the case otherwise decided silently
@@ -93,27 +114,57 @@ export function detectBoundaryTies(
   const ties: BoundaryTie[] = []
 
   for (const label of labels) {
-    const group = standings
-      .filter((s) => s.groupLabel === label)
-      .sort((a, b) => (b.points !== a.points ? b.points - a.points : b.gd - a.gd))
-
-    const cutoff = group[advancePerGroup - 1]
-    if (!cutoff) continue
-
-    const strictlyAbove = group.filter(
-      (s) => s.points > cutoff.points || (s.points === cutoff.points && s.gd > cutoff.gd),
-    )
-    const contested = group.filter(
-      (s) => s.points === cutoff.points && s.gd === cutoff.gd,
-    )
-    const slots = advancePerGroup - strictlyAbove.length
-
+    const group = standings.filter((s) => s.groupLabel === label)
+    const { guaranteed, contested, slots } = _groupBoundary(group, advancePerGroup)
     if (contested.length > slots) {
       ties.push({ groupLabel: label, slots, contestedTeamIds: contested.map((s) => s.teamId) })
     }
   }
 
   return ties
+}
+
+/**
+ * Validates an admin's qualifier selection against per-group rules:
+ *  a. Each group must have EXACTLY advancePerGroup selected teams.
+ *  b. Every "guaranteed" team (strictly above cutoff) must be selected.
+ *  c. No team strictly below the contested tie-level may be selected.
+ */
+export function validateQualifierSelection(
+  standings: TeamStanding[],
+  selectedIds: string[],
+  advancePerGroup: number,
+  numGroups: number,
+): { ok: true } | { error: string } {
+  const labels = Array.from({ length: numGroups }, (_, i) => String.fromCharCode(65 + i))
+  const selected = new Set(selectedIds)
+
+  for (const label of labels) {
+    const group = standings.filter((s) => s.groupLabel === label)
+    const groupSelected = group.filter((s) => selected.has(s.teamId))
+
+    if (groupSelected.length !== advancePerGroup) {
+      return { error: `Group ${label} must have exactly ${advancePerGroup} qualifier(s) selected (currently ${groupSelected.length}).` }
+    }
+
+    const { guaranteed, contested } = _groupBoundary(group, advancePerGroup)
+    const guaranteedIds = new Set(guaranteed.map((s) => s.teamId))
+    const contestedIds = new Set(contested.map((s) => s.teamId))
+
+    for (const s of guaranteed) {
+      if (!selected.has(s.teamId)) {
+        return { error: `${s.teamName} (Group ${label}) is a guaranteed qualifier and must be selected.` }
+      }
+    }
+
+    for (const s of groupSelected) {
+      if (!guaranteedIds.has(s.teamId) && !contestedIds.has(s.teamId)) {
+        return { error: `${s.teamName} (Group ${label}) is eliminated and cannot be selected.` }
+      }
+    }
+  }
+
+  return { ok: true }
 }
 
 /**

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeGroupStandings, detectBoundaryTies, groupStageComplete, expectedBracketSize, validatePairingEdit } from '@/lib/qualifiers'
+import { computeGroupStandings, detectBoundaryTies, groupStageComplete, expectedBracketSize, validatePairingEdit, validateQualifierSelection } from '@/lib/qualifiers'
 import type { TeamStanding } from '@/lib/qualifiers'
 
 const team = (id: string, name: string, group_label: string) => ({ id, name, group_label })
@@ -265,6 +265,65 @@ describe('validatePairingEdit', () => {
   it('returns error when awayId is already in another first-round match', () => {
     const r = validatePairingEdit(validMatch, 't1', 't4', qualifierIds, ['t3', 't4'])
     expect(r).toEqual({ error: 'That team is already in another first-round match.' })
+  })
+})
+
+describe('validateQualifierSelection', () => {
+  // Group A: a=6pts/+2(clear), b=1pt/-1, c=1pt/-1 (b+c tied for 1 slot)
+  // Group B: e=6pts/+3(clear), f=3pts/0(clear top-2), g=0pts/-3(eliminated)
+  const standings: TeamStanding[] = [
+    { teamId: 'a', teamName: 'Alpha', groupLabel: 'A', points: 6, gd: 2, qualified: true },
+    { teamId: 'b', teamName: 'Beta',  groupLabel: 'A', points: 1, gd: -1, qualified: true },
+    { teamId: 'c', teamName: 'Gamma', groupLabel: 'A', points: 1, gd: -1, qualified: false },
+    { teamId: 'e', teamName: 'Eps',   groupLabel: 'B', points: 6, gd: 3, qualified: true },
+    { teamId: 'f', teamName: 'Phi',   groupLabel: 'B', points: 3, gd: 0, qualified: true },
+    { teamId: 'g', teamName: 'Gam',   groupLabel: 'B', points: 0, gd: -3, qualified: false },
+  ]
+  // advancePerGroup=2, numGroups=2 → total 4 qualifiers
+
+  it('accepts the auto-qualified set as-is', () => {
+    const selected = ['a', 'b', 'e', 'f']
+    expect(validateQualifierSelection(standings, selected, 2, 2)).toEqual({ ok: true })
+  })
+
+  it('accepts swapping one contested team for the other', () => {
+    // swap b→c in group A (both are contested), e+f stay in group B
+    const selected = ['a', 'c', 'e', 'f']
+    expect(validateQualifierSelection(standings, selected, 2, 2)).toEqual({ ok: true })
+  })
+
+  it('returns error when a group has too few selected', () => {
+    const selected = ['a', 'e', 'f'] // group A only has 1 selected (need 2)
+    const result = validateQualifierSelection(standings, selected, 2, 2)
+    expect('error' in result).toBe(true)
+    expect((result as { error: string }).error).toMatch(/Group A/)
+  })
+
+  it('returns error when a group has too many selected', () => {
+    const selected = ['a', 'b', 'c', 'e', 'f'] // group A has 3 selected (need 2)
+    const result = validateQualifierSelection(standings, selected, 2, 2)
+    expect('error' in result).toBe(true)
+  })
+
+  it('returns error when a guaranteed qualifier is dropped', () => {
+    // Drop guaranteed 'a' and put 'c' (contested) in, giving a=dropped, b+c selected
+    const selected = ['b', 'c', 'e', 'f']
+    const result = validateQualifierSelection(standings, selected, 2, 2)
+    expect('error' in result).toBe(true)
+    expect((result as { error: string }).error).toMatch(/Alpha/)
+  })
+
+  it('returns error when a clearly-eliminated team is selected', () => {
+    // Select 'g' instead of 'f' in group B (g is clearly eliminated)
+    const selected = ['a', 'b', 'e', 'g']
+    const result = validateQualifierSelection(standings, selected, 2, 2)
+    expect('error' in result).toBe(true)
+  })
+
+  it('validates ok when all groups have correct selections', () => {
+    // Multi-group: both groups pick their correct 2
+    const selected = ['a', 'c', 'e', 'f'] // c replaces b (both contested in A)
+    expect(validateQualifierSelection(standings, selected, 2, 2)).toEqual({ ok: true })
   })
 })
 
