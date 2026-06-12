@@ -33,11 +33,13 @@ export async function getMatch(id: string): Promise<Match | null> {
 
 export interface CreateMatchInput {
   tournament_id: string
-  home_team_id: string
-  away_team_id: string
+  home_team_id?: string | null
+  away_team_id?: string | null
   match_time: string | null
   phase?: string
   knockout_round?: string
+  home_source_match_id?: string | null
+  away_source_match_id?: string | null
 }
 
 export async function createMatchAdmin(input: CreateMatchInput): Promise<{ id: string } | { error: string }> {
@@ -46,11 +48,13 @@ export async function createMatchAdmin(input: CreateMatchInput): Promise<{ id: s
     .from('matches')
     .insert({
       tournament_id: input.tournament_id,
-      home_team_id: input.home_team_id,
-      away_team_id: input.away_team_id,
+      home_team_id: input.home_team_id ?? null,
+      away_team_id: input.away_team_id ?? null,
       match_time: input.match_time,
       ...(input.phase != null && { phase: input.phase }),
       ...(input.knockout_round != null && { knockout_round: input.knockout_round }),
+      ...(input.home_source_match_id != null && { home_source_match_id: input.home_source_match_id }),
+      ...(input.away_source_match_id != null && { away_source_match_id: input.away_source_match_id }),
     })
     .select('id')
     .single()
@@ -64,11 +68,13 @@ export async function createMatch(input: CreateMatchInput): Promise<{ id: string
     .from('matches')
     .insert({
       tournament_id: input.tournament_id,
-      home_team_id: input.home_team_id,
-      away_team_id: input.away_team_id,
+      home_team_id: input.home_team_id ?? null,
+      away_team_id: input.away_team_id ?? null,
       match_time: input.match_time,
       ...(input.phase != null && { phase: input.phase }),
       ...(input.knockout_round != null && { knockout_round: input.knockout_round }),
+      ...(input.home_source_match_id != null && { home_source_match_id: input.home_source_match_id }),
+      ...(input.away_source_match_id != null && { away_source_match_id: input.away_source_match_id }),
     })
     .select('id')
     .single()
@@ -125,14 +131,28 @@ export async function updateMatchTime(id: string, match_time: string | null): Pr
 
 export async function updateMatchTeams(
   id: string,
-  home_team_id: string,
-  away_team_id: string,
+  home_team_id: string | null,
+  away_team_id: string | null,
 ): Promise<{ error?: string }> {
   const supabase = await createClient()
   const { error } = await supabase
     .from('matches')
     .update({ home_team_id, away_team_id })
     .eq('id', id)
+  if (error) return { error: error.message }
+  return {}
+}
+
+export async function updateMatchWinner(id: string, winner_team_id: string): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { error } = await supabase.from('matches').update({ winner_team_id }).eq('id', id)
+  if (error) return { error: error.message }
+  return {}
+}
+
+export async function clearMatchWinner(id: string): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { error } = await supabase.from('matches').update({ winner_team_id: null }).eq('id', id)
   if (error) return { error: error.message }
   return {}
 }

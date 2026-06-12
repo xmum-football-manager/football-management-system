@@ -1,3 +1,31 @@
+/**
+ * Returns the required number of qualifiers for the given knockout_start_round
+ * value. Returns null for null or unknown values (legacy tournaments — no
+ * constraint to enforce).
+ */
+export function expectedBracketSize(round: string | null): number | null {
+  switch (round) {
+    case 'final':  return 2
+    case 'semi':   return 4
+    case 'top_8':  return 8
+    case 'top_16': return 16
+    case 'top_32': return 32
+    default:       return null
+  }
+}
+
+/**
+ * Returns true only if there is at least one group-stage match and every
+ * group-stage match has status 'finished'. Knockout matches are ignored.
+ */
+export function groupStageComplete(
+  matches: Array<{ phase: string | null; status: string }>,
+): boolean {
+  const groupMatches = matches.filter((m) => m.phase === 'group')
+  if (groupMatches.length === 0) return false
+  return groupMatches.every((m) => m.status === 'finished')
+}
+
 export interface TeamStanding {
   teamId: string
   teamName: string
@@ -5,6 +33,50 @@ export interface TeamStanding {
   points: number
   gd: number
   qualified: boolean
+}
+
+export interface BoundaryTie {
+  groupLabel: string
+  /** How many of the contested teams will actually qualify. */
+  slots: number
+  /** Teams level on points AND goal difference straddling the cutoff. */
+  contestedTeamIds: string[]
+}
+
+/**
+ * Finds groups where the qualification cutoff falls inside a set of teams that
+ * are level on points AND goal difference — the case otherwise decided silently
+ * by alphabetical order. The organizer must pick which contested teams advance.
+ */
+export function detectBoundaryTies(
+  standings: TeamStanding[],
+  advancePerGroup: number,
+): BoundaryTie[] {
+  const labels = [...new Set(standings.map((s) => s.groupLabel))]
+  const ties: BoundaryTie[] = []
+
+  for (const label of labels) {
+    const group = standings
+      .filter((s) => s.groupLabel === label)
+      .sort((a, b) => (b.points !== a.points ? b.points - a.points : b.gd - a.gd))
+
+    const cutoff = group[advancePerGroup - 1]
+    if (!cutoff) continue
+
+    const strictlyAbove = group.filter(
+      (s) => s.points > cutoff.points || (s.points === cutoff.points && s.gd > cutoff.gd),
+    )
+    const contested = group.filter(
+      (s) => s.points === cutoff.points && s.gd === cutoff.gd,
+    )
+    const slots = advancePerGroup - strictlyAbove.length
+
+    if (contested.length > slots) {
+      ties.push({ groupLabel: label, slots, contestedTeamIds: contested.map((s) => s.teamId) })
+    }
+  }
+
+  return ties
 }
 
 /**

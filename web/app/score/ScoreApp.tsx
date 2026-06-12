@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { withTeamFallback } from '@/lib/match-teams'
+import { formatGoalClock } from '@/lib/format'
 import { toast } from 'sonner'
 import { Loader2, LogOut, Minus, Plus, RefreshCcw, Play, Pause, CircleStop, FastForward, CreditCard } from 'lucide-react'
-import { scorekeeperTransitionMatch, recordGoalAction, undoGoalAction, addCardAction } from './actions'
-import type { MatchStatus, MatchWithTeams, Player } from '@/lib/supabase/types'
+import { scorekeeperTransitionMatch, scorekeeperSetKnockoutWinnerAction, recordGoalAction, deleteGoalAction, addCardAction } from './actions'
+import type { MatchStatus, MatchWithTeams, Player, Goal } from '@/lib/supabase/types'
 
 interface Props {
   email: string
@@ -145,9 +146,11 @@ interface LifecyclePrompt {
 
 type PickerMode =
   | { type: 'goal'; side: 'home' | 'away' }
+  | { type: 'remove-goal'; side: 'home' | 'away' }
   | { type: 'card' }
   | { type: 'card-player'; side: 'home' | 'away' }
   | { type: 'card-type'; side: 'home' | 'away'; playerId: string }
+  | { type: 'knockout-draw-winner' }
 
 function useMatchClock(match: MatchWithTeams) {
   const [now, setNow] = useState(() => Date.now())
@@ -198,6 +201,7 @@ function ScoreCard({ match, onChange }: { match: MatchWithTeams; onChange: () =>
   const [pickerMode, setPickerMode] = useState<PickerMode | null>(null)
   const [homePlayers, setHomePlayers] = useState<Player[] | null>(null)
   const [awayPlayers, setAwayPlayers] = useState<Player[] | null>(null)
+  const [removeGoals, setRemoveGoals] = useState<Goal[]>([])
 
   const canScore = match.status === 'live'
   const elapsedSeconds = useMatchClock(match)
@@ -224,10 +228,11 @@ function ScoreCard({ match, onChange }: { match: MatchWithTeams; onChange: () =>
     setPickerMode({ type: 'goal', side })
   }
 
-  async function handleGoalPlayerPick(playerId: string) {
+  async function handleGoalPlayerPick(playerId: string, side: 'home' | 'away') {
     setPickerMode(null)
     setSaving(true)
-    const result = await recordGoalAction(match.id, playerId)
+    const teamId = (side === 'home' ? match.home_team_id : match.away_team_id) ?? ''
+    const result = await recordGoalAction(match.id, teamId, playerId)
     setSaving(false)
     if ('error' in result) {
       toast.error(result.error)
@@ -238,11 +243,26 @@ function ScoreCard({ match, onChange }: { match: MatchWithTeams; onChange: () =>
     onChange()
   }
 
-  async function handleUndo(side: 'home' | 'away') {
+  // Open the "remove a goal" picker: load this team's goals (most recent first)
+  // so the scorekeeper can delete the exact one they mistyped, not just the last.
+  async function openRemovePicker(side: 'home' | 'away') {
     if (!canScore) return
     const teamId = side === 'home' ? match.home_team_id : match.away_team_id
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('goals')
+      .select('*')
+      .eq('match_id', match.id)
+      .eq('team_id', teamId)
+      .order('created_at', { ascending: false })
+    setRemoveGoals((data ?? []) as Goal[])
+    setPickerMode({ type: 'remove-goal', side })
+  }
+
+  async function handleDeleteGoal(goalId: string) {
+    setPickerMode(null)
     setSaving(true)
-    const result = await undoGoalAction(match.id, teamId)
+    const result = await deleteGoalAction(match.id, goalId)
     setSaving(false)
     if ('error' in result) {
       toast.error(result.error)
@@ -250,6 +270,7 @@ function ScoreCard({ match, onChange }: { match: MatchWithTeams; onChange: () =>
     }
     setHome(result.home_score)
     setAway(result.away_score)
+    toast.success('Goal removed.')
     onChange()
   }
 
@@ -268,6 +289,17 @@ function ScoreCard({ match, onChange }: { match: MatchWithTeams; onChange: () =>
 
   async function commitTransition() {
     if (!prompt) return
+    // For knockout matches finishing level, show winner picker instead
+    if (
+      prompt.next === 'finished' &&
+      match.phase === 'knockout' &&
+      home === away &&
+      !match.winner_team_id
+    ) {
+      setPrompt(null)
+      setPickerMode({ type: 'knockout-draw-winner' })
+      return
+    }
     setTransitioning(true)
     const r = await scorekeeperTransitionMatch(match.id, prompt.next)
     setTransitioning(false)
@@ -277,6 +309,25 @@ function ScoreCard({ match, onChange }: { match: MatchWithTeams; onChange: () =>
     }
     toast.success(prompt.label)
     setPrompt(null)
+    onChange()
+  }
+
+  async function handleKnockoutWinnerPick(teamId: string) {
+    setPickerMode(null)
+    setTransitioning(true)
+    const wr = await scorekeeperSetKnockoutWinnerAction(match.id, teamId)
+    if ('error' in wr) {
+      setTransitioning(false)
+      toast.error(wr.error)
+      return
+    }
+    const r = await scorekeeperTransitionMatch(match.id, 'finished')
+    setTransitioning(false)
+    if ('error' in r) {
+      toast.error(r.error)
+      return
+    }
+    toast.success('Full time. Result locked in.')
     onChange()
   }
 
@@ -366,14 +417,14 @@ function ScoreCard({ match, onChange }: { match: MatchWithTeams; onChange: () =>
         <SideColumn
           label={match.home_team.name}
           value={home}
-          onMinus={() => handleUndo('home')}
+          onMinus={() => openRemovePicker('home')}
           onPlus={() => openGoalPicker('home')}
           disabled={!canScore || saving}
         />
         <SideColumn
           label={match.away_team.name}
           value={away}
-          onMinus={() => handleUndo('away')}
+          onMinus={() => openRemovePicker('away')}
           onPlus={() => openGoalPicker('away')}
           disabled={!canScore || saving}
         />
@@ -431,7 +482,18 @@ function ScoreCard({ match, onChange }: { match: MatchWithTeams; onChange: () =>
         <PlayerPickerOverlay
           title={`Goal — ${pickerMode.side === 'home' ? match.home_team.name : match.away_team.name}`}
           players={sideRoster(pickerMode.side)}
-          onPick={(pid) => handleGoalPlayerPick(pid)}
+          onPick={(pid) => handleGoalPlayerPick(pid, pickerMode.side)}
+          onCancel={() => setPickerMode(null)}
+        />
+      )}
+
+      {/* Remove a goal: pick which scorer/minute to delete (most recent first) */}
+      {pickerMode?.type === 'remove-goal' && (
+        <GoalRemoveOverlay
+          title={`Remove goal — ${pickerMode.side === 'home' ? match.home_team.name : match.away_team.name}`}
+          goals={removeGoals}
+          players={sideRoster(pickerMode.side)}
+          onDelete={(goalId) => handleDeleteGoal(goalId)}
           onCancel={() => setPickerMode(null)}
         />
       )}
@@ -460,6 +522,18 @@ function ScoreCard({ match, onChange }: { match: MatchWithTeams; onChange: () =>
       {pickerMode?.type === 'card-type' && (
         <CardTypeOverlay
           onPick={(ct) => handleCardTypePick(ct, pickerMode.side, pickerMode.playerId)}
+          onCancel={() => setPickerMode(null)}
+        />
+      )}
+
+      {/* Knockout draw: pick advancing team */}
+      {pickerMode?.type === 'knockout-draw-winner' && (
+        <ChooseTeamOverlay
+          title="Knockout match — pick the advancing team"
+          subtitle={`Match is level (${home}–${away}). Select which team advances.`}
+          homeTeamName={match.home_team.name}
+          awayTeamName={match.away_team.name}
+          onPick={(side) => handleKnockoutWinnerPick(side === 'home' ? match.home_team_id! : match.away_team_id!)}
           onCancel={() => setPickerMode(null)}
         />
       )}
@@ -516,12 +590,69 @@ function PlayerPickerOverlay({
   )
 }
 
+function GoalRemoveOverlay({
+  title,
+  goals,
+  players,
+  onDelete,
+  onCancel,
+}: {
+  title: string
+  goals: Goal[]
+  players: Player[]
+  onDelete: (goalId: string) => void
+  onCancel: () => void
+}) {
+  const nameOf = (playerId: string | null) => {
+    if (!playerId) return 'No scorer'
+    return players.find((p) => p.id === playerId)?.name ?? 'Unknown player'
+  }
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onCancel() }}
+    >
+      <div className="w-full max-w-md rounded-2xl bg-slate-900 border border-slate-700 p-5 space-y-3 max-h-[80vh] flex flex-col">
+        <h2 className="text-base font-bold text-white shrink-0">{title}</h2>
+        {goals.length === 0 ? (
+          <p className="text-slate-400 text-sm">No goals recorded for this team.</p>
+        ) : (
+          <div className="overflow-y-auto flex-1 space-y-1">
+            {goals.map((g) => (
+              <button
+                key={g.id}
+                type="button"
+                onClick={() => onDelete(g.id)}
+                className="w-full text-left px-3 py-2.5 rounded-lg bg-slate-800 hover:bg-red-900/40 text-white text-sm flex items-center justify-between gap-3"
+              >
+                <span>{nameOf(g.player_id)}</span>
+                <span className="text-xs text-slate-400 tabular-nums shrink-0">{formatGoalClock(g.elapsed_seconds)}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={onCancel}
+          className="w-full h-10 rounded-lg border-2 border-slate-700 text-slate-200 font-semibold hover:bg-slate-800 text-sm shrink-0"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function ChooseTeamOverlay({
+  title = 'Card — Choose Team',
+  subtitle,
   homeTeamName,
   awayTeamName,
   onPick,
   onCancel,
 }: {
+  title?: string
+  subtitle?: string
   homeTeamName: string
   awayTeamName: string
   onPick: (side: 'home' | 'away') => void
@@ -533,7 +664,8 @@ function ChooseTeamOverlay({
       onClick={(e) => { if (e.target === e.currentTarget) onCancel() }}
     >
       <div className="w-full max-w-md rounded-2xl bg-slate-900 border border-slate-700 p-5 space-y-3">
-        <h2 className="text-base font-bold text-white">Card — Choose Team</h2>
+        <h2 className="text-base font-bold text-white">{title}</h2>
+        {subtitle && <p className="text-slate-400 text-sm">{subtitle}</p>}
         <div className="flex gap-3">
           <button
             type="button"

@@ -1,3 +1,12 @@
+// ⚠️ MIRRORED COMPONENT — keep bracket round/placeholder logic in sync.
+// This is the PUBLIC (spectator) bracket. The same knockout matches are also rendered
+// for organizers by the ADMIN component `components/admin/AdminBracketView.tsx`.
+// Both read the same source of truth: matches where `phase === 'knockout'`, bucketed by
+// `knockout_round` ('r32'|'r16'|'qf'|'sf'|'final'). A partial bracket (e.g. only the QF
+// created) renders its real round(s) followed by TBD placeholders for rounds not yet
+// scheduled. If you change how rounds/placeholders are derived here, apply the equivalent
+// change in AdminBracketView so the public page and the admin overview agree.
+
 import { teamColor, teamCode } from '@/lib/team-style'
 import { mediaUrl } from '@/lib/storage'
 import type { MatchWithTeams, Team } from '@/lib/supabase/types'
@@ -100,14 +109,60 @@ function BracketRound({ label, matches, slotCount, columnHeight, onMatchClick }:
   )
 }
 
+const ROUND_ORDER = ['r32', 'r16', 'qf', 'sf', 'final'] as const
+type KnockoutRound = (typeof ROUND_ORDER)[number]
+const ROUND_LABEL: Record<KnockoutRound, string> = {
+  r32: 'Round of 32',
+  r16: 'Round of 16',
+  qf: 'Quarterfinals',
+  sf: 'Semifinals',
+  final: 'Final',
+}
+const ROUND_SLOTS: Record<KnockoutRound, number> = { r32: 16, r16: 8, qf: 4, sf: 2, final: 1 }
+
+/**
+ * Bucket knockout matches into rounds using each match's knockout_round.
+ * The bracket spans from the earliest round that has matches down to the final,
+ * so rounds not yet scheduled render as TBD placeholder columns.
+ * Falls back to count heuristics when knockout_round metadata is absent.
+ */
+function bucketByRound(
+  matches: MatchWithTeams[],
+): { round: KnockoutRound; matches: MatchWithTeams[] }[] {
+  const byRound = new Map<KnockoutRound, MatchWithTeams[]>()
+  for (const m of matches) {
+    const r = m.knockout_round as KnockoutRound | null
+    if (r && ROUND_ORDER.includes(r)) {
+      const list = byRound.get(r) ?? []
+      list.push(m)
+      byRound.set(r, list)
+    }
+  }
+
+  if (byRound.size === 0) {
+    // Legacy fallback: heuristic by total count (8 teams → QF/SF/F).
+    const total = matches.length
+    const qf = total >= 4 ? matches.slice(0, 4) : []
+    const sf = total >= 4 ? matches.slice(4, 6) : total >= 2 ? matches.slice(0, 2) : []
+    const f = total >= 4 ? matches.slice(6, 7) : total >= 2 ? matches.slice(2, 3) : matches.slice(0, 1)
+    const cols: { round: KnockoutRound; matches: MatchWithTeams[] }[] = []
+    if (qf.length > 0) cols.push({ round: 'qf', matches: qf })
+    if (sf.length > 0) cols.push({ round: 'sf', matches: sf })
+    cols.push({ round: 'final', matches: f })
+    return cols
+  }
+
+  const startIdx = ROUND_ORDER.findIndex((r) => (byRound.get(r)?.length ?? 0) > 0)
+  return ROUND_ORDER.slice(startIdx).map((round) => ({
+    round,
+    matches: byRound.get(round) ?? [],
+  }))
+}
+
 export function BracketView({ matches, onMatchClick }: BracketViewProps) {
-  // Bucket matches into rounds by position in the knockout draw.
-  // Without explicit round metadata we use match count heuristics:
-  // 8 teams → QF(4) SF(2) F(1); 4 teams → SF(2) F(1); 2 teams → F(1)
-  const total = matches.length
-  const qf = total >= 4 ? matches.slice(0, 4)  : []
-  const sf = total >= 4 ? matches.slice(4, 6)   : total >= 2 ? matches.slice(0, 2) : []
-  const f  = total >= 4 ? matches.slice(6, 7)   : total >= 2 ? matches.slice(2, 3) : matches.slice(0, 1)
+  const columns = bucketByRound(matches)
+  const f = columns[columns.length - 1]?.matches ?? []
+  const firstRoundSize = columns[0] ? ROUND_SLOTS[columns[0].round] : 1
 
   const finalist = f[0]
   const champion: Team | null =
@@ -131,20 +186,25 @@ export function BracketView({ matches, onMatchClick }: BracketViewProps) {
   // Shared column height: every round distributes its matches inside the same
   // envelope, so later-round matches sit centered between their feeders.
   // Floor at the trophy cell's height so a sparse bracket doesn't crop it.
-  const firstRoundSize = qf.length > 0 ? 4 : sf.length > 0 ? 2 : 1
   const columnHeight = Math.max(
     firstRoundSize * CARD_HEIGHT + (firstRoundSize - 1) * ROW_GAP,
     TROPHY_HEIGHT,
   )
-  const roundCount = (qf.length > 0 ? 1 : 0) + (sf.length > 0 ? 1 : 0) + 1
-  const minWidth = roundCount * 244 + 220
+  const minWidth = columns.length * 244 + 220
 
   return (
     <div className="bracket-shell">
       <div className="bracket" style={{ minWidth }}>
-        {qf.length > 0 && <BracketRound label="Quarterfinals" matches={qf} slotCount={4} columnHeight={columnHeight} onMatchClick={onMatchClick} />}
-        {sf.length > 0 && <BracketRound label="Semifinals"    matches={sf} slotCount={2} columnHeight={columnHeight} onMatchClick={onMatchClick} />}
-        {                 <BracketRound label="Final"         matches={f}  slotCount={1} columnHeight={columnHeight} onMatchClick={onMatchClick} />}
+        {columns.map((col) => (
+          <BracketRound
+            key={col.round}
+            label={ROUND_LABEL[col.round]}
+            matches={col.matches}
+            slotCount={ROUND_SLOTS[col.round]}
+            columnHeight={columnHeight}
+            onMatchClick={onMatchClick}
+          />
+        ))}
 
         {/* Champion cell */}
         <div className="bracket-round">

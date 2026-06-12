@@ -162,7 +162,7 @@ export function QualifiersStep({
                     )
                   })}
                 </div>
-                <p className="text-xs text-muted-foreground">Admins can edit qualifiers again as long as the bracket hasn't been seeded.</p>
+                <p className="text-xs text-muted-foreground">Admins can edit qualifiers again as long as the bracket has not been seeded.</p>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>

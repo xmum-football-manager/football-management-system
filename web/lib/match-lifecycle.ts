@@ -53,3 +53,11 @@ export function getAvailableTransitions(
 export function canScorekeeper(status: MatchStatus): boolean {
   return status === 'live'
 }
+
+export function shouldClearKnockoutWinner(opts: {
+  phase: string | null
+  from: string
+  to: string
+}): boolean {
+  return opts.phase === 'knockout' && opts.from === 'finished' && opts.to !== 'finished'
+}

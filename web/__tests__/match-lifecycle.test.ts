@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isValidTransition, getAvailableTransitions, canScorekeeper } from '@/lib/match-lifecycle'
+import { isValidTransition, getAvailableTransitions, canScorekeeper, shouldClearKnockoutWinner } from '@/lib/match-lifecycle'
 
 describe('isValidTransition — organizer', () => {
   it('allows scheduled → live', () => {
@@ -81,4 +81,22 @@ describe('canScorekeeper', () => {
   it('disabled when scheduled', () => { expect(canScorekeeper('scheduled')).toBe(false) })
   it('disabled when halftime', () => { expect(canScorekeeper('halftime')).toBe(false) })
   it('disabled when finished', () => { expect(canScorekeeper('finished')).toBe(false) })
+})
+
+describe('shouldClearKnockoutWinner', () => {
+  it('knockout finished→live returns true', () => {
+    expect(shouldClearKnockoutWinner({ phase: 'knockout', from: 'finished', to: 'live' })).toBe(true)
+  })
+  it('knockout finished→halftime returns true', () => {
+    expect(shouldClearKnockoutWinner({ phase: 'knockout', from: 'finished', to: 'halftime' })).toBe(true)
+  })
+  it('group finished→live returns false', () => {
+    expect(shouldClearKnockoutWinner({ phase: 'group', from: 'finished', to: 'live' })).toBe(false)
+  })
+  it('knockout live→finished returns false', () => {
+    expect(shouldClearKnockoutWinner({ phase: 'knockout', from: 'live', to: 'finished' })).toBe(false)
+  })
+  it('knockout scheduled→live returns false', () => {
+    expect(shouldClearKnockoutWinner({ phase: 'knockout', from: 'scheduled', to: 'live' })).toBe(false)
+  })
 })

@@ -33,6 +33,19 @@ export async function createPlayer(input: CreatePlayerInput): Promise<{ id: stri
   return { id: data.id }
 }
 
+export async function updatePlayer(
+  id: string,
+  fields: { name: string; jersey_number: number | null },
+): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('players')
+    .update({ name: fields.name, jersey_number: fields.jersey_number })
+    .eq('id', id)
+  if (error) return { error: error.message }
+  return {}
+}
+
 export async function setPlayerPhoto(
   id: string,
   photo_path: string | null,

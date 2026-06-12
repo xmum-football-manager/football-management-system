@@ -11,6 +11,13 @@ export function canManageTeams(tournamentStatus: TournamentStatus): boolean {
   return !LOCKED_TOURNAMENT_STATUSES.includes(tournamentStatus)
 }
 
+/** Looser than canManageTeams: rosters can still grow while a tournament is
+ *  active (matches under way) — only finished/archived tournaments lock adds.
+ *  Deleting players is governed separately (locked once any match goes live). */
+export function canAddPlayers(tournamentStatus: TournamentStatus): boolean {
+  return !FULLY_LOCKED.includes(tournamentStatus)
+}
+
 export function canAddFixture(tournamentStatus: TournamentStatus): boolean {
   return !FULLY_LOCKED.includes(tournamentStatus)
 }

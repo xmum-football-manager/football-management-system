@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { computeGroupStandings } from '@/lib/qualifiers'
+import { computeGroupStandings, detectBoundaryTies, groupStageComplete, expectedBracketSize } from '@/lib/qualifiers'
+import type { TeamStanding } from '@/lib/qualifiers'
 
 const team = (id: string, name: string, group_label: string) => ({ id, name, group_label })
 
@@ -108,5 +109,117 @@ describe('computeGroupStandings', () => {
     expect(ids).toContain('c')
     expect(ids).not.toContain('b')
     expect(ids).not.toContain('d')
+  })
+})
+
+const standing = (
+  teamId: string,
+  groupLabel: string,
+  points: number,
+  gd: number,
+): TeamStanding => ({ teamId, teamName: teamId, groupLabel, points, gd, qualified: false })
+
+describe('detectBoundaryTies', () => {
+  it('flags two teams level on points and GD competing for the last slot', () => {
+    // Group A, top 2 advance. Alpha is clear; Beta and Gamma are level on
+    // points AND goal difference for the single remaining slot.
+    const standings = [
+      standing('a', 'A', 6, 2),
+      standing('b', 'A', 1, -1),
+      standing('c', 'A', 1, -1),
+    ]
+    const ties = detectBoundaryTies(standings, 2)
+    expect(ties).toHaveLength(1)
+    expect(ties[0].groupLabel).toBe('A')
+    expect(ties[0].slots).toBe(1)
+    expect(ties[0].contestedTeamIds.sort()).toEqual(['b', 'c'])
+  })
+
+  it('returns no tie when the cutoff is unambiguous', () => {
+    const standings = [
+      standing('a', 'A', 6, 3),
+      standing('b', 'A', 3, 0),
+      standing('c', 'A', 0, -3),
+    ]
+    expect(detectBoundaryTies(standings, 2)).toHaveLength(0)
+  })
+
+  it('ignores a tie that sits entirely inside the qualifying zone', () => {
+    // Alpha and Beta tied but BOTH qualify (top 2) — no decision needed.
+    const standings = [
+      standing('a', 'A', 4, 1),
+      standing('b', 'A', 4, 1),
+      standing('c', 'A', 0, -2),
+    ]
+    expect(detectBoundaryTies(standings, 2)).toHaveLength(0)
+  })
+
+  it('flags a tie in each affected group independently', () => {
+    const standings = [
+      standing('a', 'A', 3, 0), standing('b', 'A', 3, 0),
+      standing('c', 'B', 6, 2), standing('d', 'B', 0, -2),
+    ]
+    const ties = detectBoundaryTies(standings, 1)
+    expect(ties).toHaveLength(1)
+    expect(ties[0].groupLabel).toBe('A')
+    expect(ties[0].contestedTeamIds.sort()).toEqual(['a', 'b'])
+  })
+})
+
+describe('groupStageComplete', () => {
+  it('returns false when there are no group matches', () => {
+    expect(groupStageComplete([])).toBe(false)
+  })
+
+  it('returns false when a group match is scheduled', () => {
+    expect(groupStageComplete([{ phase: 'group', status: 'scheduled' }])).toBe(false)
+  })
+
+  it('returns false when a group match is live', () => {
+    expect(groupStageComplete([{ phase: 'group', status: 'live' }])).toBe(false)
+  })
+
+  it('returns true when all group matches are finished', () => {
+    expect(groupStageComplete([
+      { phase: 'group', status: 'finished' },
+      { phase: 'group', status: 'finished' },
+    ])).toBe(true)
+  })
+
+  it('ignores knockout-phase matches when deciding', () => {
+    expect(groupStageComplete([
+      { phase: 'group', status: 'finished' },
+      { phase: 'knockout', status: 'scheduled' },
+    ])).toBe(true)
+  })
+})
+
+describe('expectedBracketSize', () => {
+  it('returns 2 for final', () => {
+    expect(expectedBracketSize('final')).toBe(2)
+  })
+
+  it('returns 4 for semi', () => {
+    expect(expectedBracketSize('semi')).toBe(4)
+  })
+
+  it('returns 8 for top_8', () => {
+    expect(expectedBracketSize('top_8')).toBe(8)
+  })
+
+  it('returns 16 for top_16', () => {
+    expect(expectedBracketSize('top_16')).toBe(16)
+  })
+
+  it('returns 32 for top_32', () => {
+    expect(expectedBracketSize('top_32')).toBe(32)
+  })
+
+  it('returns null for null (legacy tournament)', () => {
+    expect(expectedBracketSize(null)).toBeNull()
+  })
+
+  it('returns null for an unknown string', () => {
+    expect(expectedBracketSize('top_64')).toBeNull()
   })
 })

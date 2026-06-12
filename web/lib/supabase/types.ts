@@ -61,14 +61,17 @@ export type KnockoutRound = 'r32' | 'r16' | 'qf' | 'sf' | 'final'
 export interface Match {
   id: string
   tournament_id: string
-  home_team_id: string
-  away_team_id: string
+  home_team_id: string | null
+  away_team_id: string | null
   match_time: string | null
   status: MatchStatus
   home_score: number
   away_score: number
   phase: MatchPhase
   knockout_round: string | null
+  home_source_match_id: string | null
+  away_source_match_id: string | null
+  winner_team_id: string | null
   match_started_at: string | null
   match_finished_at: string | null
   halftime_started_at: string | null
@@ -81,7 +84,8 @@ export interface Goal {
   id: string
   match_id: string
   team_id: string
-  player_id: string
+  player_id: string | null
+  elapsed_seconds: number | null
   created_at: string
 }
 
@@ -135,6 +139,7 @@ export interface Standing {
 export interface MatchWithTeams extends Match {
   home_team: Team
   away_team: Team
+  // withTeamFallback normalises these to non-null TBD sentinels before use
 }
 
 export interface TeamWithPlayers extends Team {

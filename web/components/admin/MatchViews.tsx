@@ -19,7 +19,6 @@ import {
   Loader2,
   GripVertical,
   CalendarClock,
-  LayoutGrid,
   List as ListIcon,
   Network,
 } from 'lucide-react'
@@ -30,10 +29,7 @@ import {
   type BracketGroupStanding,
 } from '@/components/admin/AdminBracketView'
 import { MatchRow } from '@/app/admin/tournaments/[id]/MatchRow'
-import {
-  rescheduleMatchAction,
-  swapTeamSlotsAction,
-} from '@/app/admin/tournaments/[id]/fixtures/actions'
+import { rescheduleMatchAction } from '@/app/admin/tournaments/[id]/fixtures/actions'
 import { setTeamGroupAction } from '@/app/admin/tournaments/[id]/teams/actions'
 import { usePersistedView } from '@/lib/hooks/use-persisted-view'
 import { formatClock } from '@/lib/format'
@@ -45,7 +41,7 @@ import type {
 
 type TeamRef = { id: string; name: string; group_label: string | null }
 
-type ViewKey = 'list' | 'board' | 'structure'
+type ViewKey = 'list' | 'structure'
 const VIEW_STORAGE_KEY = 'admin-matches-view'
 
 interface MatchViewsProps {
@@ -85,6 +81,19 @@ export function MatchViews({
     setReschedulingMatch(m)
   }
 
+  const supportsStructure =
+    tournamentFormat === 'knockout' ||
+    tournamentFormat === 'round_robin_knockout' ||
+    tournamentFormat === 'round_robin'
+  const allowed = useMemo<readonly ViewKey[]>(() => {
+    const base: ViewKey[] = ['list']
+    if (supportsStructure) base.push('structure')
+    return base
+  }, [supportsStructure])
+  const initialDefault: ViewKey = supportsStructure ? 'structure' : 'list'
+
+  const [view, setView] = usePersistedView<ViewKey>(VIEW_STORAGE_KEY, initialDefault, allowed)
+
   if (hideTabs) {
     return (
       <div className="space-y-3">
@@ -118,19 +127,6 @@ export function MatchViews({
       </div>
     )
   }
-
-  const supportsStructure =
-    tournamentFormat === 'knockout' ||
-    tournamentFormat === 'round_robin_knockout' ||
-    tournamentFormat === 'round_robin'
-  const allowed = useMemo<readonly ViewKey[]>(() => {
-    const base: ViewKey[] = ['board', 'list']
-    if (supportsStructure) base.push('structure')
-    return base
-  }, [supportsStructure])
-  const initialDefault: ViewKey = supportsStructure ? 'structure' : 'board'
-
-  const [view, setView] = usePersistedView<ViewKey>(VIEW_STORAGE_KEY, initialDefault, allowed)
   const effectiveView = allowed.includes(view) ? view : initialDefault
 
   return (
@@ -153,12 +149,6 @@ export function MatchViews({
               onClick={() => setView('structure')}
             />
           )}
-          <ViewTab
-            icon={<LayoutGrid className="h-3.5 w-3.5" />}
-            label="Board"
-            active={effectiveView === 'board'}
-            onClick={() => setView('board')}
-          />
           <ViewTab
             icon={<ListIcon className="h-3.5 w-3.5" />}
             label="List"
@@ -188,15 +178,6 @@ export function MatchViews({
               : 'Add at least 2 teams first.'}
           </CardContent>
         </Card>
-      ) : effectiveView === 'board' ? (
-        <BoardView
-          matches={matches}
-          canEdit={canManageFixtures}
-          tournamentId={tournamentId}
-          tournamentStart={tournamentStart}
-          tournamentEnd={tournamentEnd}
-          onMatchClick={handleMatchClick}
-        />
       ) : (
         <ListView
           matches={matches}
@@ -262,14 +243,16 @@ function ViewTab({
  * Match phase helpers
  * ========================================================== */
 
+// Phase is the source of truth — NOT a group_label heuristic. A knockout match can pair
+// two teams from the same group (e.g. 4-team semis: 1A vs 2A), which a group_label check
+// would mis-flag as a group match — hiding it from the bracket and double-counting it in
+// group standings. Always gate on `m.phase`.
 function isGroupStageMatch(m: MatchWithTeams): boolean {
-  const h = m.home_team.group_label
-  const a = m.away_team.group_label
-  return !!h && !!a && h === a
+  return m.phase === 'group'
 }
 
 function knockoutMatches(matches: MatchWithTeams[]): MatchWithTeams[] {
-  return matches.filter((m) => !isGroupStageMatch(m))
+  return matches.filter((m) => m.phase === 'knockout')
 }
 
 /* ============================================================
@@ -287,25 +270,50 @@ function ListView({
   isAdmin: boolean
   onMatchClick?: (m: MatchWithTeams) => void
 }) {
+  const days = useMemo(() => groupByDay(matches), [matches])
+  const unscheduled = useMemo(() => matches.filter((m) => !m.match_time), [matches])
+
+  function renderList(ms: MatchWithTeams[]) {
+    return (
+      <ul
+        className="overflow-hidden rounded-xl border bg-card"
+        style={{ borderColor: 'var(--admin-rule)' }}
+      >
+        {ms.map((m, i) => (
+          <li
+            key={m.id}
+            style={{ borderTop: i > 0 ? '1px solid var(--admin-rule-soft)' : 'none' }}
+          >
+            <MatchRow
+              match={m}
+              tournamentStatus={tournamentStatus}
+              isAdmin={isAdmin}
+              onMatchClick={onMatchClick}
+            />
+          </li>
+        ))}
+      </ul>
+    )
+  }
+
   return (
-    <ul
-      className="overflow-hidden rounded-xl border bg-card"
-      style={{ borderColor: 'var(--admin-rule)' }}
-    >
-      {matches.map((m, i) => (
-        <li
-          key={m.id}
-          style={{ borderTop: i > 0 ? '1px solid var(--admin-rule-soft)' : 'none' }}
-        >
-          <MatchRow
-            match={m}
-            tournamentStatus={tournamentStatus}
-            isAdmin={isAdmin}
-            onMatchClick={onMatchClick}
-          />
-        </li>
+    <div className="space-y-4">
+      {days.map((day, i) => (
+        <div key={day.key} className="space-y-1.5">
+          <div className="flex items-baseline gap-2 px-0.5">
+            <span className="text-xs font-semibold text-foreground">Day {i + 1}</span>
+            <span className="text-[11px] text-muted-foreground">{day.label}</span>
+          </div>
+          {renderList(day.matches)}
+        </div>
       ))}
-    </ul>
+      {unscheduled.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="px-0.5 text-xs font-semibold text-muted-foreground">Unscheduled</div>
+          {renderList(unscheduled)}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -384,7 +392,10 @@ function StructureView({
     )
     const groupMatches = matches
       .filter(
-        (m) => m.home_team.group_label === label && m.away_team.group_label === label,
+        (m) =>
+          m.phase === 'group' &&
+          m.home_team.group_label === label &&
+          m.away_team.group_label === label,
       )
       .sort((a, b) => (a.match_time ?? '').localeCompare(b.match_time ?? ''))
     return { label: `Group ${label}`, standings, matches: groupMatches }
@@ -835,6 +846,7 @@ function computeGroupStandings(
   }
   for (const m of matches) {
     if (m.status !== 'finished') continue
+    if (m.phase !== 'group') continue
     if (
       m.home_team.group_label !== groupLabel ||
       m.away_team.group_label !== groupLabel
@@ -1110,277 +1122,7 @@ function DraggableTeamChip({
   )
 }
 
-/* ============================================================
- * Board view — drag-to-reschedule + drag-to-swap-teams
- * ========================================================== */
-
-function BoardView({
-  matches,
-  canEdit,
-  tournamentId,
-  tournamentStart,
-  tournamentEnd,
-  onMatchClick,
-}: {
-  matches: MatchWithTeams[]
-  canEdit: boolean
-  tournamentId: string
-  tournamentStart: string
-  tournamentEnd: string
-  onMatchClick?: (m: MatchWithTeams) => void
-}) {
-  const byDay = useMemo(() => groupByDay(matches), [matches])
-  const [reschedule, setReschedule] = useState<{
-    match: MatchWithTeams
-    targetTime: string
-  } | null>(null)
-  const [dragId, setDragId] = useState<string | null>(null)
-  const [draggingSlot, setDraggingSlot] = useState<{
-    matchId: string
-    slot: 'home' | 'away'
-  } | null>(null)
-  const [swap, setSwap] = useState<{
-    source: { matchId: string; slot: 'home' | 'away'; teamName: string }
-    target: { matchId: string; slot: 'home' | 'away'; teamName: string }
-  } | null>(null)
-
-  function onCardDragStart(e: React.DragEvent, m: MatchWithTeams) {
-    if (!canEdit || m.status !== 'scheduled') return
-    e.dataTransfer.setData('text/match-id', m.id)
-    e.dataTransfer.effectAllowed = 'move'
-    setDragId(m.id)
-  }
-  function onCardDragEnd() {
-    setDragId(null)
-  }
-  function onCardDragOver(e: React.DragEvent, target: MatchWithTeams) {
-    if (!canEdit) return
-    const sourceId = e.dataTransfer.types.includes('text/match-id') ? dragId : null
-    if (!sourceId || sourceId === target.id) return
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-  }
-  function onCardDrop(e: React.DragEvent, target: MatchWithTeams) {
-    if (!canEdit) return
-    const sourceId = e.dataTransfer.getData('text/match-id')
-    if (!sourceId || sourceId === target.id) return
-    e.preventDefault()
-    const source = matches.find((x) => x.id === sourceId)
-    if (!source) return
-    setReschedule({ match: source, targetTime: target.match_time ?? '' })
-    setDragId(null)
-  }
-
-  return (
-    <div className="space-y-4">
-      {canEdit && (
-        <p className="text-[11px] text-muted-foreground flex flex-wrap items-center gap-3">
-          <span className="inline-flex items-center gap-1.5">
-            <CalendarClock className="h-3 w-3" />
-            Click a card → reschedule.
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <GripVertical className="h-3 w-3" />
-            Drag a fixture card onto another → reschedule to that slot.
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <GripVertical className="h-3 w-3" />
-            Drag a team name onto another → swap teams.
-          </span>
-        </p>
-      )}
-      {byDay.map((day) => (
-        <div key={day.key}>
-          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-            {day.label}
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {day.matches.map((m) => {
-              const draggable = canEdit && m.status === 'scheduled'
-              const clickable = !!onMatchClick && m.status === 'scheduled'
-              const isDragging = dragId === m.id
-              return (
-                <Card
-                  key={m.id}
-                  className={`overflow-hidden transition-shadow ${isDragging ? 'opacity-50' : ''} ${
-                    clickable ? 'hover:shadow-md hover:border-emerald-300' : ''
-                  }`}
-                  draggable={draggable}
-                  onDragStart={(e) => onCardDragStart(e, m)}
-                  onDragEnd={onCardDragEnd}
-                  onDragOver={(e) => onCardDragOver(e, m)}
-                  onDrop={(e) => onCardDrop(e, m)}
-                  onClick={(e) => {
-                    if (!clickable) return
-                    const tgt = e.target as HTMLElement
-                    if (tgt.closest('[data-no-card-click]')) return
-                    onMatchClick?.(m)
-                  }}
-                  title={clickable ? 'Click to reschedule · drag to swap' : undefined}
-                  style={{
-                    cursor: clickable ? 'pointer' : draggable ? 'grab' : 'default',
-                    borderColor: 'var(--admin-rule)',
-                  }}
-                >
-                  <div
-                    className={
-                      m.status === 'live'
-                        ? 'h-1 w-full bg-emerald-500'
-                        : m.status === 'halftime'
-                          ? 'h-1 w-full bg-amber-400'
-                          : m.status === 'finished'
-                            ? 'h-1 w-full bg-slate-400'
-                            : 'h-1 w-full bg-transparent'
-                    }
-                  />
-                  <CardContent className="p-3">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                      {draggable && <GripVertical className="h-3 w-3 opacity-60" />}
-                      <span className="font-mono">{formatClock(m.match_time ?? '')}</span>
-                      {m.home_team.group_label && m.home_team.group_label === m.away_team.group_label && (
-                        <span
-                          className="admin-tab rounded-full px-1.5 py-0.5 text-[9px]"
-                          style={{
-                            background: 'var(--admin-lime-wash)',
-                            color: 'var(--admin-lime)',
-                          }}
-                        >
-                          GROUP {m.home_team.group_label}
-                        </span>
-                      )}
-                      <span className="flex-1" />
-                      <MatchStatusBadge status={m.status} />
-                    </div>
-                    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-                      <TeamSlot
-                        match={m}
-                        slot="home"
-                        canEdit={canEdit}
-                        align="right"
-                        draggingSlot={draggingSlot}
-                        setDraggingSlot={setDraggingSlot}
-                        onSwap={setSwap}
-                      />
-                      <div className="px-2 py-1 bg-slate-100 rounded font-mono font-bold text-sm tabular-nums">
-                        {m.home_score} : {m.away_score}
-                      </div>
-                      <TeamSlot
-                        match={m}
-                        slot="away"
-                        canEdit={canEdit}
-                        align="left"
-                        draggingSlot={draggingSlot}
-                        setDraggingSlot={setDraggingSlot}
-                        onSwap={setSwap}
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            })}
-          </div>
-        </div>
-      ))}
-      {reschedule && (
-        <RescheduleDialog
-          match={reschedule.match}
-          initialTime={reschedule.targetTime}
-          tournamentId={tournamentId}
-          tournamentStart={tournamentStart}
-          tournamentEnd={tournamentEnd}
-          onClose={() => setReschedule(null)}
-        />
-      )}
-      {swap && (
-        <SwapTeamsDialog
-          tournamentId={tournamentId}
-          source={swap.source}
-          target={swap.target}
-          onClose={() => setSwap(null)}
-        />
-      )}
-    </div>
-  )
-}
-
-function TeamSlot({
-  match,
-  slot,
-  canEdit,
-  align,
-  draggingSlot,
-  setDraggingSlot,
-  onSwap,
-}: {
-  match: MatchWithTeams
-  slot: 'home' | 'away'
-  canEdit: boolean
-  align: 'left' | 'right'
-  draggingSlot: { matchId: string; slot: 'home' | 'away' } | null
-  setDraggingSlot: (s: { matchId: string; slot: 'home' | 'away' } | null) => void
-  onSwap: (s: {
-    source: { matchId: string; slot: 'home' | 'away'; teamName: string }
-    target: { matchId: string; slot: 'home' | 'away'; teamName: string }
-  }) => void
-}) {
-  const team = slot === 'home' ? match.home_team : match.away_team
-  const draggable = canEdit && match.status === 'scheduled'
-  const isSelf = draggingSlot?.matchId === match.id && draggingSlot.slot === slot
-  const isHotDropTarget =
-    !!draggingSlot && !isSelf && canEdit && match.status === 'scheduled'
-
-  return (
-    <div
-      data-no-card-click
-      draggable={draggable}
-      onClick={(e) => e.stopPropagation()}
-      onDragStart={(e) => {
-        if (!draggable) return
-        e.stopPropagation()
-        e.dataTransfer.setData('text/team-slot', `${match.id}:${slot}`)
-        e.dataTransfer.setData('text/team-name', team.name)
-        e.dataTransfer.effectAllowed = 'move'
-        setDraggingSlot({ matchId: match.id, slot })
-      }}
-      onDragEnd={(e) => {
-        e.stopPropagation()
-        setDraggingSlot(null)
-      }}
-      onDragOver={(e) => {
-        if (!isHotDropTarget) return
-        e.preventDefault()
-        e.stopPropagation()
-        e.dataTransfer.dropEffect = 'move'
-      }}
-      onDrop={(e) => {
-        e.stopPropagation()
-        const raw = e.dataTransfer.getData('text/team-slot')
-        if (!raw) return
-        const [srcMatchId, srcSlotRaw] = raw.split(':')
-        if (srcSlotRaw !== 'home' && srcSlotRaw !== 'away') return
-        if (srcMatchId === match.id && srcSlotRaw === slot) return
-        e.preventDefault()
-        const sourceTeamName = e.dataTransfer.getData('text/team-name') || 'Other team'
-        onSwap({
-          source: { matchId: srcMatchId, slot: srcSlotRaw, teamName: sourceTeamName },
-          target: { matchId: match.id, slot, teamName: team.name },
-        })
-        setDraggingSlot(null)
-      }}
-      className={`truncate font-medium text-sm select-none ${
-        align === 'right' ? 'text-right' : 'text-left'
-      } ${isHotDropTarget ? 'rounded outline outline-2 outline-dashed outline-emerald-400 outline-offset-2' : ''} ${
-        isSelf ? 'opacity-40' : ''
-      }`}
-      style={{ cursor: draggable ? 'grab' : 'default' }}
-      title={draggable ? 'Drag onto another team to swap' : undefined}
-    >
-      {team.name}
-    </div>
-  )
-}
-
-function RescheduleDialog({
+export function RescheduleDialog({
   match,
   initialTime,
   tournamentId,
@@ -1454,75 +1196,6 @@ function RescheduleDialog({
           <Button onClick={submit} disabled={pending || !time}>
             {pending && <Loader2 className="h-4 w-4 animate-spin" />}
             Move fixture
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function SwapTeamsDialog({
-  tournamentId,
-  source,
-  target,
-  onClose,
-}: {
-  tournamentId: string
-  source: { matchId: string; slot: 'home' | 'away'; teamName: string }
-  target: { matchId: string; slot: 'home' | 'away'; teamName: string }
-  onClose: () => void
-}) {
-  const router = useRouter()
-  const [pending, startTransition] = useTransition()
-  const sameMatch = source.matchId === target.matchId
-
-  function submit() {
-    startTransition(async () => {
-      const r = await swapTeamSlotsAction(
-        tournamentId,
-        { matchId: source.matchId, slot: source.slot },
-        { matchId: target.matchId, slot: target.slot },
-      )
-      if ('error' in r) {
-        toast.error(r.error)
-        return
-      }
-      toast.success(sameMatch ? 'Sides swapped.' : 'Teams swapped.')
-      router.refresh()
-      onClose()
-    })
-  }
-
-  return (
-    <Dialog open onOpenChange={(open) => (!open ? onClose() : undefined)}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Swap teams</DialogTitle>
-          <DialogDescription>
-            {sameMatch ? (
-              <>
-                Swap <span className="font-semibold text-foreground">{source.teamName}</span> (
-                {source.slot}) and{' '}
-                <span className="font-semibold text-foreground">{target.teamName}</span> (
-                {target.slot}) in the same fixture?
-              </>
-            ) : (
-              <>
-                Move <span className="font-semibold text-foreground">{source.teamName}</span> into
-                the other fixture and{' '}
-                <span className="font-semibold text-foreground">{target.teamName}</span> into this
-                one. Both fixtures must be scheduled.
-              </>
-            )}
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={pending}>
-            Cancel
-          </Button>
-          <Button onClick={submit} disabled={pending}>
-            {pending && <Loader2 className="h-4 w-4 animate-spin" />}
-            Swap
           </Button>
         </DialogFooter>
       </DialogContent>

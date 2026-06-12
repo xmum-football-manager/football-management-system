@@ -1,11 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, Lock } from 'lucide-react'
+import { Check, Lock, RotateCcw, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { QualifiersStep } from './QualifiersStep'
 import { BracketSetupView } from './BracketSetupView'
 import { AdminBracketView } from '@/components/admin/AdminBracketView'
+import { RescheduleDialog } from '@/components/admin/MatchViews'
+import { resetKnockoutAction } from '../fixtures/actions'
 import type { MatchWithTeams } from '@/lib/supabase/types'
 import type { TeamStanding } from '@/lib/qualifiers'
 
@@ -40,6 +43,8 @@ export function KnockoutStepper({
   tournamentEnd,
 }: Props) {
   const router = useRouter()
+  const [isResetting, startReset] = useTransition()
+  const [reschedule, setReschedule] = useState<MatchWithTeams | null>(null)
   const qualifiersDone = (savedQualifiers?.length ?? 0) > 0
   const bracketExists = knockoutMatches.length > 0
 
@@ -68,21 +73,58 @@ export function KnockoutStepper({
 
   const qualifiedTeams = teams.filter((t) => savedQualifiers?.includes(t.id) ?? false)
 
+  function handleReset() {
+    if (!confirm('Delete all knockout matches and start the bracket over?')) return
+    startReset(async () => {
+      const r = await resetKnockoutAction(tournamentId)
+      if ('error' in r) {
+        toast.error(r.error)
+      } else {
+        toast.success(`Bracket reset — ${r.deleted} match${r.deleted === 1 ? '' : 'es'} removed.`)
+        router.refresh()
+      }
+    })
+  }
+
   // Once bracket is created, collapse the setup and show the bracket view directly
   if (bracketExists) {
     return (
       <div className="space-y-4">
-        <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--muted-foreground)' }}>
-          <Check className="h-3 w-3 text-emerald-500" />
-          <span>Qualifiers set</span>
-          <span style={{ opacity: 0.35 }}>──</span>
-          <Check className="h-3 w-3 text-emerald-500" />
-          <span>Bracket scheduled</span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--muted-foreground)' }}>
+            <Check className="h-3 w-3 text-emerald-500" />
+            <span>Qualifiers set</span>
+            <span style={{ opacity: 0.35 }}>──</span>
+            <Check className="h-3 w-3 text-emerald-500" />
+            <span>Bracket scheduled</span>
+          </div>
+          {canEdit && (
+            <button
+              onClick={handleReset}
+              disabled={isResetting}
+              className="flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium transition-colors hover:bg-red-100"
+              style={{ color: 'var(--muted-foreground)' }}
+            >
+              {isResetting ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+              Reset bracket
+            </button>
+          )}
         </div>
         <AdminBracketView
           matches={knockoutMatches}
           bracketTeamCount={qualifiedTeams.length}
+          onMatchClick={canEdit ? setReschedule : undefined}
         />
+        {reschedule && (
+          <RescheduleDialog
+            match={reschedule}
+            initialTime={reschedule.match_time ?? ''}
+            tournamentId={tournamentId}
+            tournamentStart={tournamentStart}
+            tournamentEnd={tournamentEnd}
+            onClose={() => setReschedule(null)}
+          />
+        )}
       </div>
     )
   }

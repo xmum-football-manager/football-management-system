@@ -4,8 +4,10 @@ import { revalidatePath } from 'next/cache'
 import { requireUser } from '@/lib/auth'
 import { isAdmin, isOrganizer } from '@/lib/db/roles'
 import { createTeam, deleteTeam, setTeamGroup, setTeamLogo, listTeams } from '@/lib/db/teams'
-import { createPlayer, deletePlayer, setPlayerPhoto } from '@/lib/db/players'
+import { createPlayer, deletePlayer, setPlayerPhoto, updatePlayer } from '@/lib/db/players'
 import { listMatches } from '@/lib/db/matches'
+import { getTournament } from '@/lib/db/tournaments'
+import { canAddPlayers } from '@/lib/lock-rules'
 
 async function ensureOrganizer(tournamentId: string) {
   const user = await requireUser()
@@ -116,6 +118,11 @@ export async function addPlayerAction(input: {
 }): Promise<{ id: string } | { error: string }> {
   try {
     await ensureOrganizer(input.tournamentId)
+    const tournament = await getTournament(input.tournamentId)
+    if (!tournament) return { error: 'Tournament not found.' }
+    if (!canAddPlayers(tournament.status)) {
+      return { error: 'This tournament is locked — players can no longer be edited.' }
+    }
     const result = await createPlayer({
       team_id: input.team_id,
       name: input.name,
@@ -128,12 +135,45 @@ export async function addPlayerAction(input: {
   }
 }
 
+export async function updatePlayerAction(input: {
+  playerId: string
+  name: string
+  jersey_number: number | null
+  tournamentId: string
+}): Promise<{ ok: true } | { error: string }> {
+  try {
+    await ensureOrganizer(input.tournamentId)
+    // Renaming is always safe — it's the same player row, so recorded goals and
+    // cards (which reference player_id) are preserved. Allowed even after kickoff
+    // so a typo'd name can be corrected; only finished/archived tournaments lock.
+    const tournament = await getTournament(input.tournamentId)
+    if (!tournament) return { error: 'Tournament not found.' }
+    if (!canAddPlayers(tournament.status)) {
+      return { error: 'This tournament is locked — players can no longer be edited.' }
+    }
+    const name = input.name.trim()
+    if (!name) return { error: 'Player name is required.' }
+    const result = await updatePlayer(input.playerId, { name, jersey_number: input.jersey_number })
+    if (result.error) return { error: result.error }
+    revalidateTeams(input.tournamentId)
+    return { ok: true }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed.' }
+  }
+}
+
 export async function deletePlayerAction(
   playerId: string,
   tournamentId: string,
 ): Promise<{ ok: true } | { error: string }> {
   try {
     await ensureOrganizer(tournamentId)
+    // Adding players stays open once play begins, but deleting is locked — a
+    // removed player could already have goals/cards recorded against them.
+    const matches = await listMatches(tournamentId)
+    if (matches.some((m) => m.status !== 'scheduled')) {
+      return { error: 'Cannot delete players — a match has already gone live.' }
+    }
     const result = await deletePlayer(playerId)
     if (result.error) return { error: result.error }
     revalidateTeams(tournamentId)

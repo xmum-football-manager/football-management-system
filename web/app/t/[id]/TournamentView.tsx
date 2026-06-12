@@ -17,13 +17,14 @@ import Link from 'next/link'
 import Image from 'next/image'
 import type { Tournament, MatchWithTeams, Standing, Team, Player, TopScorer, TeamCardCount } from '@/lib/supabase/types'
 
-type Tab = 'live' | 'fixtures' | 'standings' | 'bracket' | 'teams'
+type Tab = 'live' | 'fixtures' | 'standings' | 'bracket' | 'scorers' | 'teams'
 
 const baseTabs: { id: Tab; label: string }[] = [
   { id: 'live',      label: 'Live' },
   { id: 'fixtures',  label: 'Fixtures' },
   { id: 'standings', label: 'Standings' },
   { id: 'bracket',   label: 'Bracket' },
+  { id: 'scorers',   label: 'Scorers' },
   { id: 'teams',     label: 'Teams' },
 ]
 
@@ -94,14 +95,13 @@ function SectionHead({ eyebrow, title, accent, right }: {
 }
 
 // ── Filter chips ────────────────────────────────────────────────────────────────
-type MatchFilter = 'all' | 'live' | 'scheduled' | 'finished'
+type MatchFilter = 'all' | 'live' | 'scheduled'
 
 function FilterChips({ value, onChange }: { value: MatchFilter; onChange: (v: MatchFilter) => void }) {
   const chips: { id: MatchFilter; label: string }[] = [
     { id: 'all',       label: 'All' },
     { id: 'live',      label: 'Live now' },
     { id: 'scheduled', label: 'Upcoming' },
-    { id: 'finished',  label: 'Full time' },
   ]
   return (
     <div className="chips">
@@ -314,14 +314,18 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null)
 
   const tabs = useMemo(() => {
+    let list = baseTabs
     if (tournament.format === 'round_robin') {
-      return baseTabs.filter((t) => t.id !== 'bracket')
+      list = list.filter((t) => t.id !== 'bracket')
     }
     if (tournament.format === 'knockout') {
-      return baseTabs.filter((t) => t.id !== 'standings')
+      list = list.filter((t) => t.id !== 'standings')
     }
-    return baseTabs
-  }, [tournament.format])
+    if (topScorers.length === 0) {
+      list = list.filter((t) => t.id !== 'scorers')
+    }
+    return list
+  }, [tournament.format, topScorers.length])
 
   useEffect(() => {
     let ticking = false
@@ -365,7 +369,7 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
     const [{ data: m }, { data: s }] = await Promise.all([
       supabase.from('matches')
         .select('*, home_team:teams!matches_home_team_id_fkey(*), away_team:teams!matches_away_team_id_fkey(*)')
-        .eq('tournament_id', tournament.id).order('match_time', { ascending: true }),
+        .eq('tournament_id', tournament.id).order('match_time', { ascending: false }),
       supabase.from('standings').select('*').eq('tournament_id', tournament.id),
     ])
     if (m) setMatches(withTeamFallback(m as MatchWithTeams[]).filter(x => x.match_time !== null))
@@ -632,7 +636,7 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
 
       {/* TOP PLAYERS */}
       {topScorers.length > 0 && (
-        <section className="section" id="top-players" style={{ background: 'rgba(0,0,0,0.18)' }}>
+        <section className="section" id="scorers" style={{ background: 'rgba(0,0,0,0.18)' }}>
           <div className="container">
             <SectionHead
               eyebrow="Goal scorers"
@@ -759,7 +763,8 @@ function GroupStandings({
         const teamIds = new Set(groups.get(label) ?? [])
         const groupStandings = standings.filter((s) => teamIds.has(s.team_id))
         const groupMatches = matches.filter(
-          (m) => teamIds.has(m.home_team_id) && teamIds.has(m.away_team_id),
+          (m) => m.home_team_id !== null && m.away_team_id !== null &&
+            teamIds.has(m.home_team_id) && teamIds.has(m.away_team_id),
         )
         return (
           <StandingsTable

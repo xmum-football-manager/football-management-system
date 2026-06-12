@@ -12,9 +12,11 @@ import {
   getMatch,
   listMatches,
 } from '@/lib/db/matches'
+import type { CreateMatchInput } from '@/lib/db/matches'
 import { listTeams } from '@/lib/db/teams'
 import { getTournament, updateKnockoutQualifiers } from '@/lib/db/tournaments'
 import { generateRoundRobin } from '@/lib/round-robin'
+import { groupStageComplete, expectedBracketSize } from '@/lib/qualifiers'
 
 async function ensureOrganizer(tournamentId: string) {
   const user = await requireUser()
@@ -41,6 +43,13 @@ export async function addMatchAction(input: {
       return { error: 'Home and away must be different teams.' }
     }
     await ensureOrganizer(input.tournament_id)
+    const existing = await listMatches(input.tournament_id)
+    if (existing.some((m) => m.status !== 'scheduled')) {
+      return {
+        error:
+          'A match has already gone live — new fixtures are locked so standings stay consistent.',
+      }
+    }
     const tournament = await getTournament(input.tournament_id)
     if (!tournament) return { error: 'Tournament not found.' }
     const matchDay = new Date(input.match_time).toISOString().split('T')[0]
@@ -175,6 +184,15 @@ export async function swapTeamSlotsAction(
   }
 }
 
+const KO_LADDER = ['r32', 'r16', 'qf', 'sf', 'final'] as const
+type KoRound = (typeof KO_LADDER)[number]
+
+/** Advance one step up the knockout ladder (r32 → r16 → qf → sf → final). */
+function nextKoRound(current: KoRound): KoRound {
+  const idx = KO_LADDER.indexOf(current)
+  return KO_LADDER[Math.min(idx + 1, KO_LADDER.length - 1)]
+}
+
 function knockoutRoundLabel(tournament: { knockout_start_round: string | null }, qualifierCount: number): string {
   switch (tournament.knockout_start_round) {
     case 'final':  return 'final'
@@ -213,6 +231,11 @@ export async function seedKnockoutBracketAction(
 
     if (qualifiers.length % 2 !== 0) {
       return { error: `Cannot seed bracket: ${qualifiers.length} qualifiers is odd. Select an even number of teams.` }
+    }
+
+    const expected = expectedBracketSize(tournament.knockout_start_round)
+    if (expected !== null && qualifiers.length !== expected) {
+      return { error: `Bracket needs exactly ${expected} qualifiers for the chosen round, but ${qualifiers.length} are selected.` }
     }
 
     const existingMatches = await listMatches(tournamentId)
@@ -305,9 +328,24 @@ export async function seedDirectKnockoutAction(
   }
 }
 
+/**
+ * Creates ALL knockout matches (all rounds) up front.
+ *
+ * - Round 0: real team pairings with times.
+ * - Subsequent rounds: TBD slots (null team ids) with scheduled times and
+ *   home_source_match_id / away_source_match_id pointing to their feeders.
+ *   When a feeder match finishes, the DB trigger fills in the winner.
+ *
+ * RENDER TARGETS — the matches this writes (phase='knockout', knockout_round set) drive
+ * BOTH bracket views, so a successful create here shows up in:
+ *   • Admin:  components/admin/AdminBracketView.tsx  (Knockout tab + overview "structure" view)
+ *   • Public: components/BracketView.tsx             (spectator tournament page, Bracket tab)
+ * Both bucket by `knockout_round`. The `revalidatePath` calls below refresh those pages.
+ */
 export async function createManualKnockoutAction(
   tournamentId: string,
   pairings: Array<{ home_team_id: string; away_team_id: string; match_time: string | null }>,
+  laterRoundTimes: Array<Array<string | null>>,  // laterRoundTimes[r][i] = ISO time for later round r, match i
 ): Promise<{ created: number } | { error: string }> {
   try {
     await ensureOrganizer(tournamentId)
@@ -328,8 +366,12 @@ export async function createManualKnockoutAction(
     if (existingMatches.some((m) => m.phase === 'knockout')) {
       return { error: 'Knockout matches already exist.' }
     }
-    const round = knockoutRoundLabel(tournament, pairings.length * 2)
+
+    let round = knockoutRoundLabel(tournament, pairings.length * 2) as KoRound
     let created = 0
+
+    // Insert round 0 (real teams), collect ids in order
+    const round0Ids: string[] = []
     for (const p of pairings) {
       const r = await createMatch({
         tournament_id: tournamentId,
@@ -340,12 +382,64 @@ export async function createManualKnockoutAction(
         knockout_round: round,
       })
       if ('error' in r) return { error: r.error }
+      round0Ids.push(r.id)
       created++
     }
+
+    // Insert later rounds
+    let prevIds = round0Ids
+    for (let ri = 0; ri < laterRoundTimes.length; ri++) {
+      const times = laterRoundTimes[ri]
+      round = nextKoRound(round)
+      const newIds: string[] = []
+      for (let i = 0; i < times.length; i++) {
+        const homeSourceId = prevIds[i * 2]
+        const awaySourceId = prevIds[i * 2 + 1]
+        const input: CreateMatchInput = {
+          tournament_id: tournamentId,
+          home_team_id: null,
+          away_team_id: null,
+          match_time: times[i] ?? null,
+          phase: 'knockout',
+          knockout_round: round,
+          home_source_match_id: homeSourceId,
+          away_source_match_id: awaySourceId,
+        }
+        const r = await createMatch(input)
+        if ('error' in r) return { error: r.error }
+        newIds.push(r.id)
+        created++
+      }
+      prevIds = newIds
+    }
+
     revalidatePath(`/admin/tournaments/${tournamentId}/fixtures`)
     revalidatePath(`/admin/tournaments/${tournamentId}`)
     revalidatePath(`/admin/tournaments/${tournamentId}/knockout`)
+    revalidatePath(`/t/${tournamentId}`)
     return { created }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed.' }
+  }
+}
+
+export async function resetKnockoutAction(
+  tournamentId: string,
+): Promise<{ deleted: number } | { error: string }> {
+  try {
+    await ensureOrganizer(tournamentId)
+    const matches = await listMatches(tournamentId)
+    const knockoutMatches = matches.filter((m) => m.phase === 'knockout')
+    let deleted = 0
+    for (const m of knockoutMatches) {
+      const r = await deleteMatch(m.id)
+      if (!r.error) deleted++
+    }
+    revalidatePath(`/admin/tournaments/${tournamentId}/knockout`)
+    revalidatePath(`/admin/tournaments/${tournamentId}/fixtures`)
+    revalidatePath(`/admin/tournaments/${tournamentId}`)
+    revalidatePath(`/t/${tournamentId}`)
+    return { deleted }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed.' }
   }
@@ -357,6 +451,10 @@ export async function saveQualifiersAction(
 ): Promise<{ ok: true } | { error: string }> {
   try {
     await ensureOrganizer(tournamentId)
+    const matches = await listMatches(tournamentId)
+    if (!groupStageComplete(matches)) {
+      return { error: 'Finish all group matches before confirming qualifiers.' }
+    }
     const result = await updateKnockoutQualifiers(tournamentId, teamIds)
     if (result.error) return { error: result.error }
     revalidatePath(`/admin/tournaments/${tournamentId}/fixtures`)

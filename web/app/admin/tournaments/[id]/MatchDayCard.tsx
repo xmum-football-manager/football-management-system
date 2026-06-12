@@ -21,8 +21,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Loader2, Pause, CircleStop, FastForward } from 'lucide-react'
-import { transitionMatchAction, adminRecordGoalAction, adminUndoGoalAction, adminAddCardAction } from './actions'
-import type { MatchWithTeams, MatchStatus, Player } from '@/lib/supabase/types'
+import { transitionMatchAction, adminRecordGoalAction, adminDeleteGoalAction, adminAddCardAction, setKnockoutWinnerAction } from './actions'
+import { createClient } from '@/lib/supabase/client'
+import { formatGoalClock } from '@/lib/format'
+import type { MatchWithTeams, MatchStatus, Player, Goal } from '@/lib/supabase/types'
 
 interface LifecycleAction {
   next: MatchStatus
@@ -89,21 +91,54 @@ export function MatchDayCard({ match, isAdmin, halftimeEnabled, homePlayers, awa
   const [goalPicker, setGoalPicker] = useState<GoalPickerState>(null)
   const [goalPlayerId, setGoalPlayerId] = useState('')
 
+  // Remove-goal picker (pick which scorer/minute to delete, not just the last)
+  const [removePicker, setRemovePicker] = useState<GoalPickerState>(null)
+  const [removeGoals, setRemoveGoals] = useState<Goal[]>([])
+
   // Card picker
   const [cardPicker, setCardPicker] = useState<CardPickerState>(null)
   const [cardPlayerId, setCardPlayerId] = useState('')
   const [cardType, setCardType] = useState<'yellow' | 'red'>('yellow')
+
+  // Knockout draw: show a team picker before allowing finish
+  const [knockoutDrawPicker, setKnockoutDrawPicker] = useState(false)
 
   const actions = lifecycleActions(match.status, halftimeEnabled)
   const isHalftime = match.status === 'halftime'
   const isLive = match.status === 'live'
 
   function commit(action: LifecycleAction) {
+    // For knockout matches ending level, show the winner picker instead
+    if (
+      action.next === 'finished' &&
+      match.phase === 'knockout' &&
+      scores.home === scores.away &&
+      !match.winner_team_id
+    ) {
+      setPrompt(null)
+      setKnockoutDrawPicker(true)
+      return
+    }
     startTransition(async () => {
       const r = await transitionMatchAction(match.id, action.next, isAdmin)
       setPrompt(null)
       if ('error' in r) toast.error(r.error)
       else toast.success(action.label + (action.next === 'finished' ? '.' : ' started.'))
+    })
+  }
+
+  function pickKnockoutWinner(teamId: string) {
+    startTransition(async () => {
+      const wr = await setKnockoutWinnerAction(match.id, teamId)
+      if ('error' in wr) {
+        toast.error(wr.error)
+        return
+      }
+      // Now finish the match
+      const r = await transitionMatchAction(match.id, 'finished', isAdmin)
+      setKnockoutDrawPicker(false)
+      if ('error' in r) toast.error(r.error)
+      else toast.success('Full time.')
     })
   }
 
@@ -115,8 +150,9 @@ export function MatchDayCard({ match, isAdmin, halftimeEnabled, homePlayers, awa
   function confirmGoal() {
     if (!goalPicker || !goalPlayerId) return
     const side = goalPicker.side
+    const teamId = (side === 'home' ? match.home_team_id : match.away_team_id) ?? ''
     startTransition(async () => {
-      const r = await adminRecordGoalAction(match.id, goalPlayerId)
+      const r = await adminRecordGoalAction(match.id, teamId, goalPlayerId)
       setGoalPicker(null)
       setGoalPlayerId('')
       if ('error' in r) {
@@ -128,10 +164,25 @@ export function MatchDayCard({ match, isAdmin, halftimeEnabled, homePlayers, awa
     })
   }
 
-  function undoGoal(side: 'home' | 'away') {
+  // Open the "remove a goal" picker: load this team's goals (most recent first)
+  // so the organizer can delete the exact one they mistyped, not just the last.
+  async function openRemovePicker(side: 'home' | 'away') {
     const teamId = side === 'home' ? match.home_team_id : match.away_team_id
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('goals')
+      .select('*')
+      .eq('match_id', match.id)
+      .eq('team_id', teamId)
+      .order('created_at', { ascending: false })
+    setRemoveGoals((data ?? []) as Goal[])
+    setRemovePicker({ side })
+  }
+
+  function deleteGoalById(goalId: string) {
     startTransition(async () => {
-      const r = await adminUndoGoalAction(match.id, teamId)
+      const r = await adminDeleteGoalAction(match.id, goalId)
+      setRemovePicker(null)
       if ('error' in r) {
         toast.error(r.error)
       } else {
@@ -149,7 +200,7 @@ export function MatchDayCard({ match, isAdmin, halftimeEnabled, homePlayers, awa
 
   function confirmCard() {
     if (!cardPicker || !cardPlayerId) return
-    const teamId = cardPicker.side === 'home' ? match.home_team_id : match.away_team_id
+    const teamId = (cardPicker.side === 'home' ? match.home_team_id : match.away_team_id) ?? ''
     startTransition(async () => {
       const r = await adminAddCardAction(match.id, cardPlayerId, teamId, cardType)
       setCardPicker(null)
@@ -164,6 +215,9 @@ export function MatchDayCard({ match, isAdmin, halftimeEnabled, homePlayers, awa
 
   const goalPickerPlayers = goalPicker?.side === 'home' ? homePlayers : awayPlayers
   const cardPickerPlayers = cardPicker?.side === 'home' ? homePlayers : awayPlayers
+  const removePickerPlayers = removePicker?.side === 'home' ? homePlayers : awayPlayers
+  const scorerName = (playerId: string | null) =>
+    !playerId ? 'No scorer' : removePickerPlayers.find((p) => p.id === playerId)?.name ?? 'Unknown player'
 
   return (
     <div
@@ -198,8 +252,8 @@ export function MatchDayCard({ match, isAdmin, halftimeEnabled, homePlayers, awa
             <Button
               variant="outline" size="sm" className="h-8 w-8 p-0 text-base"
               disabled={busy || !isLive}
-              title="Undo last goal"
-              onClick={() => undoGoal('home')}
+              title="Remove a goal"
+              onClick={() => openRemovePicker('home')}
             >−</Button>
             <span className="admin-mono min-w-[2ch] text-center text-3xl font-bold tabular-nums">{scores.home}</span>
             <Button
@@ -229,8 +283,8 @@ export function MatchDayCard({ match, isAdmin, halftimeEnabled, homePlayers, awa
             <Button
               variant="outline" size="sm" className="h-8 w-8 p-0 text-base"
               disabled={busy || !isLive}
-              title="Undo last goal"
-              onClick={() => undoGoal('away')}
+              title="Remove a goal"
+              onClick={() => openRemovePicker('away')}
             >−</Button>
             <span className="admin-mono min-w-[2ch] text-center text-3xl font-bold tabular-nums">{scores.away}</span>
             <Button
@@ -344,6 +398,76 @@ export function MatchDayCard({ match, isAdmin, halftimeEnabled, homePlayers, awa
                 {busy && <Loader2 className="h-4 w-4 animate-spin" />}
                 Confirm Goal
               </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
+      {/* Remove-goal picker dialog — most recent goal first (likely mistype) */}
+      {removePicker && (
+        <AlertDialog open onOpenChange={(open) => !open && setRemovePicker(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                Remove goal — {removePicker.side === 'home' ? match.home_team.name : match.away_team.name}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {removeGoals.length === 0 ? 'No goals recorded for this team.' : 'Tap the goal to remove.'}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            {removeGoals.length > 0 && (
+              <div className="px-6 pb-2 space-y-1.5 max-h-[50vh] overflow-y-auto">
+                {removeGoals.map((g) => (
+                  <button
+                    key={g.id}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => deleteGoalById(g.id)}
+                    className="w-full flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-left text-sm hover:bg-destructive/10 disabled:opacity-50"
+                  >
+                    <span>{scorerName(g.player_id)}</span>
+                    <span className="text-xs text-muted-foreground tabular-nums">{formatGoalClock(g.elapsed_seconds)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
+      {/* Knockout draw: pick advancing team */}
+      {knockoutDrawPicker && (
+        <AlertDialog open onOpenChange={(open) => !open && setKnockoutDrawPicker(false)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Knockout match — pick the advancing team</AlertDialogTitle>
+              <AlertDialogDescription>
+                The match is level ({scores.home}–{scores.away}). Select which team advances.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="px-6 pb-2 flex flex-col gap-2">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => pickKnockoutWinner(match.home_team_id!)}
+                className="w-full rounded-md border px-4 py-3 text-sm font-medium text-left hover:bg-accent disabled:opacity-50"
+              >
+                {match.home_team.name}
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => pickKnockoutWinner(match.away_team_id!)}
+                className="w-full rounded-md border px-4 py-3 text-sm font-medium text-left hover:bg-accent disabled:opacity-50"
+              >
+                {match.away_team.name}
+              </button>
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
