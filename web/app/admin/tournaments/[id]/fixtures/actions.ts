@@ -16,7 +16,7 @@ import type { CreateMatchInput } from '@/lib/db/matches'
 import { listTeams } from '@/lib/db/teams'
 import { getTournament, updateKnockoutQualifiers } from '@/lib/db/tournaments'
 import { generateRoundRobin } from '@/lib/round-robin'
-import { groupStageComplete, expectedBracketSize } from '@/lib/qualifiers'
+import { groupStageComplete, expectedBracketSize, validatePairingEdit } from '@/lib/qualifiers'
 
 async function ensureOrganizer(tournamentId: string) {
   const user = await requireUser()
@@ -440,6 +440,46 @@ export async function resetKnockoutAction(
     revalidatePath(`/admin/tournaments/${tournamentId}`)
     revalidatePath(`/t/${tournamentId}`)
     return { deleted }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed.' }
+  }
+}
+
+export async function updateFirstRoundPairingAction(
+  tournamentId: string,
+  matchId: string,
+  homeId: string,
+  awayId: string,
+): Promise<{ ok: true } | { error: string }> {
+  try {
+    await ensureOrganizer(tournamentId)
+    const [match, tournament, allMatches] = await Promise.all([
+      getMatch(matchId),
+      getTournament(tournamentId),
+      listMatches(tournamentId),
+    ])
+    if (!match) return { error: 'Match not found.' }
+    if (!tournament) return { error: 'Tournament not found.' }
+    const qualifierIds = tournament.knockout_qualifiers ?? []
+    const occupiedByOthers = allMatches
+      .filter(
+        (m) =>
+          m.phase === 'knockout' &&
+          m.home_source_match_id === null &&
+          m.away_source_match_id === null &&
+          m.id !== matchId,
+      )
+      .flatMap((m) => [m.home_team_id, m.away_team_id])
+      .filter((id): id is string => id !== null)
+    const validation = validatePairingEdit(match, homeId, awayId, qualifierIds, occupiedByOthers)
+    if ('error' in validation) return validation
+    const result = await updateMatchTeams(matchId, homeId, awayId)
+    if (result.error) return { error: result.error }
+    revalidatePath(`/admin/tournaments/${tournamentId}/fixtures`)
+    revalidatePath(`/admin/tournaments/${tournamentId}/knockout`)
+    revalidatePath(`/admin/tournaments/${tournamentId}`)
+    revalidatePath(`/t/${tournamentId}`)
+    return { ok: true }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed.' }
   }

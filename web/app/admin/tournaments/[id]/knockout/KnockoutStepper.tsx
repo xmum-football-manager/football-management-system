@@ -8,7 +8,7 @@ import { QualifiersStep } from './QualifiersStep'
 import { BracketSetupView } from './BracketSetupView'
 import { AdminBracketView } from '@/components/admin/AdminBracketView'
 import { RescheduleDialog } from '@/components/admin/MatchViews'
-import { resetKnockoutAction } from '../fixtures/actions'
+import { resetKnockoutAction, updateFirstRoundPairingAction } from '../fixtures/actions'
 import type { MatchWithTeams } from '@/lib/supabase/types'
 import type { TeamStanding } from '@/lib/qualifiers'
 
@@ -45,6 +45,7 @@ export function KnockoutStepper({
   const router = useRouter()
   const [isResetting, startReset] = useTransition()
   const [reschedule, setReschedule] = useState<MatchWithTeams | null>(null)
+  const [editPairing, setEditPairing] = useState<MatchWithTeams | null>(null)
   const qualifiersDone = (savedQualifiers?.length ?? 0) > 0
   const bracketExists = knockoutMatches.length > 0
 
@@ -113,7 +114,11 @@ export function KnockoutStepper({
         <AdminBracketView
           matches={knockoutMatches}
           bracketTeamCount={qualifiedTeams.length}
-          onMatchClick={canEdit ? setReschedule : undefined}
+          onMatchClick={canEdit ? (m) => {
+            const isFirstRound = m.home_source_match_id === null && m.away_source_match_id === null
+            if (isFirstRound) setEditPairing(m)
+            else setReschedule(m)
+          } : undefined}
         />
         {reschedule && (
           <RescheduleDialog
@@ -123,6 +128,15 @@ export function KnockoutStepper({
             tournamentStart={tournamentStart}
             tournamentEnd={tournamentEnd}
             onClose={() => setReschedule(null)}
+          />
+        )}
+        {editPairing && (
+          <EditPairingDialog
+            match={editPairing}
+            qualifiedTeams={qualifiedTeams}
+            tournamentId={tournamentId}
+            onClose={() => setEditPairing(null)}
+            onSaved={() => { setEditPairing(null); router.refresh() }}
           />
         )}
       </div>
@@ -198,6 +212,107 @@ export function KnockoutStepper({
           onCreated={() => router.refresh()}
         />
       )}
+    </div>
+  )
+}
+
+interface EditPairingDialogProps {
+  match: MatchWithTeams
+  qualifiedTeams: Array<{ id: string; name: string; group_label: string | null }>
+  tournamentId: string
+  onClose: () => void
+  onSaved: () => void
+}
+
+function EditPairingDialog({ match, qualifiedTeams, tournamentId, onClose, onSaved }: EditPairingDialogProps) {
+  const [homeId, setHomeId] = useState(match.home_team_id ?? '')
+  const [awayId, setAwayId] = useState(match.away_team_id ?? '')
+  const [isPending, startTransition] = useTransition()
+
+  const selectStyle = {
+    border: '1px solid var(--admin-rule)',
+    background: 'var(--admin-surface-2)',
+    color: 'var(--foreground)',
+    borderRadius: 6,
+    padding: '4px 8px',
+    fontSize: 13,
+    width: '100%',
+  }
+
+  function handleSave() {
+    startTransition(async () => {
+      const r = await updateFirstRoundPairingAction(tournamentId, match.id, homeId, awayId)
+      if ('error' in r) toast.error(r.error)
+      else { toast.success('Pairing updated.'); onSaved() }
+    })
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.5)' }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div
+        className="rounded-xl p-6 space-y-4"
+        style={{
+          background: 'var(--card)',
+          border: '1px solid var(--admin-rule)',
+          minWidth: 320,
+        }}
+      >
+        <div className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
+          Edit First-Round Pairing
+        </div>
+        <div className="space-y-2">
+          <div>
+            <label className="text-xs mb-1 block" style={{ color: 'var(--muted-foreground)' }}>
+              Home team
+            </label>
+            <select value={homeId} onChange={(e) => setHomeId(e.target.value)} style={selectStyle}>
+              <option value="">Select…</option>
+              {qualifiedTeams.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs mb-1 block" style={{ color: 'var(--muted-foreground)' }}>
+              Away team
+            </label>
+            <select value={awayId} onChange={(e) => setAwayId(e.target.value)} style={selectStyle}>
+              <option value="">Select…</option>
+              {qualifiedTeams.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded px-3 py-1.5 text-xs"
+            style={{ color: 'var(--muted-foreground)', border: '1px solid var(--admin-rule)' }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={!homeId || !awayId || isPending}
+            className="rounded px-3 py-1.5 text-xs font-medium"
+            style={{
+              background: 'var(--admin-lime)',
+              color: 'black',
+              opacity: (!homeId || !awayId || isPending) ? 0.5 : 1,
+            }}
+          >
+            {isPending && <Loader2 className="inline mr-1 h-3 w-3 animate-spin" />}
+            Save
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

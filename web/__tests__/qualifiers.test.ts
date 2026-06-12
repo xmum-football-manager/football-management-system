@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeGroupStandings, detectBoundaryTies, groupStageComplete, expectedBracketSize } from '@/lib/qualifiers'
+import { computeGroupStandings, detectBoundaryTies, groupStageComplete, expectedBracketSize, validatePairingEdit } from '@/lib/qualifiers'
 import type { TeamStanding } from '@/lib/qualifiers'
 
 const team = (id: string, name: string, group_label: string) => ({ id, name, group_label })
@@ -191,6 +191,80 @@ describe('groupStageComplete', () => {
       { phase: 'group', status: 'finished' },
       { phase: 'knockout', status: 'scheduled' },
     ])).toBe(true)
+  })
+})
+
+describe('validatePairingEdit', () => {
+  const validMatch = {
+    phase: 'knockout' as string | null,
+    status: 'scheduled',
+    home_source_match_id: null as string | null,
+    away_source_match_id: null as string | null,
+  }
+  const qualifierIds = ['t1', 't2', 't3', 't4']
+
+  it('returns ok:true for a valid first-round pairing edit', () => {
+    expect(validatePairingEdit(validMatch, 't1', 't2', qualifierIds, [])).toEqual({ ok: true })
+  })
+
+  it('returns ok:true when occupiedByOthers does not contain either team', () => {
+    expect(validatePairingEdit(validMatch, 't1', 't2', qualifierIds, ['t3', 't4'])).toEqual({ ok: true })
+  })
+
+  it('returns error when phase is not knockout', () => {
+    const r = validatePairingEdit({ ...validMatch, phase: 'group' }, 't1', 't2', qualifierIds, [])
+    expect('error' in r).toBe(true)
+  })
+
+  it('returns error when phase is null', () => {
+    const r = validatePairingEdit({ ...validMatch, phase: null }, 't1', 't2', qualifierIds, [])
+    expect('error' in r).toBe(true)
+  })
+
+  it('returns error when status is not scheduled', () => {
+    const r = validatePairingEdit({ ...validMatch, status: 'live' }, 't1', 't2', qualifierIds, [])
+    expect('error' in r).toBe(true)
+  })
+
+  it('returns error when home_source_match_id is set (later round)', () => {
+    const r = validatePairingEdit(
+      { ...validMatch, home_source_match_id: 'some-match-id' },
+      't1', 't2', qualifierIds, [],
+    )
+    expect('error' in r).toBe(true)
+  })
+
+  it('returns error when away_source_match_id is set (later round)', () => {
+    const r = validatePairingEdit(
+      { ...validMatch, away_source_match_id: 'some-match-id' },
+      't1', 't2', qualifierIds, [],
+    )
+    expect('error' in r).toBe(true)
+  })
+
+  it('returns error when homeId === awayId', () => {
+    const r = validatePairingEdit(validMatch, 't1', 't1', qualifierIds, [])
+    expect('error' in r).toBe(true)
+  })
+
+  it('returns error when homeId is not in qualifierIds', () => {
+    const r = validatePairingEdit(validMatch, 'unknown', 't2', qualifierIds, [])
+    expect('error' in r).toBe(true)
+  })
+
+  it('returns error when awayId is not in qualifierIds', () => {
+    const r = validatePairingEdit(validMatch, 't1', 'unknown', qualifierIds, [])
+    expect('error' in r).toBe(true)
+  })
+
+  it('returns error when homeId is already in another first-round match', () => {
+    const r = validatePairingEdit(validMatch, 't3', 't2', qualifierIds, ['t3', 't4'])
+    expect(r).toEqual({ error: 'That team is already in another first-round match.' })
+  })
+
+  it('returns error when awayId is already in another first-round match', () => {
+    const r = validatePairingEdit(validMatch, 't1', 't4', qualifierIds, ['t3', 't4'])
+    expect(r).toEqual({ error: 'That team is already in another first-round match.' })
   })
 })
 

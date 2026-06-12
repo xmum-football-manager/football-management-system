@@ -29,7 +29,7 @@ Status: TODO / DOING / REVIEW / DONE
 | P1-6 | warn+wipe fixtures on pre-live group reassign | TODO | teams/actions.ts (setTeamGroupAction), fixtures generate; UI confirm dialog |
 | P2-9b | editable Qualifiers UI using `detectBoundaryTies` | TODO | web/app/admin/tournaments/[id]/knockout/QualifiersStep.tsx |
 | P2-10 | clear winner on KO revert + force re-pick | DONE | match-lifecycle.ts (shouldClearKnockoutWinner), db/matches.ts (clearMatchWinner), admin actions.ts (transitionMatchAction) |
-| P2-11 | edit first-round pairing (no delete) | TODO | knockout/BracketSetupView.tsx, fixtures/actions.ts |
+| P2-11 | edit first-round pairing (no delete) | DONE | qualifiers.ts (validatePairingEdit + occupiedByOthers dup-guard), fixtures/actions.ts (updateFirstRoundPairingAction), knockout/KnockoutStepper.tsx (EditPairingDialog) |
 
 ## Acceptance criteria (TDD — write failing test first)
 - **P0-3:** `addPlayerAction` rejects when tournament is finished/archived (`!canAddPlayers(status)`), mirroring `updatePlayerAction`. Test: action returns error for finished tournament. (Action-level test or extend lock-rules coverage.)

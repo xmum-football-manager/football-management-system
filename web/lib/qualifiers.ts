@@ -1,4 +1,41 @@
 /**
+ * Validates that a first-round knockout pairing can be edited.
+ * Rules (first failing rule wins):
+ *  - phase must be 'knockout'
+ *  - status must be 'scheduled'
+ *  - must be first round (both source match ids null)
+ *  - homeId must differ from awayId
+ *  - both homeId and awayId must be in qualifierIds
+ *  - neither homeId nor awayId may appear in occupiedByOthers (team ids
+ *    already assigned to other first-round matches)
+ */
+export function validatePairingEdit(
+  match: {
+    phase: string | null
+    status: string
+    home_source_match_id: string | null
+    away_source_match_id: string | null
+  },
+  homeId: string,
+  awayId: string,
+  qualifierIds: string[],
+  occupiedByOthers: string[],
+): { ok: true } | { error: string } {
+  if (match.phase !== 'knockout') return { error: 'Match is not a knockout match.' }
+  if (match.status !== 'scheduled') return { error: 'Only scheduled matches can be edited.' }
+  if (match.home_source_match_id !== null || match.away_source_match_id !== null) {
+    return { error: 'Only first-round matches (with no source matches) can be edited.' }
+  }
+  if (homeId === awayId) return { error: 'Home and away teams must be different.' }
+  if (!qualifierIds.includes(homeId)) return { error: 'Home team is not in the qualifier pool.' }
+  if (!qualifierIds.includes(awayId)) return { error: 'Away team is not in the qualifier pool.' }
+  if (occupiedByOthers.includes(homeId) || occupiedByOthers.includes(awayId)) {
+    return { error: 'That team is already in another first-round match.' }
+  }
+  return { ok: true }
+}
+
+/**
  * Returns the required number of qualifiers for the given knockout_start_round
  * value. Returns null for null or unknown values (legacy tournaments — no
  * constraint to enforce).
