@@ -15,7 +15,15 @@ Legend: [ ] open   [x] fixed   [~] confirmed-live
 P0 — SILENT DATA CORRUPTION (invisible to organizer, no recovery path)
 --------------------------------------------------------------------------------
 
-[ ] P0-1  top_scorers view drops scorerless goals
+[~] P0-1  top_scorers view drops scorerless goals  -- NON-ISSUE (verified 2026-06-12)
+          Match score increments independent of player_id (record_goal,
+          20260611120000:57-61). No UI path produces a scorerless goal
+          (PlayerPickerOverlay has no "no scorer" button). top_scorers is
+          per-player only; dropping an unattributable goal is correct.
+          Standings/GD use match scores, not the goals join. Nothing to fix.
+          FUTURE: if a "no scorer" UI button is ever added AND a tournament
+          "total goals" counter is added, revisit then. Original entry below
+          overstated the impact.
     File:  web/supabase/migrations/20260611000000_player_stats_cards_halftime.sql:82
     What:  top_scorers does `join public.players p on p.id = g.player_id`.
            After 20260611120000_goal_optional_scorer made player_id nullable,
