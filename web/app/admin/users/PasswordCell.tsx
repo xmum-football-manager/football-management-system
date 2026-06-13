@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Eye, EyeOff, RotateCcw } from 'lucide-react'
+import { DEFAULT_PASSWORD } from '@/lib/auth-constants'
 
 interface Props {
   userId: string
@@ -23,7 +24,7 @@ export function PasswordCell({ userId, mustChangePassword }: Props) {
         const body = await res.json().catch(() => ({}))
         toast.error(body?.error ?? 'Reset failed.')
       } else {
-        toast.success('Password reset to footballclub')
+        toast.success(`Password reset to ${DEFAULT_PASSWORD}`)
         router.refresh()
       }
     })
@@ -34,7 +35,7 @@ export function PasswordCell({ userId, mustChangePassword }: Props) {
       {mustChangePassword ? (
         <div className="flex items-center gap-1.5">
           <span className="font-mono text-sm">
-            {revealed ? 'footballclub' : '••••••••••••'}
+            {revealed ? DEFAULT_PASSWORD : '••••••••••••'}
           </span>
           <button
             type="button"

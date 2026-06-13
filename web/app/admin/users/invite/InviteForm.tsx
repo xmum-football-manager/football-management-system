@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Loader2, Info } from 'lucide-react'
+import { DEFAULT_PASSWORD } from '@/lib/auth-constants'
 
 export function InviteForm() {
   const router = useRouter()
@@ -30,7 +31,7 @@ export function InviteForm() {
       return
     }
     toast.success(`Account created for ${email}.`, {
-      description: 'Default password: footballclub',
+      description: `Default password: ${DEFAULT_PASSWORD}`,
     })
     router.push('/admin/users')
     router.refresh()
@@ -53,7 +54,7 @@ export function InviteForm() {
       <div className="flex gap-2 rounded-md border bg-sky-50 border-sky-200 px-3 py-2 text-xs text-sky-900">
         <Info className="h-4 w-4 mt-0.5 shrink-0" />
         <div>
-          Account will be created with default password <code className="font-mono bg-white/60 px-1 rounded">footballclub</code>.
+          Account will be created with default password <code className="font-mono bg-white/60 px-1 rounded">{DEFAULT_PASSWORD}</code>.
           The user must change it on first login. Assign roles via the relevant tournament tab.
         </div>
       </div>

@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { DEFAULT_PASSWORD } from '@/lib/auth-constants'
 
-export const DEFAULT_PASSWORD = 'footballclub'
+export { DEFAULT_PASSWORD }
 
 export async function createClubUser(input: {
   email: string

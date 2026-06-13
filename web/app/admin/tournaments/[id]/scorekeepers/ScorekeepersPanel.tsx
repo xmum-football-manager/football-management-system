@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge'
 import { Loader2, UserPlus, Trash2 } from 'lucide-react'
 import { assignScorekeeperAction, createAndAssignScorekeeperAction, removeScorekeeperAction } from './actions'
-import { DEFAULT_PASSWORD } from '@/lib/users'
+import { DEFAULT_PASSWORD } from '@/lib/auth-constants'
 
 interface Match {
   id: string
