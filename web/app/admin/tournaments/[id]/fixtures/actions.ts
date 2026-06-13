@@ -15,6 +15,7 @@ import {
 import type { CreateMatchInput } from '@/lib/db/matches'
 import { listTeams, listTeamsWithPlayerCounts } from '@/lib/db/teams'
 import { teamsShortOfMinPlayers, shortTeamsErrorMessage } from '@/lib/min-players'
+import { groupAssignmentIssues } from '@/lib/groups-complete'
 import { getTournament, updateKnockoutQualifiers } from '@/lib/db/tournaments'
 import { generateRoundRobin } from '@/lib/round-robin'
 import { groupStageComplete, expectedBracketSize, validatePairingEdit } from '@/lib/qualifiers'
@@ -568,6 +569,10 @@ export async function generateGroupFixturesAction(
       const teamsWithCounts = await listTeamsWithPlayerCounts(tournamentId)
       const short = teamsShortOfMinPlayers(teamsWithCounts, tournament.min_players_per_team)
       if (short.length > 0) return { error: shortTeamsErrorMessage(short, tournament.min_players_per_team) }
+    }
+    if (tournament.num_groups != null && tournament.teams_per_group != null) {
+      const issues = groupAssignmentIssues(teams, tournament.num_groups, tournament.teams_per_group)
+      if (issues.length > 0) return { error: issues.join(' ') }
     }
     const existingGroup = existing.filter((m) => m.phase === 'group')
     if (existingGroup.length > 0) {
