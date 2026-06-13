@@ -26,6 +26,20 @@ export async function listTeamsWithPlayers(tournamentId: string): Promise<TeamWi
   }))
 }
 
+export async function listTeamsWithPlayerCounts(
+  tournamentId: string,
+): Promise<Array<{ id: string; name: string; playerCount: number }>> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('teams')
+    .select('id, name, players(id)')
+    .eq('tournament_id', tournamentId)
+  if (error) throw error
+  return ((data ?? []) as { id: string; name: string; players: { id: string }[] }[]).map(
+    (row) => ({ id: row.id, name: row.name, playerCount: row.players?.length ?? 0 }),
+  )
+}
+
 export async function listPlayerCounts(tournamentId: string): Promise<Record<string, number>> {
   const supabase = await createClient()
   const { data, error } = await supabase

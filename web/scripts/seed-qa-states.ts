@@ -73,7 +73,24 @@ async function makeTeams(
     console.error('Failed to create teams:', error)
     process.exit(1)
   }
-  return data as Team[]
+  const teams = data as Team[]
+
+  // Insert 11 players per team so the min_players_per_team trigger is satisfied.
+  const players = teams.flatMap((t) =>
+    Array.from({ length: 11 }, (_, i) => ({
+      team_id: t.id,
+      name: `${t.name} P${i + 1}`,
+      jersey_number: i + 1,
+      position: null,
+    })),
+  )
+  const { error: playerError } = await sb.from('players').insert(players)
+  if (playerError) {
+    console.error('Failed to create players:', playerError)
+    process.exit(1)
+  }
+
+  return teams
 }
 
 async function groupMatches(

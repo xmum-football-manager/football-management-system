@@ -13,7 +13,8 @@ import {
   listMatches,
 } from '@/lib/db/matches'
 import type { CreateMatchInput } from '@/lib/db/matches'
-import { listTeams } from '@/lib/db/teams'
+import { listTeams, listTeamsWithPlayerCounts } from '@/lib/db/teams'
+import { teamsShortOfMinPlayers, shortTeamsErrorMessage } from '@/lib/min-players'
 import { getTournament, updateKnockoutQualifiers } from '@/lib/db/tournaments'
 import { generateRoundRobin } from '@/lib/round-robin'
 import { groupStageComplete, expectedBracketSize, validatePairingEdit } from '@/lib/qualifiers'
@@ -53,6 +54,14 @@ export async function addMatchAction(input: {
     }
     const tournament = await getTournament(input.tournament_id)
     if (!tournament) return { error: 'Tournament not found.' }
+    if (tournament.min_players_per_team != null) {
+      const allTeams = await listTeamsWithPlayerCounts(input.tournament_id)
+      const relevant = allTeams.filter(
+        (t) => t.id === input.home_team_id || t.id === input.away_team_id,
+      )
+      const short = teamsShortOfMinPlayers(relevant, tournament.min_players_per_team)
+      if (short.length > 0) return { error: shortTeamsErrorMessage(short, tournament.min_players_per_team) }
+    }
     const matchDay = new Date(input.match_time).toISOString().split('T')[0]
     if (matchDay < tournament.start_date || matchDay > tournament.end_date) {
       return {
@@ -84,6 +93,14 @@ export async function bulkAddMatchesAction(
     }
     const tournament = await getTournament(tournamentId)
     if (!tournament) return { error: 'Tournament not found.' }
+    if (tournament.min_players_per_team != null) {
+      const allTeams = await listTeamsWithPlayerCounts(tournamentId)
+      const teamMap = new Map(allTeams.map((t) => [t.id, t]))
+      const involvedIds = new Set(fixtures.flatMap((f) => [f.home_team_id, f.away_team_id]))
+      const involved = [...involvedIds].flatMap((id) => (teamMap.get(id) ? [teamMap.get(id)!] : []))
+      const short = teamsShortOfMinPlayers(involved, tournament.min_players_per_team)
+      if (short.length > 0) return { error: shortTeamsErrorMessage(short, tournament.min_players_per_team) }
+    }
     let created = 0
     for (const f of fixtures) {
       if (f.home_team_id === f.away_team_id) continue
@@ -245,6 +262,14 @@ export async function seedKnockoutBracketAction(
       return { error: 'Knockout matches are already in progress — cannot re-seed.' }
     }
 
+    if (tournament.min_players_per_team != null) {
+      const allTeams = await listTeamsWithPlayerCounts(tournamentId)
+      const teamMap = new Map(allTeams.map((t) => [t.id, t]))
+      const involved = qualifiers.flatMap((id) => (teamMap.get(id) ? [teamMap.get(id)!] : []))
+      const short = teamsShortOfMinPlayers(involved, tournament.min_players_per_team)
+      if (short.length > 0) return { error: shortTeamsErrorMessage(short, tournament.min_players_per_team) }
+    }
+
     const knockoutRound = knockoutRoundLabel(tournament, qualifiers.length)
 
     // Pair qualifiers into first-round matches: slot[0] vs slot[1], slot[2] vs slot[3], etc.
@@ -291,6 +316,11 @@ export async function seedDirectKnockoutAction(
       return {
         error: `Team count must be a power of 2 (2, 4, 8, 16…). You have ${n} team${n === 1 ? '' : 's'}.`,
       }
+    }
+    if (tournament.min_players_per_team != null) {
+      const teamsWithCounts = await listTeamsWithPlayerCounts(tournamentId)
+      const short = teamsShortOfMinPlayers(teamsWithCounts, tournament.min_players_per_team)
+      if (short.length > 0) return { error: shortTeamsErrorMessage(short, tournament.min_players_per_team) }
     }
     const kickoffDay = new Date(opts.kickoff).toISOString().split('T')[0]
     if (kickoffDay < tournament.start_date || kickoffDay > tournament.end_date) {
@@ -366,6 +396,15 @@ export async function createManualKnockoutAction(
     const existingMatches = await listMatches(tournamentId)
     if (existingMatches.some((m) => m.phase === 'knockout')) {
       return { error: 'Knockout matches already exist.' }
+    }
+
+    if (tournament.min_players_per_team != null) {
+      const allTeams = await listTeamsWithPlayerCounts(tournamentId)
+      const teamMap = new Map(allTeams.map((t) => [t.id, t]))
+      const involvedIds = new Set(pairings.flatMap((p) => [p.home_team_id, p.away_team_id]))
+      const involved = [...involvedIds].flatMap((id) => (teamMap.get(id) ? [teamMap.get(id)!] : []))
+      const short = teamsShortOfMinPlayers(involved, tournament.min_players_per_team)
+      if (short.length > 0) return { error: shortTeamsErrorMessage(short, tournament.min_players_per_team) }
     }
 
     let round = knockoutRoundLabel(tournament, pairings.length * 2) as KoRound
@@ -461,6 +500,13 @@ export async function updateFirstRoundPairingAction(
     ])
     if (!match) return { error: 'Match not found.' }
     if (!tournament) return { error: 'Tournament not found.' }
+    if (tournament.min_players_per_team != null) {
+      const allTeams = await listTeamsWithPlayerCounts(tournamentId)
+      const teamMap = new Map(allTeams.map((t) => [t.id, t]))
+      const involved = [homeId, awayId].flatMap((id) => (teamMap.get(id) ? [teamMap.get(id)!] : []))
+      const short = teamsShortOfMinPlayers(involved, tournament.min_players_per_team)
+      if (short.length > 0) return { error: shortTeamsErrorMessage(short, tournament.min_players_per_team) }
+    }
     const qualifierIds = tournament.knockout_qualifiers ?? []
     const occupiedByOthers = allMatches
       .filter(
@@ -518,6 +564,11 @@ export async function generateGroupFixturesAction(
     ])
     if (!tournament) return { error: 'Tournament not found.' }
     if (!tournament.num_groups) return { error: 'No groups configured.' }
+    if (tournament.min_players_per_team != null) {
+      const teamsWithCounts = await listTeamsWithPlayerCounts(tournamentId)
+      const short = teamsShortOfMinPlayers(teamsWithCounts, tournament.min_players_per_team)
+      if (short.length > 0) return { error: shortTeamsErrorMessage(short, tournament.min_players_per_team) }
+    }
     const existingGroup = existing.filter((m) => m.phase === 'group')
     if (existingGroup.length > 0) {
       if (!canRegenerateFixtures(existingGroup)) {
