@@ -81,7 +81,6 @@ async function makeTeams(
       team_id: t.id,
       name: `${t.name} P${i + 1}`,
       jersey_number: i + 1,
-      position: null,
     })),
   )
   const { error: playerError } = await sb.from('players').insert(players)
