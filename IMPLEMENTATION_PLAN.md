@@ -1,59 +1,57 @@
-# GP→KO Tournament — Bug-Fix Implementation Plan (LIVE HANDOFF)
+# GP→KO Tournament — LIVE HANDOFF (resume from here)
 
-> Source of truth for the agentic loop. Any session resumes from here.
-> Loop per task: **sonnet coder (TDD) → sonnet reviewer → update this file → compact.**
-> Companion: `BUGS_GP_KO.txt` (original findings + evidence).
+> Cold-start doc. Read this + `BUGS_GP_KO.txt` to resume. Updated 2026-06-13.
+> Workflow used: orchestrated **sonnet coder (TDD) → sonnet reviewer → commit → (apply migration)**.
+
+## Where things stand
+- **Branch:** `fix/gp-ko-tournament-bugs` → **PR #58** (open, base `main`). Everything below is committed & pushed.
+- **Suite:** 293 tests green, `tsc` clean. Test runner = vitest (pure-logic only; **no UI/component test harness** — TDD validators, manually verify UI).
+- **Two DB migrations already APPLIED to remote production** (Supabase project `xqjmnxqceegrevlmbqbd`, linked): `20260613000000` (min-players), `20260613010000` (group-assignment). Both verified live.
 
 ## Health commands (run from `web/`)
-- typecheck: `cd web && npx tsc --noEmit`
-- lint: `cd web && pnpm lint`
-- test: `cd web && npx vitest run`
-- single test file: `cd web && npx vitest run __tests__/<file>.test.ts`
+- test: `cd web && npx vitest run`  · typecheck: `cd web && npx tsc --noEmit`  · lint: `cd web && pnpm lint`
 
-## Locked design decisions
-- **P1-6:** Once any match is live → block group reassignment (already enforced). Pre-live but fixtures exist → allow reassign, but confirm-dialog warns "this deletes all fixtures + their scheduled times", then wipe fixtures so regenerate is unblocked.
-- **P2-9:** KO draw winner-pick = KO-only, already works (no change). Group standings tie at the qualifying boundary → admin manually picks. Detection logic = `detectBoundaryTies` (DONE). Remaining = editable Qualifiers UI.
-- **P2-10:** Reverting a finished KO match sets `winner_team_id = NULL`; re-finishing blocked until winner re-picked → trigger re-fans correct team.
-- **P2-11:** Add "edit first-round pairing" (swap teams in a scheduled first-round KO match from the qualifier pool). No bracket-match deletion → no orphaned TBD.
+## DONE (all TDD'd + sonnet-reviewed, on PR #58)
+| ID | Fix | Pure helper |
+|----|-----|-------------|
+| P0-3 | `addPlayerAction` blocks finished/archived | (canAddPlayers) |
+| P1-4 | seed rejects qualifier count ≠ bracket size | `expectedBracketSize` |
+| P1-5 | qualifiers blocked until group stage done | `groupStageComplete` |
+| P1-6 | group reassign unstuck; replaces group-only fixtures + confirm dialog | `canRegenerateFixtures` |
+| P1-7 | `addMatchAction` live-match guard | — |
+| P2-9 | editable qualifiers + group tie-break toggles | `detectBoundaryTies`, `validateQualifierSelection`, `_groupBoundary` |
+| P2-10 | KO revert clears `winner_team_id` (no stale advance) | `shouldClearKnockoutWinner` |
+| P2-11 | edit first-round pairing + cross-match dup guard | `validatePairingEdit` (`occupiedByOthers`) |
+| toast-z | sonner Toaster z-100 so validation toasts show above dialogs | — |
+| min-players | **3-level hard gate** (lib/min-players.ts + 7 server gates + DB trigger `enforce_min_players_on_match`) | `teamsShortOfMinPlayers` |
+| groups-complete | **3-level hard gate** (lib/groups-complete.ts + generateGroupFixtures gate + DB trigger `enforce_group_assignment_on_match`) | `groupCompleteness` |
+- P0-2 & P0-1 CLOSED as non-issues (verified — see BUGS_GP_KO.txt).
 
-## Task board
-Status: TODO / DOING / REVIEW / DONE
+## NEXT TASK — Reset Bracket feature (Option A, agreed with user)
+**Problem:** `resetKnockoutAction` (fixtures/actions.ts) deletes ALL `phase='knockout'` matches with **no status guard**. Admin who sets up the first round wrong and **accidentally kicks off a KO match** is otherwise dead-ended (only escape = delete whole tournament). Need a safe reset.
 
-| ID | Task | Status | Key files |
-|----|------|--------|-----------|
-| P1-7 | live-match guard on `addMatchAction` | DONE | web/app/admin/tournaments/[id]/fixtures/actions.ts |
-| P2-9a | `detectBoundaryTies` pure logic + tests | DONE | web/lib/qualifiers.ts, web/__tests__/qualifiers.test.ts |
-| P0-3 | status check on `addPlayerAction` | DONE | web/app/admin/tournaments/[id]/teams/actions.ts |
-| P1-5 | block qualifiers until all group matches finished | DONE | web/app/admin/tournaments/[id]/fixtures/actions.ts (saveQualifiersAction); helper groupStageComplete in qualifiers.ts |
-| P1-4 | seed-time bracket-size guard | DONE | fixtures/actions.ts (seedKnockoutBracketAction); helper expectedBracketSize in qualifiers.ts |
-| P1-6 | warn+wipe fixtures on pre-live group reassign | DONE | lock-rules.ts (canRegenerateFixtures), fixtures/actions.ts (generateGroupFixturesAction replaces group-phase-only fixtures), rd-groups/RDGroupsPanel.tsx + page.tsx + GroupsStepper.tsx (confirm dialog) |
-| P2-9b | editable Qualifiers UI using `detectBoundaryTies` | DONE | qualifiers.ts (_groupBoundary + validateQualifierSelection), QualifiersStep.tsx (toggle UI). Nit: confirm+edit buttons both show when !alreadySaved (cosmetic, left as-is) |
-| P2-10 | clear winner on KO revert + force re-pick | DONE | match-lifecycle.ts (shouldClearKnockoutWinner), db/matches.ts (clearMatchWinner), admin actions.ts (transitionMatchAction) |
-| P2-11 | edit first-round pairing (no delete) | DONE | qualifiers.ts (validatePairingEdit + occupiedByOthers dup-guard), fixtures/actions.ts (updateFirstRoundPairingAction), knockout/KnockoutStepper.tsx (EditPairingDialog) |
+**KEY FACT (why Option A, not "revert each round"):** `match-lifecycle.ts` has **no transition back to `scheduled`** (only `scheduled→live→{halftime,finished}`, admin `finished→live`). Reverting a played round would also need **un-advancement** (pull advanced teams out of downstream slots back to TBD) — a fragile cascade. Reset deletes the whole bracket anyway, so skip all that.
 
-## Acceptance criteria (TDD — write failing test first)
-- **P0-3:** `addPlayerAction` rejects when tournament is finished/archived (`!canAddPlayers(status)`), mirroring `updatePlayerAction`. Test: action returns error for finished tournament. (Action-level test or extend lock-rules coverage.)
-- **P1-5:** `saveQualifiersAction` rejects unless every `phase==='group'` match is `finished`; error names how many remain. Extract a pure helper `groupStageComplete(matches)` and unit-test it (no group matches → false; some scheduled/live → false; all finished → true).
-- **P1-4:** Add pure helper `expectedBracketSize(knockout_start_round)` (final→2, semi→4, top_8→8, top_16→16, top_32→32) and have `seedKnockoutBracketAction` reject when `qualifiers.length !== expectedBracketSize`. Unit-test the helper + the mismatch guard.
-- **P1-6:** Pure rule already exists (live check). New: `setTeamGroupAction` allowed pre-live even with fixtures; generate action replaces scheduled-only fixtures. UI confirm dialog warns before wipe. Test the "replace when all scheduled" branch.
-- **P2-9b:** Wire `detectBoundaryTies` into QualifiersStep: contested teams become toggleable, enforce exactly `slots` picked among contested, exactly `advancePerGroup` per group total. Pure validator `validateQualifierSelection(standings, selectedIds, advancePerGroup, numGroups)` — TDD it.
-- **P2-10:** Pure transition already in match-lifecycle. New: on KO `finished→live` revert, null the winner; finishing a level KO match blocked w/o winner (already true). Test the null-on-revert helper.
-- **P2-11:** `updateFirstRoundPairingAction(matchId, homeId, awayId)` — only `scheduled` first-round KO match, both ids from qualifier pool, ids distinct. TDD a pure validator `validatePairingEdit(...)`.
+**Build (n-layer):**
+1. **DB** — new migration `web/supabase/migrations/20260613020000_reset_knockout_bracket.sql`: function `reset_knockout_bracket(p_tournament_id uuid, p_force boolean) returns int` (SECURITY DEFINER). If `not p_force` AND any `phase='knockout'` match for the tournament has `status <> 'scheduled'` → `raise exception`. Else delete all knockout matches, return count. (Rule lives in DB; avoids a delete-trigger that would fight the force path.)
+2. **Server** — `resetKnockoutAction(tournamentId, force=false)` calls the RPC via supabase `.rpc('reset_knockout_bracket', {...})`; surface error/count. (Replaces the current JS delete loop.)
+3. **Pure logic (TDD)** — `canResetBracket(knockoutMatches: {status}[]): boolean` (true iff empty or all `scheduled`) in a sensible lib; used by client gray-out + as the normal-path check. Unit-test it.
+4. **Client** — in `knockout/KnockoutStepper.tsx`: normal **Reset bracket** button **grayed/disabled** when `!canResetBracket`; a distinct **Force reset** behind a strong confirm dialog ("This deletes all N knockout matches incl. M in progress and all results. Qualifiers will unlock. Cannot be undone."). After reset, `bracketExists` flips false → qualifiers auto-unlock (existing behavior).
+5. **Overview warning** — on the tournament overview page, when a KO match is live/finished, show why reset is locked ("Revert/clear the knockout results — use Force reset to wipe the bracket").
+6. **Apply migration** after review (see procedure below). Honest caveat to keep in UI copy: force-reset is genuinely destructive (deletes played results) — safe path (grayed) must be the obvious default.
 
-## Subagent protocol (for the orchestrator)
-1. **Coder (sonnet):** give it ONE task ID, the rows above, the health commands. It must: write failing test → run (RED) → minimal impl → run (GREEN) → typecheck. Return: files changed, test names, RED/GREEN evidence, anything surprising. Cap ~300 words.
-2. **Reviewer (sonnet):** give it the `git diff` for that task only. Check correctness, scope creep, missed edge cases, that the test actually fails without the impl. Return verdict + must-fix list. Cap ~250 words.
-3. Orchestrator applies must-fixes (or re-dispatches coder), flips status to DONE here, then compacts.
+## Open items (user's call, not started)
+- **Qualifier-lock timing** (declined option b): qualifiers currently editable until *Create Bracket*, then lock (`canEditQualifiers = … && !bracketExists`). User may later want lock-on-confirm.
+- **Dependabot:** 32 vulns on default branch (16 high). Offered `pnpm audit` triage — not done.
+- **Cleanup:** disposable QA tournaments still in remote DB: `QA · MP Under/Exact/Empty` (and re-running seeds wipes them). Delete when user says.
 
-## RESUME HERE (3 remaining — all UI-heavy, TDD the pure validator then wire UI)
-Done & reviewed: P1-7, P2-9a, P0-3, P1-5, P1-4, P2-10. Full suite green (257 tests), tsc clean. Nothing committed yet.
-1. **P2-11** — `validatePairingEdit(match, homeId, awayId, qualifierIds)` pure validator (only `scheduled` first-round KO match; both ids in qualifier pool; ids distinct) → TDD it; then `updateFirstRoundPairingAction` + edit UI in BracketSetupView. Reuses `updateMatchTeams` (already in db/matches.ts).
-2. **P2-9b** — `validateQualifierSelection(standings, selectedIds, advancePerGroup, numGroups)` pure validator (exactly advancePerGroup per group; contested picks within `detectBoundaryTies` set) → TDD; then make QualifiersStep toggleable, surface `detectBoundaryTies` groups. Save layer `updateKnockoutQualifiers` already accepts arbitrary lists.
-3. **P1-6** — allow `setTeamGroupAction` pre-live even with fixtures; make `generateGroupFixturesAction` replace scheduled-only fixtures (TDD the replace branch); add confirm-dialog in TeamsPanel warning fixtures+times will be wiped.
-Note: UI components have no unit-test harness here (vitest covers pure logic only) — TDD the validators, manually verify the UI wiring.
+## How to apply a migration to remote (procedure, verified working)
+From `web/`: read `SUPABASE_DB_PASSWORD` from `.env.local`; `supabase db push --dry-run --password "$PW"` (confirm only the new file is pending); then `echo y | supabase db push --password "$PW"`. The `NOTICE ... trigger does not exist, skipping` is just `drop trigger if exists` — harmless. Verify live with a throwaway tsx script using the service-role key, then delete it.
 
-## Notes / gotchas
-- P0-2 CLOSED (already safe: deletePlayerAction blocks once any match live).
-- Save layer `updateKnockoutQualifiers(tournamentId, teamIds)` already accepts arbitrary lists — no DB change for P2-9b.
-- KO winner-pick on draws already enforced at score/actions.ts:115 + admin/actions.ts:55.
-- Don't auto-invoke superpowers skills (project CLAUDE.md) unless the user asks. TDD IS requested for this work.
+## Facts / gotchas
+- **Browser QA:** dev server runs on `localhost:3000`; admin login `admin@admin.org` (pwd in `.env.local` `TEST_USER_PASSWORD`). gstack `browse` daemon session **expires between sessions** — re-login (snapshot the login form for fresh @refs: Email/Password/Sign in). App points at REMOTE Supabase (no local instance).
+- **`players` table columns:** `team_id, name, jersey_number` ONLY — **no `position` column** (old seed scripts had a stale `position` line that crashes).
+- **Seed scripts:** `scripts/seed-qa-minplayers.ts` (min-players edges), `scripts/seed-qa-states.ts` (the 3 UI-flow states). Run: `set -a && . ./.env.local && set +a && npx tsx scripts/<f>.ts` from `web/`.
+- **Match phases:** `phase ∈ {'group','knockout'}`. Knockout TBD slots = null `home_team_id`/`away_team_id` with `home_source_match_id`/`away_source_match_id` set. First-round KO match = both source ids null.
+- **Don't auto-invoke superpowers skills** (project CLAUDE.md) unless user asks. TDD IS wanted for this work.
+- Subagent protocol: coder gets ONE task + RED/GREEN requirement; reviewer gets the **exact diff hunks** (not `git diff` vs HEAD — pre-existing WIP shows as false scope-creep). Commit each task so the next reviewer's `git diff` is clean.
