@@ -111,6 +111,34 @@ export async function listScorekeeperRoles(tournamentId: string) {
   return [...((tournamentWide ?? []) as UserRole[]), ...perMatch]
 }
 
+export async function getScorekeeperTournamentIds(userId: string): Promise<string[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('user_roles')
+    .select('tournament_id, match_id')
+    .eq('user_id', userId)
+    .eq('role', 'scorekeeper')
+
+  const tournamentIds = new Set<string>()
+  const matchIds: string[] = []
+  for (const r of data ?? []) {
+    if (r.tournament_id) tournamentIds.add(r.tournament_id as string)
+    if (r.match_id) matchIds.push(r.match_id as string)
+  }
+
+  if (matchIds.length > 0) {
+    const { data: matches } = await supabase
+      .from('matches')
+      .select('tournament_id')
+      .in('id', matchIds)
+    for (const row of matches ?? []) {
+      if (row.tournament_id) tournamentIds.add(row.tournament_id as string)
+    }
+  }
+
+  return [...tournamentIds]
+}
+
 export async function listScorekeeperMatchesForUser(userId: string): Promise<string[]> {
   const supabase = await createClient()
   const { data } = await supabase

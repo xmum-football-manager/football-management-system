@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ArrowLeft, Plus, ShieldCheck } from 'lucide-react'
+import { PasswordCell } from './PasswordCell'
 
 export const metadata = { title: 'Users' }
 
@@ -55,9 +56,9 @@ export default async function UsersPage() {
             <div key={u.id} className="flex items-center gap-3 p-4">
               <div className="flex-1 min-w-0">
                 <div className="font-medium truncate">{u.email}</div>
-                {u.must_change_password && (
-                  <div className="text-xs text-amber-700 mt-0.5">Default password — must be changed on first login.</div>
-                )}
+                <div className="mt-1">
+                  <PasswordCell userId={u.id} mustChangePassword={u.must_change_password} />
+                </div>
               </div>
               <div className="flex flex-wrap gap-1.5 justify-end">
                 {u.roles.length === 0 ? (
