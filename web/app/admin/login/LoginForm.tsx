@@ -31,6 +31,20 @@ export function LoginForm({ redirectTo, surface }: Props) {
       setError(error?.message ?? 'Could not sign in.')
       return
     }
+    // Admin surface is for admins/organizers only — a scorekeeper-only account can
+    // authenticate but must not land in the admin console.
+    if (surface === 'admin') {
+      const { data: roleRows } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', data.user.id)
+      const allowed = (roleRows ?? []).some((r) => r.role === 'admin' || r.role === 'organizer')
+      if (!allowed) {
+        await supabase.auth.signOut()
+        setError('This account doesn’t have admin access. Use the scorekeeper sign-in.')
+        return
+      }
+    }
     const mustChange = Boolean(data.user.user_metadata?.must_change_password)
     if (mustChange) {
       router.push(`/change-password?redirectTo=${encodeURIComponent(redirectTo)}`)
