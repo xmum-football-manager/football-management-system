@@ -77,3 +77,10 @@ export function canEditFormat(
 export function canRegenerateFixtures(existingMatches: Array<{ status: string }>): boolean {
   return existingMatches.every((m) => m.status === 'scheduled')
 }
+
+/** Returns true if the knockout bracket can be safely reset (normal path).
+ *  Safe when there are zero knockout matches OR every match is still scheduled.
+ *  Returns false if any match has gone live or finished. */
+export function canResetBracket(knockoutMatches: Array<{ status: string }>): boolean {
+  return knockoutMatches.every((m) => m.status === 'scheduled')
+}

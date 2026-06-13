@@ -20,6 +20,7 @@ import { getTournament, updateKnockoutQualifiers } from '@/lib/db/tournaments'
 import { generateRoundRobin } from '@/lib/round-robin'
 import { groupStageComplete, expectedBracketSize, validatePairingEdit } from '@/lib/qualifiers'
 import { canRegenerateFixtures } from '@/lib/lock-rules'
+import { createServiceClient } from '@/lib/supabase/server'
 
 async function ensureOrganizer(tournamentId: string) {
   const user = await requireUser()
@@ -466,21 +467,21 @@ export async function createManualKnockoutAction(
 
 export async function resetKnockoutAction(
   tournamentId: string,
+  force = false,
 ): Promise<{ deleted: number } | { error: string }> {
   try {
     await ensureOrganizer(tournamentId)
-    const matches = await listMatches(tournamentId)
-    const knockoutMatches = matches.filter((m) => m.phase === 'knockout')
-    let deleted = 0
-    for (const m of knockoutMatches) {
-      const r = await deleteMatch(m.id)
-      if (!r.error) deleted++
-    }
+    const supabase = createServiceClient()
+    const { data, error } = await supabase.rpc('reset_knockout_bracket', {
+      p_tournament_id: tournamentId,
+      p_force: force,
+    })
+    if (error) return { error: error.message }
     revalidatePath(`/admin/tournaments/${tournamentId}/knockout`)
     revalidatePath(`/admin/tournaments/${tournamentId}/fixtures`)
     revalidatePath(`/admin/tournaments/${tournamentId}`)
     revalidatePath(`/t/${tournamentId}`)
-    return { deleted }
+    return { deleted: data ?? 0 }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed.' }
   }
