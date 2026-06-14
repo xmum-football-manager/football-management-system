@@ -1,4 +1,4 @@
-import type { MatchStatus } from '@/lib/supabase/types'
+import type { Match, MatchStatus } from '@/lib/supabase/types'
 
 type Role = 'organizer' | 'admin'
 
@@ -60,4 +60,21 @@ export function shouldClearKnockoutWinner(opts: {
   to: string
 }): boolean {
   return opts.phase === 'knockout' && opts.from === 'finished' && opts.to !== 'finished'
+}
+
+// Source of truth for who won a finished knockout match. winner_team_id wins
+// (it's set explicitly for admin-decided ties and auto-set on decisive finishes);
+// fall back to scores for legacy rows without it. Returns null until finished or
+// for an undecided draw.
+export function knockoutWinnerTeamId(
+  match: Pick<
+    Match,
+    'status' | 'winner_team_id' | 'home_team_id' | 'away_team_id' | 'home_score' | 'away_score'
+  >,
+): string | null {
+  if (match.status !== 'finished') return null
+  if (match.winner_team_id) return match.winner_team_id
+  if (match.home_score > match.away_score) return match.home_team_id
+  if (match.away_score > match.home_score) return match.away_team_id
+  return null
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isValidTransition, getAvailableTransitions, canScorekeeper, shouldClearKnockoutWinner } from '@/lib/match-lifecycle'
+import { isValidTransition, getAvailableTransitions, canScorekeeper, shouldClearKnockoutWinner, knockoutWinnerTeamId } from '@/lib/match-lifecycle'
 
 describe('isValidTransition — organizer', () => {
   it('allows scheduled → live', () => {
@@ -98,5 +98,28 @@ describe('shouldClearKnockoutWinner', () => {
   })
   it('knockout scheduled→live returns false', () => {
     expect(shouldClearKnockoutWinner({ phase: 'knockout', from: 'scheduled', to: 'live' })).toBe(false)
+  })
+})
+
+describe('knockoutWinnerTeamId', () => {
+  const base = { status: 'finished' as const, winner_team_id: null, home_team_id: 'home', away_team_id: 'away', home_score: 0, away_score: 0 }
+
+  it('returns null until finished', () => {
+    expect(knockoutWinnerTeamId({ ...base, status: 'live', home_score: 2, away_score: 1 })).toBeNull()
+  })
+  it('uses winner_team_id when set (admin-decided tie)', () => {
+    expect(knockoutWinnerTeamId({ ...base, winner_team_id: 'away', home_score: 1, away_score: 1 })).toBe('away')
+  })
+  it('winner_team_id overrides the score', () => {
+    expect(knockoutWinnerTeamId({ ...base, winner_team_id: 'away', home_score: 3, away_score: 1 })).toBe('away')
+  })
+  it('falls back to home score when no winner_team_id', () => {
+    expect(knockoutWinnerTeamId({ ...base, home_score: 2, away_score: 1 })).toBe('home')
+  })
+  it('falls back to away score when no winner_team_id', () => {
+    expect(knockoutWinnerTeamId({ ...base, home_score: 1, away_score: 2 })).toBe('away')
+  })
+  it('returns null for an undecided draw', () => {
+    expect(knockoutWinnerTeamId({ ...base, home_score: 1, away_score: 1 })).toBeNull()
   })
 })

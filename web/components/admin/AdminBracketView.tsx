@@ -12,6 +12,7 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import type { MatchWithTeams } from '@/lib/supabase/types'
 import { teamInitials } from '@/lib/format'
+import { knockoutWinnerTeamId } from '@/lib/match-lifecycle'
 
 export interface BracketGroupStanding {
   team_id: string
@@ -185,14 +186,14 @@ export function AdminBracketView({
     hasValidMatches && remainingPlaceholderRounds.length === 0
       ? matchRounds[matchRounds.length - 1]?.[0]
       : undefined
-  const champion =
-    finalMatch?.status === 'finished'
-      ? finalMatch.home_score > finalMatch.away_score
-        ? finalMatch.home_team?.name ?? null
-        : finalMatch.away_score > finalMatch.home_score
-          ? finalMatch.away_team?.name ?? null
-          : null
-      : null
+  const championWinnerId = finalMatch ? knockoutWinnerTeamId(finalMatch) : null
+  const champion = !championWinnerId
+    ? null
+    : championWinnerId === finalMatch?.home_team_id
+      ? finalMatch?.home_team?.name ?? null
+      : championWinnerId === finalMatch?.away_team_id
+        ? finalMatch?.away_team?.name ?? null
+        : null
 
   const minWidth =
     (sidebar ? GROUP_COLUMN_WIDTH + 24 : 0) +
@@ -598,8 +599,9 @@ function BracketMatch({
 }) {
   const isLive = match.status === 'live' || match.status === 'halftime'
   const isFinished = match.status === 'finished'
-  const homeWon = isFinished && match.home_score > match.away_score
-  const awayWon = isFinished && match.away_score > match.home_score
+  const winnerId = knockoutWinnerTeamId(match)
+  const homeWon = !!winnerId && winnerId === match.home_team_id
+  const awayWon = !!winnerId && winnerId === match.away_team_id
   const clickable = match.status === 'scheduled' && !!onMatchClick
 
   return (
