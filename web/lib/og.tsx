@@ -5,10 +5,10 @@ import { join } from 'node:path'
 export const OG_SIZE = { width: 1200, height: 630 }
 
 export const OG_COLORS = {
-  bg: '#0E1A12',
-  lime: '#A3E635',
-  ink: '#F4F7EE',
-  muted: 'rgba(244,247,238,0.72)',
+  bg: '#060C1C',
+  lime: '#1E78F0',
+  ink: '#E8EFF8',
+  muted: 'rgba(232,239,248,0.72)',
 }
 
 export async function loadOgFonts() {
