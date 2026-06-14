@@ -3,6 +3,7 @@
 import * as Dialog from '@radix-ui/react-dialog'
 import { teamColor, teamCode } from '@/lib/team-style'
 import { mediaUrl } from '@/lib/storage'
+import { useMatchScorers, type Scorer } from '@/lib/use-match-scorers'
 import { matchStageLabel } from './MatchCard'
 import type { MatchWithTeams, Team } from '@/lib/supabase/types'
 
@@ -45,7 +46,61 @@ function ModalTeam({ team, winner }: { team: Team; winner: boolean }) {
   )
 }
 
+function scorerName(s: Scorer): string {
+  if (!s.player_name) return 'Unspecified'
+  return s.jersey_number !== null ? `#${s.jersey_number} ${s.player_name}` : s.player_name
+}
+
+function ScorersBlock({ match, scorers }: { match: MatchWithTeams; scorers: Scorer[] }) {
+  if (scorers.length === 0) return null
+  const startedAt = match.match_started_at ? new Date(match.match_started_at).getTime() : null
+  const minute = (iso: string) =>
+    startedAt ? `${Math.max(1, Math.floor((new Date(iso).getTime() - startedAt) / 60000))}'` : null
+  return (
+    <div style={{ marginTop: 16, borderTop: '1px solid var(--ink-700)', paddingTop: 14 }}>
+      <div style={{
+        fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 11, letterSpacing: '0.12em',
+        textTransform: 'uppercase', color: 'var(--ink-400)', marginBottom: 10,
+      }}>
+        Goals
+      </div>
+      <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {scorers.map((s) => {
+          const team = s.team_id === match.home_team_id ? match.home_team : match.away_team
+          const min = minute(s.created_at)
+          return (
+            <li key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                minWidth: 34, height: 20, padding: '0 6px', borderRadius: 6,
+                background: teamColor(team.id), color: '#fff', fontSize: 10, fontWeight: 800,
+                letterSpacing: '0.04em', flexShrink: 0,
+              }}>
+                {teamCode(team.name)}
+              </span>
+              <span style={{
+                flex: 1, color: s.player_name ? 'var(--ink-50)' : 'var(--ink-400)',
+                fontWeight: s.player_name ? 600 : 500, fontStyle: s.player_name ? 'normal' : 'italic', fontSize: 14,
+              }}>
+                {scorerName(s)}
+              </span>
+              {min && (
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--ink-400)', fontVariantNumeric: 'tabular-nums' }}>
+                  {min}
+                </span>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+}
+
 export function MatchModal({ match, onClose }: MatchModalProps) {
+  // Hook must run unconditionally; it no-ops for null / not-yet-started matches.
+  const scorers = useMatchScorers(match?.id ?? null, !!match && match.status !== 'scheduled')
+
   if (!match) return null
 
   const isLive     = match.status === 'live'
@@ -108,6 +163,8 @@ export function MatchModal({ match, onClose }: MatchModalProps) {
               </div>
             ))}
           </div>
+
+          <ScorersBlock match={match} scorers={scorers} />
 
           <Dialog.Close asChild>
             <button className="mmodal-close" aria-label="Close">

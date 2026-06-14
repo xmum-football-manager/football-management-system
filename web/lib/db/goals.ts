@@ -30,6 +30,41 @@ export async function recordGoal(
   return row
 }
 
+export interface MatchScorer {
+  id: string
+  team_id: string
+  player_id: string | null
+  player_name: string | null
+  jersey_number: number | null
+  created_at: string
+}
+
+/** Chronological goal log for a match, with scorer names resolved (null = unspecified). */
+export async function listMatchScorers(matchId: string): Promise<MatchScorer[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('goals')
+    .select('id, team_id, player_id, created_at, player:players(name, jersey_number)')
+    .eq('match_id', matchId)
+    .order('created_at', { ascending: true })
+  if (error) throw error
+  type Row = {
+    id: string
+    team_id: string
+    player_id: string | null
+    created_at: string
+    player: { name: string; jersey_number: number | null } | null
+  }
+  return ((data ?? []) as unknown as Row[]).map((r) => ({
+    id: r.id,
+    team_id: r.team_id,
+    player_id: r.player_id,
+    player_name: r.player?.name ?? null,
+    jersey_number: r.player?.jersey_number ?? null,
+    created_at: r.created_at,
+  }))
+}
+
 // Delete one specific goal (by id) rather than the last one — used by the
 // "remove a goal" picker so an organizer can correct the right scorer.
 export async function deleteGoal(
