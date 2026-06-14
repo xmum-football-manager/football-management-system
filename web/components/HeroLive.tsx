@@ -188,7 +188,7 @@ export function HeroLive({ match, allMatches = [], metaText, minutesPerHalf = 45
         </div>
 
         <div className="scoreboard">
-          <TeamSide team={match.home_team} side="home" form={teamForm(match.home_team_id, allMatches)} />
+          <TeamSide team={match.home_team} side="home" form={teamForm(match.home_team_id ?? '', allMatches)} />
 
           <div className="score-column">
             {isUpcoming ? (
@@ -218,7 +218,7 @@ export function HeroLive({ match, allMatches = [], metaText, minutesPerHalf = 45
             )}
           </div>
 
-          <TeamSide team={match.away_team} side="away" form={teamForm(match.away_team_id, allMatches)} />
+          <TeamSide team={match.away_team} side="away" form={teamForm(match.away_team_id ?? '', allMatches)} />
         </div>
 
         {isLive && <LastGoalLine match={match} />}

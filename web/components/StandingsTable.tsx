@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { teamColor, teamCode } from '@/lib/team-style'
 import { mediaUrl } from '@/lib/storage'
 import type { Standing, MatchWithTeams, TeamCardCount } from '@/lib/supabase/types'
@@ -29,6 +29,8 @@ export function StandingsTable({
 }: StandingsTableProps) {
   const cardsByTeam = new Map(cardCounts.map(c => [c.team_id, c]))
   const ref = useRef<HTMLDivElement>(null)
+  const prevOrderRef = useRef<Map<string, number>>(new Map())
+  const [overtakers, setOvertakers] = useState<Set<string>>(new Set())
 
   // Grow the points bars once the card scrolls into view (.standings-card.in)
   useEffect(() => {
@@ -51,6 +53,21 @@ export function StandingsTable({
     if (b.goal_difference !== a.goal_difference) return b.goal_difference - a.goal_difference
     return a.team_name.localeCompare(b.team_name)
   })
+
+  // Detect teams that overtook others (moved up in rank)
+  useEffect(() => {
+    const prev = prevOrderRef.current
+    const moved = new Set<string>()
+    sorted.forEach((r, i) => {
+      const prevRank = prev.get(r.team_id)
+      if (prevRank !== undefined && i < prevRank) moved.add(r.team_id)
+    })
+    prevOrderRef.current = new Map(sorted.map((r, i) => [r.team_id, i]))
+    if (moved.size === 0) return
+    setOvertakers(moved)
+    const timer = setTimeout(() => setOvertakers(new Set()), 1600)
+    return () => clearTimeout(timer)
+  }, [sorted])
 
   const maxPts = Math.max(...sorted.map(r => r.points), 1)
   const played = matches.filter(m => m.status === 'finished').length
@@ -87,7 +104,7 @@ export function StandingsTable({
             {sorted.map((r, i) => {
               const qualifies = advanceCount > 0 && i < advanceCount
               return (
-                <tr key={r.team_id} className={qualifies ? 'qualify' : ''}>
+                <tr key={r.team_id} className={`${qualifies ? 'qualify' : ''} ${overtakers.has(r.team_id) ? 'overtake' : ''}`}>
                   <td>
                     <span className="rank">
                       {i + 1}

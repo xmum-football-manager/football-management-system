@@ -178,6 +178,7 @@ export function GroupsStepper({
           numGroups={numGroups}
           teamsPerGroup={teamsPerGroup}
           canEdit={canManageGroups}
+          groupFixturesExist={fixturesExist}
         />
       )}
 

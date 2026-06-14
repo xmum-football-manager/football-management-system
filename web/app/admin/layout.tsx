@@ -40,6 +40,21 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   const admin = await isAdmin(user.id)
 
+  // Admin console is for admins and organizers only. A scorekeeper-only (or roleless)
+  // account that reaches here — e.g. by navigating directly after a /score login — is
+  // sent to the scorekeeper app.
+  if (!admin) {
+    const { data: orgRoles } = await supabase
+      .from('user_roles')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('role', 'organizer')
+      .limit(1)
+    if (!orgRoles || orgRoles.length === 0) {
+      redirect('/score')
+    }
+  }
+
   return (
     <div className={surfaceClass}>
       <header

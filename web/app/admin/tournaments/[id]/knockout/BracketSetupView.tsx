@@ -81,18 +81,9 @@ function allFilled(pairings: Pairing[]): boolean {
   return pairings.every((p) => p.home && p.away && p.matchTime)
 }
 
-export function BracketSetupView({ tournamentId, qualifiedTeams, tournamentStart, tournamentEnd, onCreated }: Props) {
-  const matchCount = Math.floor(qualifiedTeams.length / 2)
-  const [pairings, setPairings] = useState<Pairing[]>(() => buildEmptyPairings(matchCount))
-  const [openPicker, setOpenPicker] = useState<{ matchIdx: number; slot: 'home' | 'away' } | null>(null)
-  const [isPending, startTransition] = useTransition()
-  const handleClosePicker = useCallback(() => setOpenPicker(null), [])
-
-  const assigned = assignedIds(pairings)
-  const dayOptions = buildDayOptions(tournamentStart, tournamentEnd)
-
-  // Build placeholder rounds for subsequent rounds
-  const placeholderRounds: Array<{ homeLabel: string; awayLabel: string }[]> = []
+/** Build the later-round slot structure from round-0 match count. */
+function buildLaterRounds(matchCount: number): { homeLabel: string; awayLabel: string }[][] {
+  const rounds: { homeLabel: string; awayLabel: string }[][] = []
   let prevMatchNums = Array.from({ length: matchCount }, (_, i) => i + 1)
   let nextMatchNum = matchCount + 1
   while (prevMatchNums.length > 1) {
@@ -105,9 +96,53 @@ export function BracketSetupView({ tournamentId, qualifiedTeams, tournamentStart
     }
     const newMatchNums = round.map((_, i) => nextMatchNum + i)
     nextMatchNum += round.length
-    placeholderRounds.push(round)
+    rounds.push(round)
     prevMatchNums = newMatchNums
   }
+  return rounds
+}
+
+export function BracketSetupView({ tournamentId, qualifiedTeams, tournamentStart, tournamentEnd, onCreated }: Props) {
+  const matchCount = Math.floor(qualifiedTeams.length / 2)
+  const [pairings, setPairings] = useState<Pairing[]>(() => buildEmptyPairings(matchCount))
+  const [openPicker, setOpenPicker] = useState<{ matchIdx: number; slot: 'home' | 'away' } | null>(null)
+  const [isPending, startTransition] = useTransition()
+  const handleClosePicker = useCallback(() => setOpenPicker(null), [])
+
+  const laterRoundSlots = buildLaterRounds(matchCount)
+  // laterRoundTimes[roundIdx][matchIdx] = datetime-local string or ''
+  const [laterRoundTimes, setLaterRoundTimes] = useState<string[][]>(
+    () => laterRoundSlots.map((round) => round.map(() => ''))
+  )
+
+  const assigned = assignedIds(pairings)
+  const dayOptions = buildDayOptions(tournamentStart, tournamentEnd)
+
+  function setLaterTime(roundIdx: number, matchIdx: number, value: string) {
+    setLaterRoundTimes((prev) =>
+      prev.map((round, ri) =>
+        ri === roundIdx ? round.map((t, mi) => (mi === matchIdx ? value : t)) : round
+      )
+    )
+  }
+
+  const allLaterTimesFilled = laterRoundSlots.length === 0 ||
+    laterRoundTimes.every((round) => round.every((t) => !!t))
+
+  // Each round must be scheduled after the round that feeds it. Datetime-local
+  // strings (YYYY-MM-DDTHH:mm) compare chronologically as plain strings.
+  const chronologyError = (() => {
+    if (!allFilled(pairings) || !allLaterTimesFilled) return null
+    let prevMax = pairings.map((p) => p.matchTime).reduce((a, b) => (a > b ? a : b), '')
+    for (let ri = 0; ri < laterRoundTimes.length; ri++) {
+      const times = laterRoundTimes[ri]
+      if (times.some((t) => t <= prevMax)) {
+        return `Round ${ri + 2} must be scheduled after Round ${ri + 1}.`
+      }
+      prevMax = times.reduce((a, b) => (a > b ? a : b), '')
+    }
+    return null
+  })()
 
   function submit() {
     startTransition(async () => {
@@ -118,6 +153,9 @@ export function BracketSetupView({ tournamentId, qualifiedTeams, tournamentStart
           away_team_id: p.away,
           match_time: p.matchTime ? new Date(p.matchTime).toISOString() : null,
         })),
+        laterRoundTimes.map((round) =>
+          round.map((t) => (t ? new Date(t).toISOString() : null))
+        ),
       )
       if ('error' in r) toast.error(r.error)
       else {
@@ -127,7 +165,7 @@ export function BracketSetupView({ tournamentId, qualifiedTeams, tournamentStart
     })
   }
 
-  const minWidth = 168 + 24 + 240 + placeholderRounds.length * (220 + 24) + 24 + 200
+  const minWidth = 168 + 24 + 240 + laterRoundSlots.length * (220 + 24) + 24 + 200
 
   return (
     <div className="space-y-4">
@@ -216,8 +254,8 @@ export function BracketSetupView({ tournamentId, qualifiedTeams, tournamentStart
               </div>
             </div>
 
-            {/* Subsequent round placeholder columns */}
-            {placeholderRounds.map((round, roundIdx) => (
+            {/* Later round columns — with scheduling */}
+            {laterRoundSlots.map((round, roundIdx) => (
               <div key={roundIdx} style={{ width: 220, flexShrink: 0 }}>
                 <div
                   className="admin-tab text-center mb-4"
@@ -225,9 +263,16 @@ export function BracketSetupView({ tournamentId, qualifiedTeams, tournamentStart
                 >
                   Round {roundIdx + 2}
                 </div>
-                <div className="flex flex-col justify-around h-full">
-                  {round.map((slot, i) => (
-                    <PlaceholderCard key={i} homeLabel={slot.homeLabel} awayLabel={slot.awayLabel} />
+                <div className="flex flex-col justify-around h-full gap-5">
+                  {round.map((slot, matchIdx) => (
+                    <LaterRoundCard
+                      key={matchIdx}
+                      homeLabel={slot.homeLabel}
+                      awayLabel={slot.awayLabel}
+                      matchTime={laterRoundTimes[roundIdx]?.[matchIdx] ?? ''}
+                      dayOptions={dayOptions}
+                      onSetTime={(value) => setLaterTime(roundIdx, matchIdx, value)}
+                    />
                   ))}
                 </div>
               </div>
@@ -278,10 +323,11 @@ export function BracketSetupView({ tournamentId, qualifiedTeams, tournamentStart
         </div>
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex flex-col items-end gap-2">
+        {chronologyError && <p className="text-xs text-red-600">{chronologyError}</p>}
         <Button
           onClick={submit}
-          disabled={!allFilled(pairings) || isPending || matchCount === 0}
+          disabled={!allFilled(pairings) || !allLaterTimesFilled || !!chronologyError || isPending || matchCount === 0}
         >
           {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Create Bracket
@@ -373,6 +419,83 @@ function MatchCard({
         onSetSlot={onSetSlot}
         onClearSlot={onClearSlot}
       />
+      <div style={{ height: 1, background: 'var(--admin-rule)' }} />
+      <div className="flex gap-2 px-3 py-2.5">
+        <select
+          value={pendingDate}
+          onChange={(e) => handleDayChange(e.target.value)}
+          className="flex-1 rounded text-xs px-2 py-1"
+          style={inputStyle}
+        >
+          <option value="">Day…</option>
+          {dayOptions.map((opt) => (
+            <option key={opt.date} value={opt.date}>{opt.label}</option>
+          ))}
+        </select>
+        <select
+          value={pendingTime}
+          onChange={(e) => handleTimeChange(e.target.value)}
+          className="w-24 rounded text-xs px-2 py-1"
+          style={inputStyle}
+        >
+          <option value="">Time…</option>
+          {TIME_OPTIONS.map((t) => (
+            <option key={t} value={t}>{t}</option>
+          ))}
+        </select>
+      </div>
+    </div>
+  )
+}
+
+function LaterRoundCard({
+  homeLabel,
+  awayLabel,
+  matchTime,
+  dayOptions,
+  onSetTime,
+}: {
+  homeLabel: string
+  awayLabel: string
+  matchTime: string
+  dayOptions: { label: string; date: string }[]
+  onSetTime: (value: string) => void
+}) {
+  // Hold the half-finished day/time selection locally (like Round 1's MatchCard) so
+  // picking a day before a time — or vice versa — sticks instead of resetting. Only
+  // a complete day+time is pushed up to parent state as a combined value.
+  const [pendingDate, setPendingDate] = useState(() => (matchTime ? matchTime.slice(0, 10) : ''))
+  const [pendingTime, setPendingTime] = useState(() => (matchTime ? matchTime.slice(11, 16) : ''))
+
+  function handleDayChange(date: string) {
+    setPendingDate(date)
+    onSetTime(date && pendingTime ? `${date}T${pendingTime}` : '')
+  }
+
+  function handleTimeChange(time: string) {
+    setPendingTime(time)
+    onSetTime(pendingDate && time ? `${pendingDate}T${time}` : '')
+  }
+
+  const inputStyle = {
+    border: '1px solid var(--admin-rule)',
+    background: 'var(--admin-surface-2)',
+    color: 'var(--foreground)',
+    outline: 'none',
+  }
+
+  return (
+    <div
+      className="rounded-md overflow-hidden"
+      style={{
+        border: '1px solid var(--admin-rule)',
+        background: 'var(--card)',
+        opacity: 0.85,
+      }}
+    >
+      <PlaceholderRow label={homeLabel} />
+      <div style={{ height: 1, background: 'var(--admin-rule)' }} />
+      <PlaceholderRow label={awayLabel} />
       <div style={{ height: 1, background: 'var(--admin-rule)' }} />
       <div className="flex gap-2 px-3 py-2.5">
         <select
@@ -526,29 +649,6 @@ function TeamSlot({
           )}
         </div>
       )}
-    </div>
-  )
-}
-
-function PlaceholderCard({
-  homeLabel,
-  awayLabel,
-}: {
-  homeLabel: string
-  awayLabel: string
-}) {
-  return (
-    <div
-      className="rounded-md overflow-hidden"
-      style={{
-        border: '1.5px dashed var(--admin-rule)',
-        background: 'var(--card)',
-        opacity: 0.7,
-      }}
-    >
-      <PlaceholderRow label={homeLabel} />
-      <div style={{ height: 1, background: 'var(--admin-rule)' }} />
-      <PlaceholderRow label={awayLabel} />
     </div>
   )
 }

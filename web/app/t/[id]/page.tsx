@@ -42,7 +42,7 @@ export default async function TournamentPage({ params }: Props) {
     supabase.from('tournaments').select('*').eq('id', id).single(),
     supabase.from('matches')
       .select('*, home_team:teams!matches_home_team_id_fkey(*), away_team:teams!matches_away_team_id_fkey(*)')
-      .eq('tournament_id', id).order('match_time', { ascending: true }),
+      .eq('tournament_id', id).order('match_time', { ascending: false }),
     supabase.from('standings').select('*').eq('tournament_id', id),
     supabase.from('teams').select('*, players(*)').eq('tournament_id', id).order('name'),
   ])

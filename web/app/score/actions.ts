@@ -3,8 +3,8 @@
 import { revalidatePath } from 'next/cache'
 import { requireScorekeeperUser } from '@/lib/auth'
 import { listScorekeeperMatchesForUser } from '@/lib/db/roles'
-import { getMatch, updateMatchStatus } from '@/lib/db/matches'
-import { recordGoal, undoGoal } from '@/lib/db/goals'
+import { getMatch, updateMatchStatus, updateMatchWinner } from '@/lib/db/matches'
+import { recordGoal, deleteGoal } from '@/lib/db/goals'
 import { insertCard, deleteCard } from '@/lib/db/cards'
 import { isValidTransition } from '@/lib/match-lifecycle'
 import type { MatchStatus } from '@/lib/supabase/types'
@@ -39,14 +39,14 @@ export async function recordGoalAction(
   }
 }
 
-export async function undoGoalAction(
+export async function deleteGoalAction(
   matchId: string,
-  teamId: string,
+  goalId: string,
 ): Promise<{ home_score: number; away_score: number } | { error: string }> {
   try {
     const { match } = await ensureScorekeeperForMatch(matchId)
     if (match.status !== 'live') return { error: 'Match is not live.' }
-    const result = await undoGoal(matchId, teamId)
+    const result = await deleteGoal(matchId, goalId)
     if ('error' in result) return result
     revalidatePath('/score')
     revalidatePath(`/t/${match.tournament_id}`)
@@ -110,6 +110,22 @@ export async function scorekeeperTransitionMatch(
 ): Promise<{ ok: true } | { error: string }> {
   try {
     const { match } = await ensureScorekeeperForMatch(matchId)
+    // Guard: knockout match cannot go live until both teams are determined
+    if (next === 'live' && match.phase === 'knockout' && (!match.home_team_id || !match.away_team_id)) {
+      return { error: 'Both teams must be determined before this knockout match can go live.' }
+    }
+    // Knockout finish: auto-set winner for decisive result; block draw without winner
+    if (next === 'finished' && match.phase === 'knockout' && !match.winner_team_id) {
+      if (match.home_score > match.away_score) {
+        const wr = await updateMatchWinner(matchId, match.home_team_id!)
+        if (wr.error) return { error: wr.error }
+      } else if (match.away_score > match.home_score) {
+        const wr = await updateMatchWinner(matchId, match.away_team_id!)
+        if (wr.error) return { error: wr.error }
+      } else {
+        return { error: 'This knockout match is level. The organizer must pick the advancing team before ending the match.' }
+      }
+    }
     if (!isValidTransition(match.status, next, 'organizer')) {
       return { error: `Cannot move from ${match.status} to ${next}.` }
     }
@@ -118,6 +134,26 @@ export async function scorekeeperTransitionMatch(
     revalidatePath('/score')
     revalidatePath(`/admin/tournaments/${match.tournament_id}`)
     revalidatePath(`/t/${match.tournament_id}`)
+    return { ok: true }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed.' }
+  }
+}
+
+export async function scorekeeperSetKnockoutWinnerAction(
+  matchId: string,
+  winnerTeamId: string,
+): Promise<{ ok: true } | { error: string }> {
+  try {
+    const { match } = await ensureScorekeeperForMatch(matchId)
+    if (match.phase !== 'knockout') return { error: 'Only knockout matches need a manual winner.' }
+    if (winnerTeamId !== match.home_team_id && winnerTeamId !== match.away_team_id) {
+      return { error: 'Winner must be one of the two teams.' }
+    }
+    const result = await updateMatchWinner(matchId, winnerTeamId)
+    if (result.error) return { error: result.error }
+    revalidatePath('/score')
+    revalidatePath(`/admin/tournaments/${match.tournament_id}`)
     return { ok: true }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed.' }

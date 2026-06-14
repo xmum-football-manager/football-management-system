@@ -11,6 +11,13 @@ export function canManageTeams(tournamentStatus: TournamentStatus): boolean {
   return !LOCKED_TOURNAMENT_STATUSES.includes(tournamentStatus)
 }
 
+/** Looser than canManageTeams: rosters can still grow while a tournament is
+ *  active (matches under way) — only finished/archived tournaments lock adds.
+ *  Deleting players is governed separately (locked once any match goes live). */
+export function canAddPlayers(tournamentStatus: TournamentStatus): boolean {
+  return !FULLY_LOCKED.includes(tournamentStatus)
+}
+
 export function canAddFixture(tournamentStatus: TournamentStatus): boolean {
   return !FULLY_LOCKED.includes(tournamentStatus)
 }
@@ -62,4 +69,18 @@ export function canEditFormat(
   firstMatchScheduledAt: string | null,
 ): boolean {
   return tournamentStatus === 'setup' && firstMatchScheduledAt === null
+}
+
+/** Returns true if group fixtures can be regenerated (deleted + recreated).
+ *  Safe when there are no existing matches OR every existing match is still
+ *  scheduled. Returns false if any match is live or finished. */
+export function canRegenerateFixtures(existingMatches: Array<{ status: string }>): boolean {
+  return existingMatches.every((m) => m.status === 'scheduled')
+}
+
+/** Returns true if the knockout bracket can be safely reset (normal path).
+ *  Safe when there are zero knockout matches OR every match is still scheduled.
+ *  Returns false if any match has gone live or finished. */
+export function canResetBracket(knockoutMatches: Array<{ status: string }>): boolean {
+  return knockoutMatches.every((m) => m.status === 'scheduled')
 }

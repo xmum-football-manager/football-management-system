@@ -10,6 +10,9 @@ const Toaster = ({ ...props }: ToasterProps) => {
       theme="light"
       className="toaster group"
       position="top-right"
+      // Above dialog/alert-dialog overlays (z-50) so validation toasts fired
+      // while a modal is open stay visible.
+      style={{ zIndex: 100 }}
       toastOptions={{
         classNames: {
           toast: 'group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg',

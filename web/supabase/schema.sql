@@ -83,6 +83,11 @@ create table if not exists public.user_roles (
   constraint valid_organizer check (
     role <> 'organizer' or (tournament_id is not null and match_id is null)
   ),
+  constraint valid_scorekeeper check (
+    role <> 'scorekeeper'
+    or (tournament_id is not null and match_id is null)   -- tournament-wide
+    or (tournament_id is null and match_id is not null)   -- single match
+  ),
   unique (user_id, role, tournament_id, match_id)
 );
 

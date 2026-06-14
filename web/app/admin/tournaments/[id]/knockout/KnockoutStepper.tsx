@@ -1,11 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, Lock } from 'lucide-react'
+import { Check, Lock, RotateCcw, Loader2, AlertTriangle } from 'lucide-react'
+import { toast } from 'sonner'
 import { QualifiersStep } from './QualifiersStep'
 import { BracketSetupView } from './BracketSetupView'
 import { AdminBracketView } from '@/components/admin/AdminBracketView'
+import { RescheduleDialog } from '@/components/admin/MatchViews'
+import { resetKnockoutAction, updateFirstRoundPairingAction } from '../fixtures/actions'
+import { canResetBracket } from '@/lib/lock-rules'
 import type { MatchWithTeams } from '@/lib/supabase/types'
 import type { TeamStanding } from '@/lib/qualifiers'
 
@@ -40,8 +44,14 @@ export function KnockoutStepper({
   tournamentEnd,
 }: Props) {
   const router = useRouter()
+  const [isResetting, startReset] = useTransition()
+  const [isForceResetting, startForceReset] = useTransition()
+  const [reschedule, setReschedule] = useState<MatchWithTeams | null>(null)
+  const [editPairing, setEditPairing] = useState<MatchWithTeams | null>(null)
+  const [forceResetOpen, setForceResetOpen] = useState(false)
   const qualifiersDone = (savedQualifiers?.length ?? 0) > 0
   const bracketExists = knockoutMatches.length > 0
+  const canReset = canResetBracket(knockoutMatches)
 
   const initialStep: Step = qualifiersDone ? 'bracket' : 'qualifiers'
   const [activeStep, setActiveStep] = useState<Step>(initialStep)
@@ -68,21 +78,104 @@ export function KnockoutStepper({
 
   const qualifiedTeams = teams.filter((t) => savedQualifiers?.includes(t.id) ?? false)
 
+  function handleReset() {
+    if (!confirm('Delete all knockout matches and start the bracket over?')) return
+    startReset(async () => {
+      const r = await resetKnockoutAction(tournamentId, false)
+      if ('error' in r) {
+        toast.error(r.error)
+      } else {
+        toast.success(`Bracket reset — ${r.deleted} match${r.deleted === 1 ? '' : 'es'} removed.`)
+        router.refresh()
+      }
+    })
+  }
+
+  function handleForceReset() {
+    setForceResetOpen(false)
+    startForceReset(async () => {
+      const r = await resetKnockoutAction(tournamentId, true)
+      if ('error' in r) {
+        toast.error(r.error)
+      } else {
+        toast.success(`Bracket force-reset — ${r.deleted} match${r.deleted === 1 ? '' : 'es'} wiped.`)
+        router.refresh()
+      }
+    })
+  }
+
   // Once bracket is created, collapse the setup and show the bracket view directly
   if (bracketExists) {
     return (
       <div className="space-y-4">
-        <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--muted-foreground)' }}>
-          <Check className="h-3 w-3 text-emerald-500" />
-          <span>Qualifiers set</span>
-          <span style={{ opacity: 0.35 }}>──</span>
-          <Check className="h-3 w-3 text-emerald-500" />
-          <span>Bracket scheduled</span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--muted-foreground)' }}>
+            <Check className="h-3 w-3 text-emerald-500" />
+            <span>Qualifiers set</span>
+            <span style={{ opacity: 0.35 }}>──</span>
+            <Check className="h-3 w-3 text-emerald-500" />
+            <span>Bracket scheduled</span>
+          </div>
+          {canEdit && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleReset}
+                disabled={isResetting || !canReset}
+                title={!canReset ? 'A knockout match has started — use Force reset.' : undefined}
+                className="flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-40"
+                style={{ color: 'var(--muted-foreground)' }}
+              >
+                {isResetting ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+                Reset bracket
+              </button>
+              {!canReset && (
+                <button
+                  onClick={() => setForceResetOpen(true)}
+                  disabled={isForceResetting}
+                  className="flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium transition-colors hover:bg-red-200"
+                  style={{ color: 'var(--destructive, #ef4444)' }}
+                >
+                  {isForceResetting ? <Loader2 className="h-3 w-3 animate-spin" /> : <AlertTriangle className="h-3 w-3" />}
+                  Force reset
+                </button>
+              )}
+            </div>
+          )}
         </div>
         <AdminBracketView
           matches={knockoutMatches}
           bracketTeamCount={qualifiedTeams.length}
+          onMatchClick={canEdit ? (m) => {
+            const isFirstRound = m.home_source_match_id === null && m.away_source_match_id === null
+            if (isFirstRound) setEditPairing(m)
+            else setReschedule(m)
+          } : undefined}
         />
+        {reschedule && (
+          <RescheduleDialog
+            match={reschedule}
+            initialTime={reschedule.match_time ?? ''}
+            tournamentId={tournamentId}
+            tournamentStart={tournamentStart}
+            tournamentEnd={tournamentEnd}
+            onClose={() => setReschedule(null)}
+          />
+        )}
+        {editPairing && (
+          <EditPairingDialog
+            match={editPairing}
+            qualifiedTeams={qualifiedTeams}
+            tournamentId={tournamentId}
+            onClose={() => setEditPairing(null)}
+            onSaved={() => { setEditPairing(null); router.refresh() }}
+          />
+        )}
+        {forceResetOpen && (
+          <ForceResetDialog
+            onConfirm={handleForceReset}
+            onClose={() => setForceResetOpen(false)}
+          />
+        )}
       </div>
     )
   }
@@ -156,6 +249,152 @@ export function KnockoutStepper({
           onCreated={() => router.refresh()}
         />
       )}
+    </div>
+  )
+}
+
+function ForceResetDialog({ onConfirm, onClose }: { onConfirm: () => void; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.5)' }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div
+        className="rounded-xl p-6 space-y-4"
+        style={{ background: 'var(--card)', border: '1px solid var(--admin-rule)', maxWidth: 400 }}
+      >
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />
+          <span className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
+            Force reset bracket?
+          </span>
+        </div>
+        <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
+          This will permanently delete <strong>all knockout matches</strong>, including any that
+          are in-progress or finished, along with their results and goals. Qualifiers will
+          unlock so you can re-seed. This cannot be undone.
+        </p>
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded px-3 py-1.5 text-xs"
+            style={{ color: 'var(--muted-foreground)', border: '1px solid var(--admin-rule)' }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="rounded px-3 py-1.5 text-xs font-medium"
+            style={{ background: '#ef4444', color: 'white' }}
+          >
+            Yes, force reset
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+interface EditPairingDialogProps {
+  match: MatchWithTeams
+  qualifiedTeams: Array<{ id: string; name: string; group_label: string | null }>
+  tournamentId: string
+  onClose: () => void
+  onSaved: () => void
+}
+
+function EditPairingDialog({ match, qualifiedTeams, tournamentId, onClose, onSaved }: EditPairingDialogProps) {
+  const [homeId, setHomeId] = useState(match.home_team_id ?? '')
+  const [awayId, setAwayId] = useState(match.away_team_id ?? '')
+  const [isPending, startTransition] = useTransition()
+
+  const selectStyle = {
+    border: '1px solid var(--admin-rule)',
+    background: 'var(--admin-surface-2)',
+    color: 'var(--foreground)',
+    borderRadius: 6,
+    padding: '4px 8px',
+    fontSize: 13,
+    width: '100%',
+  }
+
+  function handleSave() {
+    startTransition(async () => {
+      const r = await updateFirstRoundPairingAction(tournamentId, match.id, homeId, awayId)
+      if ('error' in r) toast.error(r.error)
+      else { toast.success('Pairing updated.'); onSaved() }
+    })
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.5)' }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div
+        className="rounded-xl p-6 space-y-4"
+        style={{
+          background: 'var(--card)',
+          border: '1px solid var(--admin-rule)',
+          minWidth: 320,
+        }}
+      >
+        <div className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
+          Edit First-Round Pairing
+        </div>
+        <div className="space-y-2">
+          <div>
+            <label className="text-xs mb-1 block" style={{ color: 'var(--muted-foreground)' }}>
+              Home team
+            </label>
+            <select value={homeId} onChange={(e) => setHomeId(e.target.value)} style={selectStyle}>
+              <option value="">Select…</option>
+              {qualifiedTeams.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs mb-1 block" style={{ color: 'var(--muted-foreground)' }}>
+              Away team
+            </label>
+            <select value={awayId} onChange={(e) => setAwayId(e.target.value)} style={selectStyle}>
+              <option value="">Select…</option>
+              {qualifiedTeams.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded px-3 py-1.5 text-xs"
+            style={{ color: 'var(--muted-foreground)', border: '1px solid var(--admin-rule)' }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={!homeId || !awayId || isPending}
+            className="rounded px-3 py-1.5 text-xs font-medium"
+            style={{
+              background: 'var(--admin-lime)',
+              color: 'black',
+              opacity: (!homeId || !awayId || isPending) ? 0.5 : 1,
+            }}
+          >
+            {isPending && <Loader2 className="inline mr-1 h-3 w-3 animate-spin" />}
+            Save
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

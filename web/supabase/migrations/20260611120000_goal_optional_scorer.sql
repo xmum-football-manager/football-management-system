@@ -1,6 +1,11 @@
 -- Allow recording a goal without naming the scorer ("Don't specify").
 -- goals.player_id becomes nullable, and record_goal now takes the team
 -- explicitly (so an unspecified goal can still be attributed to a side).
+--
+-- NOTE: this migration was originally applied directly to the remote DB and is
+-- recreated here so local migration history matches remote. The record_goal body
+-- below still contains the "home_score is ambiguous" bug; it is corrected in the
+-- follow-up migration 20260611130000_fix_goal_score_ambiguous.sql.
 
 alter table public.goals alter column player_id drop not null;
 

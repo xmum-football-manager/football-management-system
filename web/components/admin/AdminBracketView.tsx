@@ -1,5 +1,14 @@
 'use client'
 
+// ⚠️ MIRRORED COMPONENT — keep bracket round/placeholder logic in sync.
+// This is the ADMIN-side bracket. The same knockout matches are also rendered to
+// spectators by the PUBLIC component `components/BracketView.tsx`.
+// Both read the same source of truth: matches where `phase === 'knockout'`, bucketed
+// by `knockout_round` ('r32'|'r16'|'qf'|'sf'|'final'). A partial bracket (e.g. only the
+// QF created) must render its real round(s) followed by TBD placeholders for the rounds
+// not yet scheduled. If you change how rounds/placeholders are derived here, apply the
+// equivalent change in BracketView so the admin overview and the public page agree.
+
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import type { MatchWithTeams } from '@/lib/supabase/types'
 import { teamInitials } from '@/lib/format'
@@ -35,8 +44,11 @@ interface Props {
   onMatchClick?: (match: MatchWithTeams) => void
 }
 
-const CARD_HEIGHT = 64
-const ROW_GAP = 16
+// Real rendered card height: two team rows (px-3 py-2 + 20px badge ≈ 36px each)
+// plus a 1px divider and 1px borders ≈ 74px. Underestimating this makes the shared
+// column envelope too short, so justify-around collapses the gap and cards touch.
+const CARD_HEIGHT = 76
+const ROW_GAP = 20
 
 function roundLabel(slotCount: number): string {
   if (slotCount === 8) return 'Round of 16'
@@ -63,11 +75,16 @@ function bucketRounds(matches: MatchWithTeams[]): MatchWithTeams[][] {
   return rounds
 }
 
-/** Valid single-elimination match counts: 1 (final only), 3 (SF+F), 7 (QF+SF+F), 15 (R16+...). i.e. n+1 is a power of 2. */
-function isValidBracketCount(n: number): boolean {
+/**
+ * Valid partial bracket counts: any prefix of a complete bracket.
+ * e.g. 4 (QF only), 6 (QF+SF), 7 (QF+SF+F), 2 (SF only), 3 (SF+F), 1 (Final only).
+ * Condition: n + lowestBit(n) is a power of 2.
+ */
+function isValidPartialBracketCount(n: number): boolean {
   if (n <= 0) return false
-  const total = n + 1
-  return (total & (total - 1)) === 0
+  const lowest = n & -n
+  const next = n + lowest
+  return (next & (next - 1)) === 0
 }
 
 interface PlaceholderSlot {
@@ -108,6 +125,26 @@ function totalMatchesBefore(rounds: PlaceholderSlot[][]): number {
   return rounds.reduce((n, r) => n + r.length, 0)
 }
 
+/** Given the real matches already created, generate placeholder rounds for rounds not yet scheduled. */
+function buildRemainingPlaceholderRounds(
+  realMatchCount: number,
+  lastRoundSize: number,
+): PlaceholderSlot[][] {
+  const rounds: PlaceholderSlot[][] = []
+  let prevNums = Array.from({ length: lastRoundSize }, (_, i) => realMatchCount - lastRoundSize + 1 + i)
+  let nextNum = realMatchCount + 1
+  while (prevNums.length > 1) {
+    const round: PlaceholderSlot[] = []
+    for (let i = 0; i + 1 < prevNums.length; i += 2) {
+      round.push({ homeLabel: `Winner of M${prevNums[i]}`, awayLabel: `Winner of M${prevNums[i + 1]}` })
+    }
+    prevNums = round.map((_, i) => nextNum + i)
+    nextNum += round.length
+    rounds.push(round)
+  }
+  return rounds
+}
+
 export function AdminBracketView({
   matches = [],
   bracketTeamCount,
@@ -120,25 +157,34 @@ export function AdminBracketView({
   const groupsColumnRef = useRef<HTMLDivElement | null>(null)
   const [measuredGroupsHeight, setMeasuredGroupsHeight] = useState(0)
 
-  const hasValidMatches = matches.length > 0 && isValidBracketCount(matches.length)
+  const hasValidMatches = matches.length > 0 && isValidPartialBracketCount(matches.length)
   const matchRounds = hasValidMatches ? bucketRounds(matches) : []
-  const placeholderRounds =
+  const remainingPlaceholderRounds = hasValidMatches
+    ? buildRemainingPlaceholderRounds(matches.length, matchRounds[matchRounds.length - 1]?.length ?? 1)
+    : []
+  const allPlaceholderRounds =
     !hasValidMatches && bracketTeamCount && bracketTeamCount >= 2
       ? buildPlaceholderRounds(bracketTeamCount, firstRoundSourceLabels ?? null)
       : []
-  const totalRounds = hasValidMatches ? matchRounds.length : placeholderRounds.length
+  const totalRounds = hasValidMatches
+    ? matchRounds.length + remainingPlaceholderRounds.length
+    : allPlaceholderRounds.length
   const hasGroupColumns = (groupColumns?.length ?? 0) > 0
   const hasAnything = totalRounds > 0 || hasGroupColumns
 
   const firstRoundSize = hasValidMatches
     ? matchRounds[0]?.length ?? 1
-    : placeholderRounds[0]?.length ?? 1
+    : allPlaceholderRounds[0]?.length ?? 1
   const bracketColumnHeight =
     totalRounds > 0
       ? Math.max(1, firstRoundSize) * CARD_HEIGHT + Math.max(0, firstRoundSize - 1) * ROW_GAP
       : 0
 
-  const finalMatch = hasValidMatches ? matchRounds[matchRounds.length - 1]?.[0] : undefined
+  // Champion is determined only when real match rounds include the final (no remaining placeholders)
+  const finalMatch =
+    hasValidMatches && remainingPlaceholderRounds.length === 0
+      ? matchRounds[matchRounds.length - 1]?.[0]
+      : undefined
   const champion =
     finalMatch?.status === 'finished'
       ? finalMatch.home_score > finalMatch.away_score
@@ -154,6 +200,7 @@ export function AdminBracketView({
     totalRounds * 240 +
     (totalRounds > 0 ? 220 : 0)
 
+  // Warn only for truly unrecognised match counts (not valid partial brackets)
   const showStrayMatchesWarning =
     matches.length > 0 && !hasValidMatches && (bracketTeamCount ?? 0) >= 2
 
@@ -192,7 +239,7 @@ export function AdminBracketView({
       {showStrayMatchesWarning && (
         <p className="text-[11px] text-amber-700">
           ⚠ {matches.length} cross-group fixture{matches.length === 1 ? '' : 's'} don&apos;t fit
-          this tournament&apos;s bracket shape and aren&apos;t shown here. Use the Board view to
+          this tournament&apos;s bracket shape and aren&apos;t shown here. Use the List view to
           delete them, or seed the bracket from group standings.
         </p>
       )}
@@ -218,25 +265,38 @@ export function AdminBracketView({
             )}
 
             {hasValidMatches
-              ? matchRounds.map((round, i) => (
-                  <BracketColumn
-                    key={i}
-                    label={roundLabel(round.length)}
-                    matches={round}
-                    placeholders={null}
-                    columnHeight={effectiveColumnHeight}
-                    isFinal={i === matchRounds.length - 1}
-                    onMatchClick={onMatchClick}
-                  />
-                ))
-              : placeholderRounds.map((round, i) => (
+              ? <>
+                  {matchRounds.map((round, i) => (
+                    <BracketColumn
+                      key={`real-${i}`}
+                      label={roundLabel(round.length)}
+                      matches={round}
+                      placeholders={null}
+                      columnHeight={effectiveColumnHeight}
+                      isFinal={remainingPlaceholderRounds.length === 0 && i === matchRounds.length - 1}
+                      onMatchClick={onMatchClick}
+                    />
+                  ))}
+                  {remainingPlaceholderRounds.map((round, i) => (
+                    <BracketColumn
+                      key={`placeholder-${i}`}
+                      label={roundLabel(round.length)}
+                      matches={null}
+                      placeholders={round}
+                      columnHeight={effectiveColumnHeight}
+                      isFinal={i === remainingPlaceholderRounds.length - 1}
+                      onMatchClick={undefined}
+                    />
+                  ))}
+                </>
+              : allPlaceholderRounds.map((round, i) => (
                   <BracketColumn
                     key={i}
                     label={roundLabel(round.length)}
                     matches={null}
                     placeholders={round}
                     columnHeight={effectiveColumnHeight}
-                    isFinal={i === placeholderRounds.length - 1}
+                    isFinal={i === allPlaceholderRounds.length - 1}
                     onMatchClick={undefined}
                   />
                 ))}
@@ -245,7 +305,7 @@ export function AdminBracketView({
               <ChampionColumn
                 champion={champion}
                 columnHeight={effectiveColumnHeight}
-                hasFinal={!!finalMatch || placeholderRounds.length > 0}
+                hasFinal={!!finalMatch || remainingPlaceholderRounds.length > 0 || allPlaceholderRounds.length > 0}
               />
             )}
           </div>
@@ -381,7 +441,7 @@ function GroupMatchCard({
       type="button"
       disabled={!clickable}
       onClick={() => clickable && onMatchClick?.(match)}
-      className="rounded-md overflow-hidden bg-card text-left disabled:cursor-default"
+      className="shrink-0 rounded-md overflow-hidden bg-card text-left disabled:cursor-default"
       style={{
         border: `1px solid ${isLive ? '#DC2626' : 'var(--admin-rule)'}`,
         boxShadow: isLive ? '0 0 0 3px rgba(220,38,38,0.10)' : 'none',
@@ -587,7 +647,7 @@ function BracketPlaceholder({
 }) {
   return (
     <div
-      className="rounded-md overflow-hidden bg-card"
+      className="shrink-0 rounded-md overflow-hidden bg-card"
       style={{
         border: `1.5px dashed ${isFinal ? 'var(--admin-lime)' : 'var(--admin-rule)'}`,
         opacity: 0.85,

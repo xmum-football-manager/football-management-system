@@ -1,0 +1,159 @@
+================================================================================
+BUG REPORT — Group-Stage -> Knockout (gp->ko) Tournament Flow
+Generated: 2026-06-12
+Method: static code verification (4 sonnet subagents read the actual codebase)
+Scope:  web/ (Next.js 16) admin tournament flow, scoring, knockout advancement
+================================================================================
+
+11 issues found (~8 genuine bugs). Ranked by severity. Each lists evidence
+file:line so it can be confirmed and fixed.
+
+Legend: [ ] open   [x] fixed   [~] confirmed-live
+
+
+--------------------------------------------------------------------------------
+P0 — SILENT DATA CORRUPTION (invisible to organizer, no recovery path)
+--------------------------------------------------------------------------------
+
+[~] P0-1  top_scorers view drops scorerless goals  -- NON-ISSUE (verified 2026-06-12)
+          Match score increments independent of player_id (record_goal,
+          20260611120000:57-61). No UI path produces a scorerless goal
+          (PlayerPickerOverlay has no "no scorer" button). top_scorers is
+          per-player only; dropping an unattributable goal is correct.
+          Standings/GD use match scores, not the goals join. Nothing to fix.
+          FUTURE: if a "no scorer" UI button is ever added AND a tournament
+          "total goals" counter is added, revisit then. Original entry below
+          overstated the impact.
+    File:  web/supabase/migrations/20260611000000_player_stats_cards_halftime.sql:82
+    What:  top_scorers does `join public.players p on p.id = g.player_id`.
+           After 20260611120000_goal_optional_scorer made player_id nullable,
+           this INNER JOIN silently omits every goal with no named scorer
+           (own goals / unknown). Top-players counts are understated and the
+           match's anonymous goals never appear.
+    Extra: UI may be half-wired — PlayerPickerOverlay / handleGoalPlayerPick
+           (web/app/score/ScoreApp.tsx) has no "skip / don't specify scorer"
+           button, so there may be no UI path to record a null scorer at all.
+    Fix:   LEFT JOIN in the view; add a "no scorer" option to the goal flow.
+
+[ ] P0-2  Player delete cascades goals but leaves match score stale
+    File:  web/supabase/migrations/20260611000000_player_stats_cards_halftime.sql:9
+           (goals.player_id -> players.id ON DELETE CASCADE)
+    What:  Deleting a player hard-deletes their goal rows, but
+           matches.home_score / away_score remain incremented. Displayed score
+           is permanently wrong, no recovery path short of direct DB edit.
+    Fix:   Block player delete once they have goals (or recompute score on
+           delete via trigger), instead of silent cascade.
+
+[ ] P0-3  Players-table RLS has no finished/archived lock
+    File:  web/supabase/migrations/...init.sql:258-264 (players_insert_organizer)
+    What:  Teams insert is locked for finished/archived tournaments
+           (20260505000003_tournament_lock_rls.sql), but the players policy only
+           checks is_organizer — NO tournament-status condition. addPlayerAction
+           against a finished tournament passes ensureOrganizer AND passes RLS;
+           only the hidden UI button protects it.
+    Fix:   Add a status subquery to players_insert_organizer matching the pattern
+           in 20260505000003_tournament_lock_rls.sql:20-27.
+
+
+--------------------------------------------------------------------------------
+P1 — WRONG BRACKET / WRONG STANDINGS
+--------------------------------------------------------------------------------
+
+[ ] P1-4  No validation that qualifier count matches KO start round
+    File:  web/app/admin/tournaments/[id]/fixtures/actions.ts:196-201
+           web/app/admin/tournaments/[id]/knockout/QualifiersStep.tsx:48
+    What:  Nothing checks numGroups * advancePerGroup against the configured
+           knockout_start_round. Pick Round of 16 but advance only 12 teams ->
+           bracket silently seeds 6 matches labeled r16, no error.
+    Fix:   Validate totalSlots == teams-required-by(knockout_start_round) before
+           seeding; block with a clear error.
+
+[ ] P1-5  Qualifiers can be confirmed mid-group-stage via direct URL
+    File:  web/app/admin/tournaments/[id]/fixtures/actions.ts:435-448
+           (saveQualifiersAction)
+    What:  No server-side check that all group matches are 'finished'. Client
+           only hides the CTA (overview-utils.ts:18), but /knockout is directly
+           reachable. Standings from incomplete play get locked into the bracket.
+    Fix:   Guard saveQualifiersAction: reject unless every group match finished.
+
+[ ] P1-6  Stale fixtures after group reassignment (stuck state)
+    File:  web/app/admin/tournaments/[id]/teams/actions.ts:50-53 (setTeamGroupAction)
+           web/app/admin/tournaments/[id]/fixtures/actions.ts:463
+           (generateGroupFixturesAction blocks if existing.length > 0)
+    What:  Moving a team between groups while all matches are still 'scheduled'
+           does NOT delete existing fixtures. Regeneration is then blocked by
+           "Fixtures already exist." Organizer is stuck unless they manually
+           delete every fixture.
+    Fix:   On group reassignment (pre-live), either clear affected fixtures or
+           allow regenerate to replace scheduled-only fixtures.
+
+[ ] P1-7  Single-match add bypasses the live-match guard
+    File:  web/app/admin/tournaments/[id]/fixtures/actions.ts:34-61 (addMatchAction)
+    What:  bulkAddMatchesAction blocks when any match is non-scheduled, but
+           addMatchAction has no anyMatchLive check. An admin can inject a new
+           group match mid-tournament via the manual form -> corrupts standings.
+    Fix:   Add the same anyMatchLive / canCreateFixtures guard to addMatchAction.
+
+
+--------------------------------------------------------------------------------
+P2 — CONCURRENCY / SURPRISING BEHAVIOR
+--------------------------------------------------------------------------------
+
+[ ] P2-8  No goal idempotency (double-count on retry)
+    File:  web/app/score/ScoreApp.tsx:206 (client 'saving' guard only)
+           record_goal DB function inserts unconditionally
+    What:  Network retry or a second open tab bypasses the client guard and
+           records the goal twice. No idempotency key, no server dedup.
+    Fix:   Idempotency token per goal submission, or server-side dedup window.
+
+[ ] P2-9  Tie-break by team name is undocumented / surprising
+    File:  web/lib/qualifiers.ts:53-57
+    What:  Equal points + goal difference -> decided by name.localeCompare().
+           Alphabetically-earlier team always qualifies. A buried policy
+           decision with no UI indication a tie exists; dispute risk.
+    Fix:   Decide intended tie-break (head-to-head? goals-for? drawn lots) and
+           surface ties in the UI.
+
+[ ] P2-10 Reopen + re-finish KO match without re-picking winner
+    File:  web/lib/match-lifecycle.ts (ADMIN_EXTRA_TRANSITIONS finished->live)
+           trigger: 20260611150000_knockout_advance.sql
+    What:  The advance trigger itself is correct (is distinct from guard works,
+           and a winner_team_id change on a finished row DOES re-fire). The gap
+           is workflow: nothing forces the admin to correct winner_team_id after
+           reverting/re-finishing, so a stale team can remain in downstream slots.
+    Fix:   On revert of a finished KO match, require winner re-confirmation before
+           re-finishing.
+
+[ ] P2-11 Deleted feeder match -> permanent un-fillable TBD slot
+    File:  20260611150000_knockout_advance.sql (home/away_source_match_id
+           ON DELETE SET NULL)
+    What:  Deleting a feeder nulls the downstream source. KO-start guard prevents
+           going live, but the slot shows TBD forever with no UI signal and no
+           manual-assign path.
+    Fix:   Surface orphaned slots in the bracket UI; allow manual team assignment
+           or block feeder deletion when a downstream slot depends on it.
+
+
+--------------------------------------------------------------------------------
+VERIFIED OK (no action needed — recorded so we don't re-audit)
+--------------------------------------------------------------------------------
+- Reschedule/lock boundary (canEditMatchTime / canCreateFixtures /
+  canDeleteFixture) enforced server-side in fixtures/actions.ts.
+- KO draw must pick a winner — blocked on scorekeeper + admin paths
+  (score/actions.ts:115, admin/actions.ts:55) and client picker.
+- Can't start a KO match with a TBD slot — score/actions.ts:111.
+- Re-edit qualifiers locks after bracket seeded — canEditQualifiers.
+- Halftime transitions — match_transition_rls + isValidTransition mirror;
+  goals preserved across halftime.
+- Scorekeeper cannot call admin actions — ensureOrganizer blocks escalation.
+- Removed scorekeeper mid-match — RLS re-checks is_scorekeeper per write.
+- Spectator view with half-seeded bracket — BracketView null-safe, renders TBD.
+- Format change after a match is scheduled — blocked by canEditFormat.
+- Match outside date range — rejected by 20260525000002 trigger + app pre-check.
+- Auto-lifecycle setup->active is atomic; active->finished is manual (no race).
+- Delete tournament — admin-gated, cascades cleanly.
+
+================================================================================
+SUGGESTED ORDER: fix P0-1, P0-2, P0-3 first (silent + unrecoverable),
+test-first (one failing test per bug, then fix). Then P1-4..P1-7.
+================================================================================

@@ -1,7 +1,7 @@
 import { listTeamsWithPlayers } from '@/lib/db/teams'
 import { getTournament } from '@/lib/db/tournaments'
 import { listMatches } from '@/lib/db/matches'
-import { canManageTeams } from '@/lib/lock-rules'
+import { canManageTeams, canAddPlayers } from '@/lib/lock-rules'
 import { checkTournamentReadiness } from '@/lib/tournament-readiness'
 import { TeamsPanel } from '../teams/TeamsPanel'
 
@@ -47,6 +47,7 @@ export default async function RDTeamsPage({ params }: Props) {
         })),
       }))}
       canEdit={canEdit}
+      canAddPlayers={canAddPlayers(tournament.status)}
       minPlayersPerTeam={tournament.min_players_per_team}
       format={tournament.format}
       phase="rd"

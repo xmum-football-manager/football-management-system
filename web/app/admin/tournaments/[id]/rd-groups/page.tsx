@@ -19,6 +19,7 @@ export default async function RDGroupsPage({ params }: Props) {
   const [teams, matches] = await Promise.all([listTeamsWithPlayers(id), listMatches(id)])
   const anyMatchActive = matches.some(m => m.status !== 'scheduled')
   const canEdit = canManageTeams(tournament.status) && !anyMatchActive
+  const groupFixturesExist = matches.some(m => m.phase === 'group')
 
   return (
     <RDGroupsPanel
@@ -31,6 +32,7 @@ export default async function RDGroupsPage({ params }: Props) {
       numGroups={tournament.num_groups}
       teamsPerGroup={tournament.teams_per_group}
       canEdit={canEdit}
+      groupFixturesExist={groupFixturesExist}
     />
   )
 }

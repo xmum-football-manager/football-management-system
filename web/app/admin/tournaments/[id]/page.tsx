@@ -30,8 +30,8 @@ export default async function OverviewPage({ params }: Props) {
   // Fetch rosters for live match if present
   const liveMatchRosters = liveMatch
     ? await Promise.all([
-        listPlayers(liveMatch.home_team_id),
-        listPlayers(liveMatch.away_team_id),
+        listPlayers(liveMatch.home_team_id ?? ''),
+        listPlayers(liveMatch.away_team_id ?? ''),
       ])
     : null
   const hasLiveMatch = liveMatch !== null

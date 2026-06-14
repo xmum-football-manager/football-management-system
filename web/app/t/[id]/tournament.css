@@ -791,6 +791,21 @@
 }
 .standings-card.in .pts-bar > i { transform: scaleX(var(--w, 0)); }
 
+/* Overtake animation — row pulses when a team climbs the table */
+@keyframes overtake-glow {
+  0%   { background-color: transparent; }
+  15%  { background-color: rgba(30, 120, 240, 0.18); }
+  50%  { background-color: rgba(30, 120, 240, 0.10); }
+  100% { background-color: transparent; }
+}
+.standings-table tbody tr.overtake {
+  animation: overtake-glow 1.6s ease-out;
+}
+.standings-table tbody tr.overtake .pts {
+  color: var(--brand-lime) !important;
+  transition: color 600ms ease-out;
+}
+
 /* ========== BRACKET ========== */
 .bracket-shell {
   background:

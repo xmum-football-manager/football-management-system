@@ -19,11 +19,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { ChevronDown, ChevronRight, Plus, Trash2, Loader2, Lock, AlertCircle } from 'lucide-react'
+import { ChevronDown, ChevronRight, Plus, Trash2, Loader2, Lock, AlertCircle, Pencil, Check, X } from 'lucide-react'
 import {
   addTeamAction,
   deleteTeamAction,
   addPlayerAction,
+  updatePlayerAction,
   deletePlayerAction,
   setTeamLogoAction,
   setPlayerPhotoAction,
@@ -53,6 +54,9 @@ interface Props {
   tournamentId: string
   initialTeams: TeamData[]
   canEdit: boolean
+  // Adding players stays allowed after a match goes live (rosters can grow);
+  // only deletions lock. Falls back to canEdit when a caller doesn't set it.
+  canAddPlayers?: boolean
   minPlayersPerTeam: number
   format: TournamentFormat
   phase?: 'rd' | 'ko'
@@ -63,11 +67,13 @@ export function TeamsPanel({
   tournamentId,
   initialTeams,
   canEdit,
+  canAddPlayers,
   minPlayersPerTeam,
   format,
   phase,
   readinessMessage,
 }: Props) {
+  const addPlayersAllowed = canAddPlayers ?? canEdit
   const router = useRouter()
   const [newTeam, setNewTeam] = useState('')
   const [open, setOpen] = useState<Set<string>>(new Set())
@@ -131,7 +137,10 @@ export function TeamsPanel({
 
       {!canEdit && (
         <div className="rounded-md border bg-amber-50 border-amber-200 px-3 py-2 text-xs text-amber-900 flex items-center gap-2">
-          <Lock className="h-3 w-3" /> Teams are locked — a match has gone live or the tournament is finished. Logos and photos can still be changed.
+          <Lock className="h-3 w-3" />
+          {addPlayersAllowed
+            ? 'A match has gone live — you can still add players and change logos/photos, but deleting players or teams is locked.'
+            : 'Teams are locked — the tournament is finished. Logos and photos can still be changed.'}
         </div>
       )}
 
@@ -228,8 +237,9 @@ export function TeamsPanel({
                       tournamentId={tournamentId}
                       players={t.players}
                       canEdit={canEdit}
+                      canEditPlayers={addPlayersAllowed}
                     />
-                    {canEdit && (
+                    {addPlayersAllowed && (
                       <AddPlayerForm teamId={t.id} tournamentId={tournamentId} />
                     )}
                     {canEdit && (
@@ -275,15 +285,49 @@ function PlayerList({
   tournamentId,
   players,
   canEdit,
+  canEditPlayers,
 }: {
   tournamentId: string
   players: PlayerData[]
   canEdit: boolean
+  canEditPlayers: boolean
+}) {
+  if (players.length === 0) {
+    return <div className="text-sm text-muted-foreground">No players yet.</div>
+  }
+  return (
+    <ul className="divide-y -mx-4">
+      {players.map((p) => (
+        <PlayerRow
+          key={p.id}
+          player={p}
+          tournamentId={tournamentId}
+          canEdit={canEdit}
+          canEditPlayers={canEditPlayers}
+        />
+      ))}
+    </ul>
+  )
+}
+
+function PlayerRow({
+  player,
+  tournamentId,
+  canEdit,
+  canEditPlayers,
+}: {
+  player: PlayerData
+  tournamentId: string
+  canEdit: boolean
+  canEditPlayers: boolean
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
+  const [editing, setEditing] = useState(false)
+  const [name, setName] = useState(player.name)
+  const [num, setNum] = useState(player.jersey_number?.toString() ?? '')
 
-  async function handlePhoto(player: PlayerData, path: string | null) {
+  async function handlePhoto(path: string | null) {
     const r = await setPlayerPhotoAction(player.id, tournamentId, path)
     if ('error' in r) {
       toast.error(r.error)
@@ -294,27 +338,94 @@ function PlayerList({
     router.refresh()
   }
 
-  if (players.length === 0) {
-    return <div className="text-sm text-muted-foreground">No players yet.</div>
+  function saveEdit() {
+    const trimmed = name.trim()
+    if (!trimmed) {
+      toast.error('Player name is required.')
+      return
+    }
+    startTransition(async () => {
+      // Same player row → recorded goals/cards are preserved; only the name/number change.
+      const r = await updatePlayerAction({
+        playerId: player.id,
+        name: trimmed,
+        jersey_number: num ? Number(num) : null,
+        tournamentId,
+      })
+      if ('error' in r) toast.error(r.error)
+      else {
+        setEditing(false)
+        router.refresh()
+      }
+    })
   }
+
+  function cancelEdit() {
+    setName(player.name)
+    setNum(player.jersey_number?.toString() ?? '')
+    setEditing(false)
+  }
+
   return (
-    <ul className="divide-y -mx-4">
-      {players.map((p) => (
-        <li key={p.id} className="flex items-center gap-3 px-4 py-2">
-          {/* Photos stay editable even when the team list is locked */}
-          <ImageUpload
-            value={p.photo_path}
-            folder="player-photos"
-            maxDim={512}
-            size="sm"
-            title="Player photo"
-            onUploaded={(path) => handlePhoto(p, path)}
-            onRemove={() => handlePhoto(p, null)}
+    <li className="flex items-center gap-3 px-4 py-2">
+      {/* Photos stay editable even when the team list is locked */}
+      <ImageUpload
+        value={player.photo_path}
+        folder="player-photos"
+        maxDim={512}
+        size="sm"
+        title="Player photo"
+        onUploaded={(path) => handlePhoto(path)}
+        onRemove={() => handlePhoto(null)}
+      />
+      {editing ? (
+        <>
+          <Input
+            className="w-12"
+            type="number"
+            min={0}
+            max={99}
+            value={num}
+            onChange={(e) => setNum(e.target.value)}
+            disabled={pending}
+            aria-label="Jersey number"
           />
+          <Input
+            className="flex-1"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            disabled={pending}
+            autoFocus
+            aria-label="Player name"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') saveEdit()
+              else if (e.key === 'Escape') cancelEdit()
+            }}
+          />
+          <Button variant="ghost" size="sm" disabled={pending} onClick={saveEdit} title="Save">
+            {pending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+          </Button>
+          <Button variant="ghost" size="sm" disabled={pending} onClick={cancelEdit} title="Cancel">
+            <X className="h-3 w-3" />
+          </Button>
+        </>
+      ) : (
+        <>
           <span className="font-mono w-8 text-sm text-muted-foreground">
-            {p.jersey_number ?? '—'}
+            {player.jersey_number ?? '—'}
           </span>
-          <span className="flex-1 truncate text-sm">{p.name}</span>
+          <span className="flex-1 truncate text-sm">{player.name}</span>
+          {canEditPlayers && (
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={pending}
+              onClick={() => setEditing(true)}
+              title="Edit name / number"
+            >
+              <Pencil className="h-3 w-3" />
+            </Button>
+          )}
           {canEdit && (
             <Button
               variant="ghost"
@@ -322,18 +433,19 @@ function PlayerList({
               disabled={pending}
               onClick={() =>
                 startTransition(async () => {
-                  const r = await deletePlayerAction(p.id, tournamentId)
+                  const r = await deletePlayerAction(player.id, tournamentId)
                   if ('error' in r) toast.error(r.error)
                   else router.refresh()
                 })
               }
+              title="Delete player"
             >
               <Trash2 className="h-3 w-3" />
             </Button>
           )}
-        </li>
-      ))}
-    </ul>
+        </>
+      )}
+    </li>
   )
 }
 

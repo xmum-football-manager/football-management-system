@@ -65,14 +65,16 @@ export async function listMatchScorers(matchId: string): Promise<MatchScorer[]> 
   }))
 }
 
-export async function undoGoal(
+// Delete one specific goal (by id) rather than the last one — used by the
+// "remove a goal" picker so an organizer can correct the right scorer.
+export async function deleteGoal(
   matchId: string,
-  teamId: string,
+  goalId: string,
 ): Promise<{ home_score: number; away_score: number } | { error: string }> {
   const supabase = await createClient()
-  const { data, error } = await supabase.rpc('undo_goal', {
+  const { data, error } = await supabase.rpc('delete_goal', {
     p_match_id: matchId,
-    p_team_id: teamId,
+    p_goal_id: goalId,
   })
   if (error) return { error: error.message }
   const row = (data as { home_score: number; away_score: number }[])[0]

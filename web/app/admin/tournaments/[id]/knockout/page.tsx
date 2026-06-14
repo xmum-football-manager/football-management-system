@@ -12,10 +12,6 @@ interface Props {
   params: Promise<{ id: string }>
 }
 
-function isGroupMatch(m: { home_team: { group_label: string | null }; away_team: { group_label: string | null } }) {
-  return !!m.home_team.group_label && m.home_team.group_label === m.away_team.group_label
-}
-
 export default async function KnockoutPage({ params }: Props) {
   const { id } = await params
   const user = await requireUser()
@@ -29,13 +25,19 @@ export default async function KnockoutPage({ params }: Props) {
     isAdmin(user.id),
   ])
 
-  const groupMatches = matches.filter(isGroupMatch)
-  const knockoutMatches = matches.filter((m) => !isGroupMatch(m) && m.phase === 'knockout')
+  // Phase is the source of truth — NOT a group_label heuristic. A knockout match can
+  // pair two teams from the same group (e.g. 4-team semis), which a group_label check
+  // would mis-flag as a group match and hide the bracket.
+  const groupMatches = matches.filter((m) => m.phase === 'group')
+  const knockoutMatches = matches.filter((m) => m.phase === 'knockout')
 
   const standings = tournament.num_groups && tournament.advance_per_group
     ? computeGroupStandings(
         teams,
-        groupMatches,
+        groupMatches.filter(
+          (m): m is typeof m & { home_team_id: string; away_team_id: string } =>
+            m.home_team_id !== null && m.away_team_id !== null,
+        ),
         tournament.num_groups,
         tournament.advance_per_group,
       )
