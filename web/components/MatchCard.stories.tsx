@@ -40,6 +40,7 @@ export const Scheduled: Story = {
       match_finished_at: null,
       halftime_started_at: null,
       second_half_started_at: null,
+  scorekeeper_token: 'aaaaaaaa-0000-0000-0000-000000000000',
     } satisfies MatchWithTeams,
   },
 }
@@ -55,6 +56,7 @@ export const Live: Story = {
       match_finished_at: null,
       halftime_started_at: null,
       second_half_started_at: null,
+  scorekeeper_token: 'aaaaaaaa-0000-0000-0000-000000000000',
     } satisfies MatchWithTeams,
   },
 }
@@ -70,6 +72,7 @@ export const Finished: Story = {
       match_finished_at: '2026-05-15T10:50:00+08:00',
       halftime_started_at: null,
       second_half_started_at: null,
+  scorekeeper_token: 'aaaaaaaa-0000-0000-0000-000000000000',
     } satisfies MatchWithTeams,
   },
 }
@@ -86,6 +89,7 @@ export const Draw: Story = {
       match_finished_at: '2026-05-15T12:50:00+08:00',
       halftime_started_at: null,
       second_half_started_at: null,
+  scorekeeper_token: 'aaaaaaaa-0000-0000-0000-000000000000',
     } satisfies MatchWithTeams,
   },
 }

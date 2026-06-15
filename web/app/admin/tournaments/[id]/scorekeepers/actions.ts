@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { requireUser } from '@/lib/auth'
 import { assignRole, findUserIdByEmail, getScorekeeperTournamentIds, isAdmin, isOrganizer, removeRole } from '@/lib/db/roles'
 import { createClubUser } from '@/lib/users'
+import { createServiceClient } from '@/lib/supabase/server'
 
 async function ensureOrganizer(tournamentId: string) {
   const user = await requireUser()
@@ -56,6 +57,35 @@ export async function removeScorekeeperAction(
     if (result.error) return { error: result.error }
     revalidatePath(`/admin/tournaments/${tournamentId}/scorekeepers`)
     return { ok: true }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed.' }
+  }
+}
+
+export async function generateScorekeeperMagicLinkAction(
+  userId: string,
+  tournamentId: string,
+): Promise<{ link: string } | { error: string }> {
+  try {
+    await ensureOrganizer(tournamentId)
+    const svc = createServiceClient()
+    const { data: userData, error: userError } = await svc.auth.admin.getUserById(userId)
+    if (userError || !userData.user?.email) {
+      return { error: 'Could not find user email.' }
+    }
+    const email = userData.user.email
+    const redirectTo = process.env.NEXT_PUBLIC_APP_URL
+      ? `${process.env.NEXT_PUBLIC_APP_URL}/score`
+      : '/score'
+    const { data, error } = await svc.auth.admin.generateLink({
+      type: 'magiclink',
+      email,
+      options: { redirectTo },
+    })
+    if (error || !data.properties?.action_link) {
+      return { error: error?.message ?? 'Failed to generate magic link.' }
+    }
+    return { link: data.properties.action_link }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed.' }
   }

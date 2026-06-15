@@ -76,6 +76,7 @@ export interface Match {
   match_finished_at: string | null
   halftime_started_at: string | null
   second_half_started_at: string | null
+  scorekeeper_token: string
   created_at: string
   updated_at: string
 }
