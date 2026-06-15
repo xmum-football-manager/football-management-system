@@ -26,6 +26,7 @@ interface Props {
   tournamentStatus: TournamentStatus
   isAdmin: boolean
   onMatchClick?: (m: MatchWithTeams) => void
+  kickoffBlocked?: boolean
 }
 
 interface LifecycleAction {
@@ -85,7 +86,7 @@ function lifecycleActionsFor(status: MatchStatus): LifecycleAction[] {
   return []
 }
 
-export function MatchRow({ match, tournamentStatus, isAdmin, onMatchClick }: Props) {
+export function MatchRow({ match, tournamentStatus, isAdmin, onMatchClick, kickoffBlocked = false }: Props) {
   const router = useRouter()
   const [busy, setBusy] = useState<string | null>(null)
   const [prompt, setPrompt] = useState<LifecycleAction | null>(null)
@@ -208,13 +209,20 @@ export function MatchRow({ match, tournamentStatus, isAdmin, onMatchClick }: Pro
                   ? { color: '#DC2626', borderColor: 'rgba(220,38,38,0.4)' }
                   : undefined
             }
-            disabled={busy !== null}
+            disabled={busy !== null || (action.next === 'live' && kickoffBlocked)}
+            title={action.next === 'live' && kickoffBlocked ? 'Schedule all matches in this phase first' : undefined}
             onClick={() => setPrompt(action)}
           >
             {busy === action.next ? <Loader2 className="h-3 w-3 animate-spin" /> : action.icon}
             {action.label}
           </Button>
         ))}
+
+        {scheduled && kickoffBlocked && (
+          <p className="text-[11px] text-muted-foreground">
+            Schedule all {match.phase} matches first
+          </p>
+        )}
 
         {isAdmin && finished && !tournamentLocked && (
           <AlertDialog>

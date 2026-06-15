@@ -32,6 +32,7 @@ import { MatchRow } from '@/app/admin/tournaments/[id]/MatchRow'
 import { rescheduleMatchAction } from '@/app/admin/tournaments/[id]/fixtures/actions'
 import { setTeamGroupAction } from '@/app/admin/tournaments/[id]/teams/actions'
 import { usePersistedView } from '@/lib/hooks/use-persisted-view'
+import { phaseSchedulingStatus } from '@/lib/phase-schedule-guard'
 import { formatClock } from '@/lib/format'
 import type {
   MatchWithTeams,
@@ -93,6 +94,7 @@ export function MatchViews({
   const initialDefault: ViewKey = supportsStructure ? 'structure' : 'list'
 
   const [view, setView] = usePersistedView<ViewKey>(VIEW_STORAGE_KEY, initialDefault, allowed)
+  const phaseScheduled = phaseSchedulingStatus(matches)
 
   if (hideTabs) {
     return (
@@ -112,6 +114,7 @@ export function MatchViews({
             tournamentStatus={tournamentStatus}
             isAdmin={isAdmin}
             onMatchClick={canManageFixtures ? handleMatchClick : undefined}
+            phaseScheduled={phaseScheduled}
           />
         )}
         {reschedulingMatch && (
@@ -184,6 +187,7 @@ export function MatchViews({
           tournamentStatus={tournamentStatus}
           isAdmin={isAdmin}
           onMatchClick={canManageFixtures ? handleMatchClick : undefined}
+          phaseScheduled={phaseScheduled}
         />
       )}
 
@@ -264,11 +268,13 @@ function ListView({
   tournamentStatus,
   isAdmin,
   onMatchClick,
+  phaseScheduled,
 }: {
   matches: MatchWithTeams[]
   tournamentStatus: TournamentStatus
   isAdmin: boolean
   onMatchClick?: (m: MatchWithTeams) => void
+  phaseScheduled: { group: boolean; knockout: boolean }
 }) {
   const days = useMemo(() => groupByDay(matches), [matches])
   const unscheduled = useMemo(() => matches.filter((m) => !m.match_time), [matches])
@@ -289,6 +295,7 @@ function ListView({
               tournamentStatus={tournamentStatus}
               isAdmin={isAdmin}
               onMatchClick={onMatchClick}
+              kickoffBlocked={!(phaseScheduled[m.phase as 'group' | 'knockout'] ?? true)}
             />
           </li>
         ))}
