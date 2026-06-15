@@ -26,6 +26,7 @@ export default async function ScorekeepersPage({ params }: Props) {
     const match = r.match_id ? matches.find((m) => m.id === r.match_id) : null
     return {
       id: r.id,
+      userId: r.user_id,
       email: emails.get(r.user_id) ?? '(unknown)',
       scope: r.tournament_id ? ('tournament' as const) : ('match' as const),
       matchLabel: match ? `${match.home_team.name} vs ${match.away_team.name}` : null,

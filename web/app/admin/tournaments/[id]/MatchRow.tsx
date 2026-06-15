@@ -18,7 +18,7 @@ import {
 import { MatchStateStepper } from '@/components/admin/MatchStateStepper'
 import { transitionMatchAction } from './actions'
 import { formatClock } from '@/lib/format'
-import { Loader2, RotateCcw, Play, Pause, CircleStop, FastForward } from 'lucide-react'
+import { Loader2, RotateCcw, Play, Pause, CircleStop, FastForward, Link } from 'lucide-react'
 import type { MatchStatus, MatchWithTeams, TournamentStatus } from '@/lib/supabase/types'
 
 interface Props {
@@ -178,6 +178,23 @@ export function MatchRow({ match, tournamentStatus, isAdmin, onMatchClick }: Pro
         className="flex flex-wrap items-center justify-end gap-2"
         onClick={(e) => e.stopPropagation()}
       >
+        {!finished && match.scorekeeper_token && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="admin-tab h-7 w-7 p-0"
+            title="Copy scorekeeper link"
+            onClick={() => {
+              navigator.clipboard.writeText(
+                `${window.location.origin}/score/m/${match.scorekeeper_token}`
+              )
+              toast.success('Scorekeeper link copied.')
+            }}
+          >
+            <Link className="h-3 w-3" />
+          </Button>
+        )}
+
         {lifecycleActions.map((action) => (
           <Button
             key={action.next + action.label}
