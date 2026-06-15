@@ -29,9 +29,22 @@ export async function transitionMatchAction(
 ): Promise<{ ok: true } | { error: string }> {
   try {
     const { user, match, admin } = await ensureOrganizerOfMatch(matchId)
-    // Guard: cannot go live without a scheduled time
-    if (next === 'live' && !match.match_time) {
-      return { error: 'Set a match time before going live.' }
+    // Guard: cannot go live until all matches in this phase have a scheduled time
+    if (next === 'live') {
+      const supabase = await createClient()
+      const { count, error: countErr } = await supabase
+        .from('matches')
+        .select('id', { count: 'exact', head: true })
+        .eq('tournament_id', match.tournament_id)
+        .eq('phase', match.phase ?? '')
+        .is('match_time', null)
+      if (countErr) return { error: 'Could not verify schedule. Try again.' }
+      if (count !== null && count > 0) {
+        const label = match.phase === 'group' ? 'group' : 'knockout'
+        return {
+          error: `${count} ${label} match${count === 1 ? '' : 'es'} still need a scheduled time. Schedule all ${label} matches before starting play.`,
+        }
+      }
     }
     // Guard: knockout match cannot go live until both teams are determined
     if (next === 'live' && match.phase === 'knockout' && (!match.home_team_id || !match.away_team_id)) {
