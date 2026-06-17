@@ -122,6 +122,16 @@ export async function updateMatchStatus(
   return {}
 }
 
+// Admin-only "Revert" of a finished match: resets score, lifecycle
+// timestamps, and goal/card history so the match restarts clean on the next
+// kickoff, rather than resuming on top of the previous result.
+export async function revertMatchToScheduled(id: string): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('revert_match_to_scheduled', { p_match_id: id })
+  if (error) return { error: error.message }
+  return {}
+}
+
 export async function updateMatchTime(id: string, match_time: string | null): Promise<{ error?: string }> {
   const supabase = await createClient()
   const { error } = await supabase.from('matches').update({ match_time }).eq('id', id)

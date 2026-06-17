@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { requireUser } from '@/lib/auth'
 import { isAdmin, isOrganizer } from '@/lib/db/roles'
-import { getMatch, updateMatchScore, updateMatchStatus, updateMatchTime, updateMatchWinner, clearMatchWinner } from '@/lib/db/matches'
+import { getMatch, updateMatchScore, updateMatchStatus, updateMatchTime, updateMatchWinner, clearMatchWinner, revertMatchToScheduled } from '@/lib/db/matches'
 import { recordGoal, deleteGoal } from '@/lib/db/goals'
 import { insertCard, deleteCard } from '@/lib/db/cards'
 import { logMatchRevert } from '@/lib/db/audit'
@@ -99,7 +99,10 @@ export async function transitionMatchAction(
     if (!isValidTransition(match.status, next, role)) {
       return { error: `Cannot move from ${match.status} to ${next}.` }
     }
-    const result = await updateMatchStatus(matchId, next)
+    const result =
+      next === 'scheduled' && match.status === 'finished'
+        ? await revertMatchToScheduled(matchId)
+        : await updateMatchStatus(matchId, next)
     if (result.error) return { error: result.error }
 
     if (shouldClearKnockoutWinner({ phase: match.phase, from: match.status, to: next })) {
