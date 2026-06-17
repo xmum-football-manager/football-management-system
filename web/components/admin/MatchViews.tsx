@@ -259,6 +259,11 @@ function knockoutMatches(matches: MatchWithTeams[]): MatchWithTeams[] {
   return matches.filter((m) => m.phase === 'knockout')
 }
 
+function comparePhaseThenTime(a: MatchWithTeams, b: MatchWithTeams): number {
+  if (a.phase !== b.phase) return a.phase === 'group' ? -1 : 1
+  return (a.match_time ?? '').localeCompare(b.match_time ?? '')
+}
+
 /* ============================================================
  * List view — MatchRow grid (admin transitions live here)
  * ========================================================== */
@@ -276,8 +281,9 @@ function ListView({
   onMatchClick?: (m: MatchWithTeams) => void
   phaseScheduled: { group: boolean; knockout: boolean }
 }) {
-  const days = useMemo(() => groupByDay(matches), [matches])
-  const unscheduled = useMemo(() => matches.filter((m) => !m.match_time), [matches])
+  const koStarted = matches.some((m) => m.phase === 'knockout' && m.status !== 'scheduled')
+  const groupStageMatches = useMemo(() => matches.filter(isGroupStageMatch), [matches])
+  const koStageMatches = useMemo(() => knockoutMatches(matches), [matches])
 
   function renderList(ms: MatchWithTeams[]) {
     return (
@@ -296,6 +302,7 @@ function ListView({
               isAdmin={isAdmin}
               onMatchClick={onMatchClick}
               kickoffBlocked={!(phaseScheduled[m.phase as 'group' | 'knockout'] ?? true)}
+              revertBlocked={m.phase === 'group' && koStarted}
             />
           </li>
         ))}
@@ -303,21 +310,43 @@ function ListView({
     )
   }
 
-  return (
-    <div className="space-y-4">
-      {days.map((day, i) => (
-        <div key={day.key} className="space-y-1.5">
-          <div className="flex items-baseline gap-2 px-0.5">
-            <span className="text-xs font-semibold text-foreground">Day {i + 1}</span>
-            <span className="text-[11px] text-muted-foreground">{day.label}</span>
+  // Renders the Day N / Unscheduled grouping for matches already confined to one phase.
+  function renderStage(stageMatches: MatchWithTeams[]) {
+    const days = groupByDay(stageMatches)
+    const unscheduled = stageMatches.filter((m) => !m.match_time).sort(comparePhaseThenTime)
+    return (
+      <div className="space-y-4">
+        {days.map((day, i) => (
+          <div key={day.key} className="space-y-1.5">
+            <div className="flex items-baseline gap-2 px-0.5">
+              <span className="text-xs font-semibold text-foreground">Day {i + 1}</span>
+              <span className="text-[11px] text-muted-foreground">{day.label}</span>
+            </div>
+            {renderList(day.matches)}
           </div>
-          {renderList(day.matches)}
+        ))}
+        {unscheduled.length > 0 && (
+          <div className="space-y-1.5">
+            <div className="px-0.5 text-xs font-semibold text-muted-foreground">Unscheduled</div>
+            {renderList(unscheduled)}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {groupStageMatches.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="admin-eyebrow">Group Stage</h3>
+          {renderStage(groupStageMatches)}
         </div>
-      ))}
-      {unscheduled.length > 0 && (
-        <div className="space-y-1.5">
-          <div className="px-0.5 text-xs font-semibold text-muted-foreground">Unscheduled</div>
-          {renderList(unscheduled)}
+      )}
+      {koStageMatches.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="admin-eyebrow">Knockout Stage</h3>
+          {renderStage(koStageMatches)}
         </div>
       )}
     </div>
@@ -1229,7 +1258,7 @@ function groupByDay(matches: MatchWithTeams[]) {
         month: 'short',
         day: 'numeric',
       }),
-      matches: ms.sort((a, b) => (a.match_time ?? '').localeCompare(b.match_time ?? '')),
+      matches: ms.sort(comparePhaseThenTime),
     }))
 }
 
