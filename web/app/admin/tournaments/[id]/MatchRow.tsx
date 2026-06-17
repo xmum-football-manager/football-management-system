@@ -27,6 +27,8 @@ interface Props {
   isAdmin: boolean
   onMatchClick?: (m: MatchWithTeams) => void
   kickoffBlocked?: boolean
+  revertBlocked?: boolean
+  revertBlockedReason?: string
 }
 
 interface LifecycleAction {
@@ -86,7 +88,15 @@ function lifecycleActionsFor(status: MatchStatus): LifecycleAction[] {
   return []
 }
 
-export function MatchRow({ match, tournamentStatus, isAdmin, onMatchClick, kickoffBlocked = false }: Props) {
+export function MatchRow({
+  match,
+  tournamentStatus,
+  isAdmin,
+  onMatchClick,
+  kickoffBlocked = false,
+  revertBlocked = false,
+  revertBlockedReason = 'The knockout stage has already started. Revert the knockout matches first.',
+}: Props) {
   const router = useRouter()
   const [busy, setBusy] = useState<string | null>(null)
   const [prompt, setPrompt] = useState<LifecycleAction | null>(null)
@@ -149,6 +159,17 @@ export function MatchRow({ match, tournamentStatus, isAdmin, onMatchClick, kicko
           formatClock(match.match_time ?? '')
         )}
       </div>
+
+      <span
+        className="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide"
+        style={{
+          background: match.phase === 'knockout' ? 'var(--admin-lime-wash)' : 'var(--admin-surface-2)',
+          color: match.phase === 'knockout' ? 'var(--admin-lime)' : 'var(--muted-foreground)',
+          border: '1px solid var(--admin-rule)',
+        }}
+      >
+        {match.phase === 'knockout' ? 'Knockout' : 'Group'}
+      </span>
 
       <div className="flex min-w-[220px] flex-1 items-center gap-3">
         <div className="flex-1 truncate text-right font-semibold">{match.home_team.name}</div>
@@ -224,7 +245,20 @@ export function MatchRow({ match, tournamentStatus, isAdmin, onMatchClick, kicko
           </p>
         )}
 
-        {isAdmin && finished && !tournamentLocked && (
+        {isAdmin && finished && !tournamentLocked && revertBlocked && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="admin-tab tracking-wider text-[11px] opacity-50 cursor-not-allowed"
+            style={{ color: '#DC2626', borderColor: 'rgba(220,38,38,0.4)' }}
+            onClick={() => toast.error(revertBlockedReason)}
+          >
+            <RotateCcw className="h-3 w-3" />
+            Revert
+          </Button>
+        )}
+
+        {isAdmin && finished && !tournamentLocked && !revertBlocked && (
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button

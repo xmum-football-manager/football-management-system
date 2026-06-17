@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createServiceClient } from '@/lib/supabase/server'
 import { isValidTransition } from '@/lib/match-lifecycle'
 import { withTeamFallback } from '@/lib/match-teams'
+import { groupStageComplete } from '@/lib/group-stage-gate'
 import type { MatchStatus, MatchWithTeams } from '@/lib/supabase/types'
 
 export async function getMatchByToken(token: string): Promise<MatchWithTeams | null> {
@@ -113,6 +114,21 @@ export async function tokenTransitionMatch(
     // Guard: knockout match cannot go live until both teams are determined
     if (next === 'live' && match.phase === 'knockout' && (!match.home_team_id || !match.away_team_id)) {
       return { error: 'Both teams must be determined before this knockout match can go live.' }
+    }
+
+    // Guard: knockout match cannot kick off while the group stage is unfinished.
+    // Determined teams alone are not enough — a reverted group result leaves
+    // stale seeding, so re-check the live group-stage state at kickoff.
+    if (next === 'live' && match.phase === 'knockout') {
+      const svc = createServiceClient()
+      const { data: phaseRows, error: gateError } = await svc
+        .from('matches')
+        .select('phase, status')
+        .eq('tournament_id', match.tournament_id)
+      if (gateError) return { error: 'Could not verify the group stage. Try again.' }
+      if (!groupStageComplete(phaseRows ?? [])) {
+        return { error: 'All group-stage matches must be finished before knockout play can begin.' }
+      }
     }
 
     // Knockout finish: auto-set winner for decisive result; block draw without winner

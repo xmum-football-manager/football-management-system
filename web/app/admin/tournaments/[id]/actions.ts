@@ -8,6 +8,7 @@ import { recordGoal, deleteGoal } from '@/lib/db/goals'
 import { insertCard, deleteCard } from '@/lib/db/cards'
 import { logMatchRevert } from '@/lib/db/audit'
 import { isValidTransition, shouldClearKnockoutWinner } from '@/lib/match-lifecycle'
+import { groupStageComplete } from '@/lib/group-stage-gate'
 import { createClient } from '@/lib/supabase/server'
 import type { MatchStatus } from '@/lib/supabase/types'
 
@@ -50,6 +51,20 @@ export async function transitionMatchAction(
     if (next === 'live' && match.phase === 'knockout' && (!match.home_team_id || !match.away_team_id)) {
       return { error: 'Both teams must be determined before this knockout match can go live.' }
     }
+    // Guard: knockout match cannot kick off while the group stage is unfinished.
+    // A reverted group result leaves stale seeding, so re-check live group-stage
+    // state at kickoff (the determined-teams check above is not sufficient).
+    if (next === 'live' && match.phase === 'knockout') {
+      const supabase = await createClient()
+      const { data: phaseRows, error: gateError } = await supabase
+        .from('matches')
+        .select('phase, status')
+        .eq('tournament_id', match.tournament_id)
+      if (gateError) return { error: 'Could not verify the group stage. Try again.' }
+      if (!groupStageComplete(phaseRows ?? [])) {
+        return { error: 'All group-stage matches must be finished before knockout play can begin.' }
+      }
+    }
     // 1-live guard: only one match may be live or at halftime at a time
     if (next === 'live') {
       const supabase = await createClient()
@@ -80,6 +95,26 @@ export async function transitionMatchAction(
         return {
           error:
             'The next-round match this winner feeds has already kicked off. Revert that match first.',
+        }
+      }
+    }
+    // Guard: cannot revert a group-stage match once the knockout stage has
+    // started. Group results feed knockout seeding; unwinding a group result
+    // after KO matches exist would invalidate brackets that already happened.
+    // Admin must revert the knockout matches first (latest round first).
+    if (next === 'scheduled' && match.status === 'finished' && match.phase === 'group') {
+      const supabase = await createClient()
+      const { count, error: koError } = await supabase
+        .from('matches')
+        .select('id', { count: 'exact', head: true })
+        .eq('tournament_id', match.tournament_id)
+        .eq('phase', 'knockout')
+        .neq('status', 'scheduled')
+      if (koError) return { error: 'Could not verify the knockout stage. Try again.' }
+      if (count !== null && count > 0) {
+        return {
+          error:
+            'The knockout stage has already started. Revert the knockout matches first (starting with the latest round) before reverting group matches.',
         }
       }
     }
