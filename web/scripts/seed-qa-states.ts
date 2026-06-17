@@ -103,6 +103,9 @@ async function groupMatches(
   for (let i = 0; i < g.length; i++) {
     for (let j = i + 1; j < g.length; j++) {
       const [hs, as_] = scores[`${i}-${j}`] ?? [0, 0]
+      // DB constraints matches_finished_requires_started / matches_active_requires_match_time
+      // need both set on a finished match.
+      const startedAt = status === 'finished' ? '2026-06-15T09:00:00Z' : null
       const { error } = await sb.from('matches').insert({
         tournament_id: tournamentId,
         home_team_id: g[i].id,
@@ -111,7 +114,8 @@ async function groupMatches(
         status,
         home_score: status === 'finished' ? hs : 0,
         away_score: status === 'finished' ? as_ : 0,
-        match_time: status === 'scheduled' ? MT : null,
+        match_time: status === 'scheduled' ? MT : startedAt,
+        match_started_at: startedAt,
       })
       if (error) console.error(`  match ${g[i].name} v ${g[j].name}:`, error.message)
     }

@@ -121,9 +121,10 @@ async function groupMatches(
     let startedAt: string | null = null
     if (mode === 'finished') {
       home = hs; away = as_
+      startedAt = '2026-06-15T09:00:00Z'
     } else if (mode === 'live-mix') {
       // First two pairs finished, third pair live, rest scheduled.
-      if (p < 2) { status = 'finished'; home = hs; away = as_ }
+      if (p < 2) { status = 'finished'; home = hs; away = as_; startedAt = '2026-06-15T09:00:00Z' }
       else if (p === 2) { status = 'live'; home = 1; away = 1; startedAt = new Date(Date.now() - 30 * 60000).toISOString() }
     }
     const { error } = await sb.from('matches').insert({
@@ -134,7 +135,9 @@ async function groupMatches(
       status,
       home_score: home,
       away_score: away,
-      match_time: status === 'scheduled' ? MT : null,
+      // DB constraints matches_finished_requires_started / matches_active_requires_match_time
+      // need match_time + match_started_at set for any non-scheduled match.
+      match_time: status === 'scheduled' ? MT : startedAt,
       match_started_at: startedAt,
     })
     if (error) console.error(`  group ${g[i].name} v ${g[j].name}:`, error.message)
@@ -144,9 +147,18 @@ async function groupMatches(
 
 // Insert a knockout match, return its id. Pass null team ids for TBD slots.
 async function koMatch(fields: Record<string, unknown>): Promise<string> {
+  // DB constraints matches_finished_requires_started / matches_active_requires_match_time
+  // need both set for any non-scheduled match; default them, callers can still override.
+  const status = fields.status as string | undefined
+  const startedAt = status && status !== 'scheduled' ? '2026-06-15T09:00:00Z' : undefined
   const { data, error } = await sb
     .from('matches')
-    .insert({ phase: 'knockout', knockout_round: 'sf', ...fields })
+    .insert({
+      phase: 'knockout',
+      knockout_round: 'sf',
+      ...(startedAt && { match_started_at: startedAt, match_time: startedAt }),
+      ...fields,
+    })
     .select('id')
     .single()
   if (error || !data) {

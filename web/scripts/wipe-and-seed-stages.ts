@@ -34,6 +34,7 @@ const START = '2026-06-01'
 const END = '2026-06-30'
 const SCHED_TIME = '2026-06-10T10:00:00Z'
 const LIVE_START = new Date(Date.now() - 20 * 60 * 1000).toISOString() // 20 min ago
+const FINISHED_START = '2026-06-15T09:00:00Z'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -139,7 +140,10 @@ async function insertGroupMatch(
     status: finished ? 'finished' : 'scheduled',
     home_score: finished ? score![0] : 0,
     away_score: finished ? score![1] : 0,
-    match_time: finished ? null : SCHED_TIME,
+    // DB constraints matches_finished_requires_started / matches_active_requires_match_time
+    // need both set on a finished match.
+    match_time: finished ? FINISHED_START : SCHED_TIME,
+    ...(finished && { match_started_at: FINISHED_START }),
     ...opts,
   })
   if (error) console.warn(`  group match ${home.name} v ${away.name}: ${error.message}`)
@@ -164,8 +168,10 @@ async function insertKoMatch(
     status,
     home_score: score?.[0] ?? 0,
     away_score: score?.[1] ?? 0,
-    match_time: status === 'scheduled' ? SCHED_TIME : null,
-    match_started_at: status === 'live' ? LIVE_START : status === 'finished' ? '2026-06-15T09:00:00Z' : null,
+    // DB constraints matches_finished_requires_started / matches_active_requires_match_time
+    // need match_time + match_started_at set for any non-scheduled match.
+    match_time: status === 'scheduled' ? SCHED_TIME : status === 'live' ? LIVE_START : FINISHED_START,
+    match_started_at: status === 'live' ? LIVE_START : status === 'finished' ? FINISHED_START : null,
     second_half_started_at: status === 'live' ? null : status === 'finished' ? '2026-06-15T10:00:00Z' : null,
     winner_team_id: winnerId ?? null,
   })

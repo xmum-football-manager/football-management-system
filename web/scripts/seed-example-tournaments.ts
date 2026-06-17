@@ -90,14 +90,6 @@ const LAST_NAMES = [
   'Yap', 'Chong', 'Ali', 'Koh', 'Sim', 'Bakar', 'Wang', 'Hashim', 'Toh', 'Cheah',
   'Foo', 'Salleh', 'Gan', 'Omar', 'Chua', 'Kamal', 'Ho', 'Musa', 'Seah', 'Zain',
 ]
-const POSITIONS = [
-  'Goalkeeper',
-  'Defender', 'Defender', 'Defender', 'Defender',
-  'Midfielder', 'Midfielder', 'Midfielder', 'Midfielder',
-  'Forward', 'Forward',
-  'Defender', 'Midfielder', 'Forward', // extras for rosters > 11
-]
-
 let playerCounter = 0
 function rosterFor(teamId: string, size: number) {
   return Array.from({ length: size }, (_, i) => {
@@ -106,7 +98,6 @@ function rosterFor(teamId: string, size: number) {
       team_id: teamId,
       name: `${FIRST_NAMES[(n * 7 + 3) % FIRST_NAMES.length]} ${LAST_NAMES[(n * 11 + 5) % LAST_NAMES.length]}`,
       jersey_number: i + 1,
-      position: POSITIONS[i % POSITIONS.length],
     }
   })
 }
@@ -151,17 +142,18 @@ interface MatchInsert {
 }
 
 function finished(base: Omit<MatchInsert, 'status'>, h: number, a: number): MatchInsert {
-  const started = base.match_time
-  const finishedAt = base.match_time
-    ? new Date(new Date(base.match_time).getTime() + 105 * 60_000).toISOString()
-    : undefined
+  // A finished match must have match_started_at set (DB constraint
+  // matches_finished_requires_started) even when match_time is null
+  // (group matches seeded without a scheduled kickoff time).
+  const started = base.match_time ?? NOW.toISOString()
+  const finishedAt = new Date(new Date(started).getTime() + 105 * 60_000).toISOString()
   return {
     ...base,
     status: 'finished',
     home_score: h,
     away_score: a,
-    ...(started && { match_started_at: started }),
-    ...(finishedAt && { match_finished_at: finishedAt }),
+    match_started_at: started,
+    match_finished_at: finishedAt,
   }
 }
 
@@ -756,12 +748,18 @@ async function legacyCup() {
 // ---------------------------------------------------------------------------
 
 async function run() {
-  // Wipe: audit log rows reference matches/tournaments without cascade, so they go first.
+  // Wipe: audit log/goals/cards rows reference teams directly (no cascade), so they go first.
   const { error: auditErr } = await supabase
     .from('admin_audit_log')
     .delete()
     .gte('created_at', '1970-01-01')
   if (auditErr) throw new Error(`audit log wipe: ${auditErr.message}`)
+
+  const { error: goalsErr } = await supabase.from('goals').delete().gte('created_at', '1970-01-01')
+  if (goalsErr) throw new Error(`goals wipe: ${goalsErr.message}`)
+
+  const { error: cardsErr } = await supabase.from('cards').delete().gte('created_at', '1970-01-01')
+  if (cardsErr) throw new Error(`cards wipe: ${cardsErr.message}`)
 
   const { data: existing } = await supabase.from('tournaments').select('id, name')
   for (const t of existing ?? []) {
