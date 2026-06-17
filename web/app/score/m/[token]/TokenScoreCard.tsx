@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useEffect, useCallback } from 'react'
+import { useState, useTransition, useEffect, useCallback, useMemo } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -23,7 +23,9 @@ import {
 import { Loader2, Pause, CircleStop, FastForward } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { formatGoalClock } from '@/lib/format'
-import type { MatchWithTeams, MatchStatus, Player, Goal } from '@/lib/supabase/types'
+import { mediaUrl } from '@/lib/storage'
+import { teamColor, teamCode } from '@/lib/team-style'
+import type { MatchWithTeams, MatchStatus, Player, Goal, Card, Team } from '@/lib/supabase/types'
 import {
   tokenRecordGoal,
   tokenDeleteGoal,
@@ -76,17 +78,149 @@ function lifecycleActions(status: MatchStatus): LifecycleAction[] {
   return []
 }
 
+// Live elapsed-time clock — mirrors the main scorekeeper. Counts up while
+// live, freezes at the halftime split, and resumes from the second-half kickoff.
+function useMatchClock(match: MatchWithTeams): number | null {
+  const [now, setNow] = useState(() => Date.now())
+  const isHalftime = match.status === 'halftime'
+
+  useEffect(() => {
+    if (isHalftime) return
+    if (match.status !== 'live') return
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [isHalftime, match.status])
+
+  return useMemo(() => {
+    if (!match.match_started_at) return null
+    const kickoff = new Date(match.match_started_at).getTime()
+    if (match.status === 'halftime' && match.halftime_started_at) {
+      const ht = new Date(match.halftime_started_at).getTime()
+      return Math.floor((ht - kickoff) / 1000)
+    }
+    if (match.status === 'live' && match.halftime_started_at && match.second_half_started_at) {
+      const ht = new Date(match.halftime_started_at).getTime()
+      const sh = new Date(match.second_half_started_at).getTime()
+      return Math.floor(((ht - kickoff) + (now - sh)) / 1000)
+    }
+    if (match.status === 'live') {
+      return Math.floor((now - kickoff) / 1000)
+    }
+    return null
+  }, [match, now])
+}
+
+function formatElapsed(seconds: number): string {
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return `${m}:${String(s).padStart(2, '0')}`
+}
+
+function formatStartDay(iso: string | null): string {
+  if (!iso) return 'Time TBD'
+  return new Date(iso).toLocaleString('en-US', {
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
+// Same crest treatment the public team views use: logo as a cover image, else a
+// stable team colour with the team's short code.
+function TeamCrest({ team }: { team: Team }) {
+  const logo = mediaUrl(team.logo_path)
+  return (
+    <span
+      className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-xs font-black text-white"
+      style={
+        logo
+          ? { backgroundImage: `url(${logo})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+          : { background: teamColor(team.id), boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.1)' }
+      }
+    >
+      {logo ? null : teamCode(team.name)}
+    </span>
+  )
+}
+
+// Goals scored by one team, most recent first. Shared by both sides so the two
+// columns render identically.
+function GoalTracker({ team, players, goals }: { team: Team; players: Player[]; goals: Goal[] }) {
+  const teamGoals = goals.filter((g) => g.team_id === team.id)
+  const nameOf = (playerId: string | null) =>
+    !playerId ? 'No scorer' : players.find((p) => p.id === playerId)?.name ?? 'Unknown player'
+  return (
+    <div>
+      <p className="mb-2 text-sm font-semibold">{team.name}</p>
+      {teamGoals.length === 0 ? (
+        <p className="text-xs text-muted-foreground">No goals.</p>
+      ) : (
+        <ul className="space-y-1">
+          {teamGoals.map((g) => (
+            <li key={g.id} className="flex items-center justify-between gap-2 text-sm">
+              <span className="truncate">{nameOf(g.player_id)}</span>
+              <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                {formatGoalClock(g.elapsed_seconds)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+// Cards for one team, grouped per player. A 2nd yellow auto-issues a red
+// (handled server-side), so the red count here already reflects that rule.
+function CardTracker({ team, players, cards }: { team: Team; players: Player[]; cards: Card[] }) {
+  const counts = new Map<string, { yellow: number; red: number }>()
+  for (const c of cards) {
+    if (c.team_id !== team.id) continue
+    const entry = counts.get(c.player_id) ?? { yellow: 0, red: 0 }
+    if (c.card_type === 'yellow') entry.yellow += 1
+    else entry.red += 1
+    counts.set(c.player_id, entry)
+  }
+  const nameOf = (playerId: string) => players.find((p) => p.id === playerId)?.name ?? 'Unknown player'
+  const rows = [...counts.entries()]
+  return (
+    <div>
+      <p className="mb-2 text-sm font-semibold">{team.name}</p>
+      {rows.length === 0 ? (
+        <p className="text-xs text-muted-foreground">No cards.</p>
+      ) : (
+        <ul className="space-y-1">
+          {rows.map(([playerId, { yellow, red }]) => (
+            <li key={playerId} className="flex items-center justify-between gap-2 text-sm">
+              <span className="truncate">{nameOf(playerId)}</span>
+              <span className="shrink-0 text-xs tabular-nums">
+                {yellow > 0 && <span className="text-amber-600">🟨 {yellow}</span>}
+                {yellow > 0 && red > 0 && ' '}
+                {red > 0 && <span className="text-red-600">🟥 {red}</span>}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 interface Props {
   match: MatchWithTeams
   token: string
   homePlayers: Player[]
   awayPlayers: Player[]
+  initialGoals: Goal[]
+  initialCards: Card[]
 }
 
 type GoalPickerState = { side: 'home' | 'away' } | null
 type CardPickerState = { side: 'home' | 'away' } | null
 
-export function TokenScoreCard({ match: initialMatch, token, homePlayers, awayPlayers }: Props) {
+export function TokenScoreCard({ match: initialMatch, token, homePlayers, awayPlayers, initialGoals, initialCards }: Props) {
   const [busy, startTransition] = useTransition()
   const [match, setMatch] = useState<MatchWithTeams>(initialMatch)
   const [prompt, setPrompt] = useState<LifecycleAction | null>(null)
@@ -108,6 +242,12 @@ export function TokenScoreCard({ match: initialMatch, token, homePlayers, awayPl
   // Knockout draw: show a team picker before allowing finish
   const [knockoutDrawPicker, setKnockoutDrawPicker] = useState(false)
 
+  // Goals + cards feeding the trackers
+  const [goals, setGoals] = useState<Goal[]>(initialGoals)
+  const [cards, setCards] = useState<Card[]>(initialCards)
+
+  const elapsedSeconds = useMatchClock(match)
+
   // Re-fetch match from DB (polling fallback)
   const refreshMatch = useCallback(async () => {
     const supabase = createClient()
@@ -122,6 +262,17 @@ export function TokenScoreCard({ match: initialMatch, token, homePlayers, awayPl
       setScores({ home: updated.home_score, away: updated.away_score })
     }
   }, [token])
+
+  // Re-fetch goals + cards for the trackers
+  const refreshEvents = useCallback(async () => {
+    const supabase = createClient()
+    const [{ data: goalRows }, { data: cardRows }] = await Promise.all([
+      supabase.from('goals').select('*').eq('match_id', match.id).order('created_at', { ascending: false }),
+      supabase.from('cards').select('*').eq('match_id', match.id).order('created_at', { ascending: false }),
+    ])
+    setGoals((goalRows ?? []) as Goal[])
+    setCards((cardRows ?? []) as Card[])
+  }, [match.id])
 
   // Realtime subscription + 5s polling
   useEffect(() => {
@@ -139,13 +290,16 @@ export function TokenScoreCard({ match: initialMatch, token, homePlayers, awayPl
       )
       .subscribe()
 
-    const interval = setInterval(refreshMatch, 5000)
+    const interval = setInterval(() => {
+      refreshMatch()
+      refreshEvents()
+    }, 5000)
 
     return () => {
       supabase.removeChannel(channel)
       clearInterval(interval)
     }
-  }, [match.id, refreshMatch])
+  }, [match.id, refreshMatch, refreshEvents])
 
   const status = match.status
   const actions = lifecycleActions(status)
@@ -233,6 +387,7 @@ export function TokenScoreCard({ match: initialMatch, token, homePlayers, awayPl
       } else {
         setScores({ home: r.home_score, away: r.away_score })
         toast.success(`Goal recorded for ${side === 'home' ? match.home_team.name : match.away_team.name}.`)
+        refreshEvents()
       }
     })
   }
@@ -259,6 +414,7 @@ export function TokenScoreCard({ match: initialMatch, token, homePlayers, awayPl
       } else {
         setScores({ home: r.home_score, away: r.away_score })
         toast.success('Goal removed.')
+        refreshEvents()
       }
     })
   }
@@ -279,6 +435,8 @@ export function TokenScoreCard({ match: initialMatch, token, homePlayers, awayPl
         toast.error(r.error)
       } else {
         toast.success(`${cardType === 'yellow' ? 'Yellow' : 'Red'} card recorded.`)
+        if (r.autoRed) toast.warning('Second yellow — automatic red card issued.')
+        refreshEvents()
       }
     })
   }
@@ -298,7 +456,12 @@ export function TokenScoreCard({ match: initialMatch, token, homePlayers, awayPl
     <div className="mx-auto max-w-sm space-y-4">
       {/* Header */}
       <div className="text-center">
-        <p className="text-lg font-semibold">
+        <div className="flex items-center justify-center gap-3">
+          <TeamCrest team={match.home_team} />
+          <span className="text-sm text-muted-foreground">vs</span>
+          <TeamCrest team={match.away_team} />
+        </div>
+        <p className="mt-2 text-lg font-semibold">
           {match.home_team.name} vs {match.away_team.name}
         </p>
         <span
@@ -312,7 +475,11 @@ export function TokenScoreCard({ match: initialMatch, token, homePlayers, awayPl
             />
           )}
           {statusLabel}
+          {elapsedSeconds !== null && (
+            <span className="tabular-nums">· {formatElapsed(elapsedSeconds)}</span>
+          )}
         </span>
+        <p className="mt-1 text-xs text-muted-foreground">{formatStartDay(match.match_time)}</p>
       </div>
 
       {/* Score card */}
@@ -411,6 +578,24 @@ export function TokenScoreCard({ match: initialMatch, token, homePlayers, awayPl
             ))}
           </div>
         )}
+      </div>
+
+      {/* Goals tracker */}
+      <div className="rounded-xl border p-4">
+        <p className="mb-3 text-sm font-bold tracking-widest text-muted-foreground">GOALS</p>
+        <div className="grid grid-cols-2 gap-4">
+          <GoalTracker team={match.home_team} players={homePlayers} goals={goals} />
+          <GoalTracker team={match.away_team} players={awayPlayers} goals={goals} />
+        </div>
+      </div>
+
+      {/* Cards tracker */}
+      <div className="rounded-xl border p-4">
+        <p className="mb-3 text-sm font-bold tracking-widest text-muted-foreground">CARDS</p>
+        <div className="grid grid-cols-2 gap-4">
+          <CardTracker team={match.home_team} players={homePlayers} cards={cards} />
+          <CardTracker team={match.away_team} players={awayPlayers} cards={cards} />
+        </div>
       </div>
 
       {/* Lifecycle confirmation dialog */}

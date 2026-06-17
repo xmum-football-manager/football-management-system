@@ -72,7 +72,7 @@ export async function tokenAddCard(
   token: string,
   playerId: string,
   cardType: 'yellow' | 'red',
-): Promise<{ id: string } | { error: string }> {
+): Promise<{ id: string; autoRed: boolean } | { error: string }> {
   try {
     const match = await getMatchByToken(token)
     if (!match) return { error: 'Match not found.' }
@@ -95,9 +95,31 @@ export async function tokenAddCard(
       .select('id')
       .single()
     if (error) return { error: error.message }
+
+    // Two yellows in a match = an automatic red. When this yellow is the
+    // player's second, issue the red card alongside it.
+    let autoRed = false
+    if (cardType === 'yellow') {
+      const { count } = await svc
+        .from('cards')
+        .select('id', { count: 'exact', head: true })
+        .eq('match_id', match.id)
+        .eq('player_id', playerId)
+        .eq('card_type', 'yellow')
+      if ((count ?? 0) >= 2) {
+        const { error: redErr } = await svc.from('cards').insert({
+          match_id: match.id,
+          team_id: player.team_id,
+          player_id: playerId,
+          card_type: 'red',
+        })
+        if (!redErr) autoRed = true
+      }
+    }
+
     revalidatePath(`/score/m/${token}`)
     revalidatePath(`/t/${match.tournament_id}`)
-    return { id: data.id }
+    return { id: data.id, autoRed }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed.' }
   }

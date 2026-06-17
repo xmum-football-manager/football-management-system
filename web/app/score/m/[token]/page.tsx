@@ -9,9 +9,11 @@ export default async function PublicScorePage({ params }: { params: Promise<{ to
   if (!match) notFound()
 
   const svc = createServiceClient()
-  const [{ data: homePlayers }, { data: awayPlayers }] = await Promise.all([
+  const [{ data: homePlayers }, { data: awayPlayers }, { data: goals }, { data: cards }] = await Promise.all([
     svc.from('players').select('*').eq('team_id', match.home_team_id ?? '').order('jersey_number'),
     svc.from('players').select('*').eq('team_id', match.away_team_id ?? '').order('jersey_number'),
+    svc.from('goals').select('*').eq('match_id', match.id).order('created_at', { ascending: false }),
+    svc.from('cards').select('*').eq('match_id', match.id).order('created_at', { ascending: false }),
   ])
 
   return (
@@ -21,6 +23,8 @@ export default async function PublicScorePage({ params }: { params: Promise<{ to
         token={token}
         homePlayers={homePlayers ?? []}
         awayPlayers={awayPlayers ?? []}
+        initialGoals={goals ?? []}
+        initialCards={cards ?? []}
       />
     </div>
   )
