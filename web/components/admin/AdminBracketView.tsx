@@ -12,6 +12,7 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import type { MatchWithTeams } from '@/lib/supabase/types'
 import { teamInitials } from '@/lib/format'
+import { knockoutWinnerTeamId } from '@/lib/match-lifecycle'
 
 export interface BracketGroupStanding {
   team_id: string
@@ -47,8 +48,8 @@ interface Props {
 // Real rendered card height: two team rows (px-3 py-2 + 20px badge ≈ 36px each)
 // plus a 1px divider and 1px borders ≈ 74px. Underestimating this makes the shared
 // column envelope too short, so justify-around collapses the gap and cards touch.
-const CARD_HEIGHT = 76
-const ROW_GAP = 20
+const CARD_HEIGHT = 92
+const ROW_GAP = 28
 
 function roundLabel(slotCount: number): string {
   if (slotCount === 8) return 'Round of 16'
@@ -185,14 +186,14 @@ export function AdminBracketView({
     hasValidMatches && remainingPlaceholderRounds.length === 0
       ? matchRounds[matchRounds.length - 1]?.[0]
       : undefined
-  const champion =
-    finalMatch?.status === 'finished'
-      ? finalMatch.home_score > finalMatch.away_score
-        ? finalMatch.home_team?.name ?? null
-        : finalMatch.away_score > finalMatch.home_score
-          ? finalMatch.away_team?.name ?? null
-          : null
-      : null
+  const championWinnerId = finalMatch ? knockoutWinnerTeamId(finalMatch) : null
+  const champion = !championWinnerId
+    ? null
+    : championWinnerId === finalMatch?.home_team_id
+      ? finalMatch?.home_team?.name ?? null
+      : championWinnerId === finalMatch?.away_team_id
+        ? finalMatch?.away_team?.name ?? null
+        : null
 
   const minWidth =
     (sidebar ? GROUP_COLUMN_WIDTH + 24 : 0) +
@@ -408,7 +409,7 @@ function GroupCard({
         <div className="admin-tab text-[9px] tracking-wider text-muted-foreground mb-1.5">
           Matches
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-2.5">
           {column.matches.length === 0 ? (
             <div className="text-[11px] italic text-muted-foreground py-1">
               No matches yet
@@ -598,8 +599,9 @@ function BracketMatch({
 }) {
   const isLive = match.status === 'live' || match.status === 'halftime'
   const isFinished = match.status === 'finished'
-  const homeWon = isFinished && match.home_score > match.away_score
-  const awayWon = isFinished && match.away_score > match.home_score
+  const winnerId = knockoutWinnerTeamId(match)
+  const homeWon = !!winnerId && winnerId === match.home_team_id
+  const awayWon = !!winnerId && winnerId === match.away_team_id
   const clickable = match.status === 'scheduled' && !!onMatchClick
 
   return (
@@ -607,7 +609,7 @@ function BracketMatch({
       type="button"
       disabled={!clickable}
       onClick={() => clickable && onMatchClick?.(match)}
-      className="rounded-md overflow-hidden bg-card text-left disabled:cursor-default"
+      className="shrink-0 rounded-md overflow-hidden bg-card text-left disabled:cursor-default"
       style={{
         border: `1px solid ${
           isLive ? '#DC2626' : isFinal ? 'var(--admin-lime)' : 'var(--admin-rule)'
@@ -663,11 +665,11 @@ function BracketPlaceholder({
 function PlaceholderTeamRow({ label }: { label: string }) {
   return (
     <div
-      className="grid items-center gap-2 px-3 py-2"
+      className="grid items-center gap-2.5 px-3.5 py-2.5"
       style={{ gridTemplateColumns: '20px 1fr auto' }}
     >
       <span
-        className="admin-display inline-flex h-5 w-5 items-center justify-center rounded-full text-[9px]"
+        className="admin-display inline-flex h-6 w-6 items-center justify-center rounded-full text-[9px]"
         style={{
           background: 'var(--admin-surface-2)',
           color: 'var(--muted-foreground)',
@@ -705,14 +707,14 @@ function BracketTeamRow({
 }) {
   return (
     <div
-      className="grid items-center gap-2 px-3 py-2"
+      className="grid items-center gap-2.5 px-3.5 py-2.5"
       style={{
         gridTemplateColumns: '20px 1fr auto',
         background: winner ? 'var(--admin-lime-wash)' : 'transparent',
       }}
     >
       <span
-        className="admin-display inline-flex h-5 w-5 items-center justify-center rounded-full text-[9px]"
+        className="admin-display inline-flex h-6 w-6 items-center justify-center rounded-full text-[9px]"
         style={{
           background: 'var(--admin-surface-2)',
           color: 'var(--muted-foreground)',

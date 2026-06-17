@@ -153,6 +153,9 @@ async function run() {
     for (let i = 0; i < groupTeams.length; i++) {
       for (let j = i + 1; j < groupTeams.length; j++) {
         const [homeGoals, awayGoals] = GROUP_SCORES[`${i}-${j}`] ?? [0, 0]
+        // DB constraints matches_finished_requires_started / matches_active_requires_match_time
+        // need both of these set on a finished match.
+        const startedAt = '2026-06-15T09:00:00Z'
         const { error } = await supabase.from('matches').insert({
           tournament_id: tournamentId,
           home_team_id: groupTeams[i].id,
@@ -161,7 +164,8 @@ async function run() {
           status: 'finished',
           home_score: homeGoals,
           away_score: awayGoals,
-          match_time: null,
+          match_time: startedAt,
+          match_started_at: startedAt,
         })
         if (error) console.error(`Match error (${groupTeams[i].name} vs ${groupTeams[j].name}):`, error.message)
       }

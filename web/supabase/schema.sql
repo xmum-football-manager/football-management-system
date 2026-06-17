@@ -61,6 +61,7 @@ create table if not exists public.matches (
   match_finished_at timestamptz,
   halftime_started_at timestamptz,
   second_half_started_at timestamptz,
+  scorekeeper_token uuid not null default gen_random_uuid(),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint different_teams check (home_team_id <> away_team_id)

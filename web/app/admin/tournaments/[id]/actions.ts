@@ -3,11 +3,12 @@
 import { revalidatePath } from 'next/cache'
 import { requireUser } from '@/lib/auth'
 import { isAdmin, isOrganizer } from '@/lib/db/roles'
-import { getMatch, updateMatchScore, updateMatchStatus, updateMatchTime, updateMatchWinner, clearMatchWinner } from '@/lib/db/matches'
+import { getMatch, updateMatchScore, updateMatchStatus, updateMatchTime, updateMatchWinner, clearMatchWinner, revertMatchToScheduled } from '@/lib/db/matches'
 import { recordGoal, deleteGoal } from '@/lib/db/goals'
 import { insertCard, deleteCard } from '@/lib/db/cards'
 import { logMatchRevert } from '@/lib/db/audit'
 import { isValidTransition, shouldClearKnockoutWinner } from '@/lib/match-lifecycle'
+import { groupStageComplete } from '@/lib/group-stage-gate'
 import { createClient } from '@/lib/supabase/server'
 import type { MatchStatus } from '@/lib/supabase/types'
 
@@ -29,13 +30,40 @@ export async function transitionMatchAction(
 ): Promise<{ ok: true } | { error: string }> {
   try {
     const { user, match, admin } = await ensureOrganizerOfMatch(matchId)
-    // Guard: cannot go live without a scheduled time
-    if (next === 'live' && !match.match_time) {
-      return { error: 'Set a match time before going live.' }
+    // Guard: cannot go live until all matches in this phase have a scheduled time
+    if (next === 'live') {
+      const supabase = await createClient()
+      const { count, error: countErr } = await supabase
+        .from('matches')
+        .select('id', { count: 'exact', head: true })
+        .eq('tournament_id', match.tournament_id)
+        .eq('phase', match.phase ?? '')
+        .is('match_time', null)
+      if (countErr) return { error: 'Could not verify schedule. Try again.' }
+      if (count !== null && count > 0) {
+        const label = match.phase === 'group' ? 'group' : 'knockout'
+        return {
+          error: `${count} ${label} match${count === 1 ? '' : 'es'} still need a scheduled time. Schedule all ${label} matches before starting play.`,
+        }
+      }
     }
     // Guard: knockout match cannot go live until both teams are determined
     if (next === 'live' && match.phase === 'knockout' && (!match.home_team_id || !match.away_team_id)) {
       return { error: 'Both teams must be determined before this knockout match can go live.' }
+    }
+    // Guard: knockout match cannot kick off while the group stage is unfinished.
+    // A reverted group result leaves stale seeding, so re-check live group-stage
+    // state at kickoff (the determined-teams check above is not sufficient).
+    if (next === 'live' && match.phase === 'knockout') {
+      const supabase = await createClient()
+      const { data: phaseRows, error: gateError } = await supabase
+        .from('matches')
+        .select('phase, status')
+        .eq('tournament_id', match.tournament_id)
+      if (gateError) return { error: 'Could not verify the group stage. Try again.' }
+      if (!groupStageComplete(phaseRows ?? [])) {
+        return { error: 'All group-stage matches must be finished before knockout play can begin.' }
+      }
     }
     // 1-live guard: only one match may be live or at halftime at a time
     if (next === 'live') {
@@ -49,6 +77,45 @@ export async function transitionMatchAction(
       if (countError) return { error: 'Could not verify match status. Try again.' }
       if (count !== null && count > 0) {
         return { error: 'Another match is already live. Finish it first.' }
+      }
+    }
+    // Guard: cannot revert a knockout match whose winner has already advanced
+    // into a downstream match that has kicked off. Reverting would clear the
+    // winner and strand a team in a match that is live/finished.
+    if (next === 'scheduled' && match.status === 'finished' && match.phase === 'knockout') {
+      const supabase = await createClient()
+      const { count, error: downstreamError } = await supabase
+        .from('matches')
+        .select('id', { count: 'exact', head: true })
+        .eq('tournament_id', match.tournament_id)
+        .or(`home_source_match_id.eq.${matchId},away_source_match_id.eq.${matchId}`)
+        .in('status', ['live', 'halftime', 'finished'])
+      if (downstreamError) return { error: 'Could not verify the next-round match. Try again.' }
+      if (count !== null && count > 0) {
+        return {
+          error:
+            'The next-round match this winner feeds has already kicked off. Revert that match first.',
+        }
+      }
+    }
+    // Guard: cannot revert a group-stage match once the knockout stage has
+    // started. Group results feed knockout seeding; unwinding a group result
+    // after KO matches exist would invalidate brackets that already happened.
+    // Admin must revert the knockout matches first (latest round first).
+    if (next === 'scheduled' && match.status === 'finished' && match.phase === 'group') {
+      const supabase = await createClient()
+      const { count, error: koError } = await supabase
+        .from('matches')
+        .select('id', { count: 'exact', head: true })
+        .eq('tournament_id', match.tournament_id)
+        .eq('phase', 'knockout')
+        .neq('status', 'scheduled')
+      if (koError) return { error: 'Could not verify the knockout stage. Try again.' }
+      if (count !== null && count > 0) {
+        return {
+          error:
+            'The knockout stage has already started. Revert the knockout matches first (starting with the latest round) before reverting group matches.',
+        }
       }
     }
     // Knockout finish: auto-set winner for decisive result; block draw without winner
@@ -67,7 +134,10 @@ export async function transitionMatchAction(
     if (!isValidTransition(match.status, next, role)) {
       return { error: `Cannot move from ${match.status} to ${next}.` }
     }
-    const result = await updateMatchStatus(matchId, next)
+    const result =
+      next === 'scheduled' && match.status === 'finished'
+        ? await revertMatchToScheduled(matchId)
+        : await updateMatchStatus(matchId, next)
     if (result.error) return { error: result.error }
 
     if (shouldClearKnockoutWinner({ phase: match.phase, from: match.status, to: next })) {
@@ -75,7 +145,7 @@ export async function transitionMatchAction(
       if (wr.error) return { error: wr.error }
     }
 
-    if (admin && asAdmin && match.status === 'finished' && next === 'live') {
+    if (admin && asAdmin && match.status === 'finished' && next === 'scheduled') {
       await logMatchRevert(user.id, matchId, match.tournament_id, 'finished')
     }
     revalidatePath(`/admin/tournaments/${match.tournament_id}`)

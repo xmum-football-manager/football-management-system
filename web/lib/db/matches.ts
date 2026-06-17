@@ -19,7 +19,9 @@ export async function listMatchesAdmin(tournamentId: string): Promise<MatchWithT
     .from('matches')
     .select('*, home_team:teams!matches_home_team_id_fkey(*), away_team:teams!matches_away_team_id_fkey(*)')
     .eq('tournament_id', tournamentId)
+    .order('phase', { ascending: true })
     .order('match_time', { ascending: true, nullsFirst: false })
+    .order('created_at', { ascending: true })
   if (error) throw error
   return withTeamFallback((data ?? []) as unknown as MatchWithTeams[])
 }
@@ -118,6 +120,16 @@ export async function updateMatchStatus(
     patch.match_finished_at = new Date().toISOString()
   }
   const { error } = await supabase.from('matches').update(patch).eq('id', id)
+  if (error) return { error: error.message }
+  return {}
+}
+
+// Admin-only "Revert" of a finished match: resets score, lifecycle
+// timestamps, and goal/card history so the match restarts clean on the next
+// kickoff, rather than resuming on top of the previous result.
+export async function revertMatchToScheduled(id: string): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('revert_match_to_scheduled', { p_match_id: id })
   if (error) return { error: error.message }
   return {}
 }

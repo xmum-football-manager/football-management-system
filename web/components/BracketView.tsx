@@ -10,6 +10,7 @@
 import { teamColor, teamCode } from '@/lib/team-style'
 import { mediaUrl } from '@/lib/storage'
 import type { MatchWithTeams, Team } from '@/lib/supabase/types'
+import { knockoutWinnerTeamId } from '@/lib/match-lifecycle'
 
 interface BracketViewProps {
   matches: MatchWithTeams[]
@@ -70,9 +71,9 @@ function BracketMatch({ match, onClick }: { match: MatchWithTeams | null; onClic
   }
 
   const isLive     = match.status === 'live'
-  const isFinished = match.status === 'finished'
-  const homeWon    = isFinished && match.home_score > match.away_score
-  const awayWon    = isFinished && match.away_score > match.home_score
+  const winnerId   = knockoutWinnerTeamId(match)
+  const homeWon    = !!winnerId && winnerId === match.home_team_id
+  const awayWon    = !!winnerId && winnerId === match.away_team_id
 
   return (
     <div
@@ -165,14 +166,14 @@ export function BracketView({ matches, onMatchClick }: BracketViewProps) {
   const firstRoundSize = columns[0] ? ROUND_SLOTS[columns[0].round] : 1
 
   const finalist = f[0]
-  const champion: Team | null =
-    finalist?.status === 'finished'
-      ? finalist.home_score > finalist.away_score
-        ? finalist.home_team ?? null
-        : finalist.away_score > finalist.home_score
-          ? finalist.away_team ?? null
-          : null
-      : null
+  const championWinnerId = finalist ? knockoutWinnerTeamId(finalist) : null
+  const champion: Team | null = !championWinnerId
+    ? null
+    : championWinnerId === finalist?.home_team_id
+      ? finalist?.home_team ?? null
+      : championWinnerId === finalist?.away_team_id
+        ? finalist?.away_team ?? null
+        : null
   const championLogo = champion ? mediaUrl(champion.logo_path) : null
 
   if (matches.length === 0) {
@@ -229,7 +230,11 @@ export function BracketView({ matches, onMatchClick }: BracketViewProps) {
                   {championLogo ? null : teamCode(champion.name)}
                 </span>
                 <div className="winner-name">{champion.name}</div>
-                <div className="winner-sub">Won the final {Math.max(finalist!.home_score, finalist!.away_score)}–{Math.min(finalist!.home_score, finalist!.away_score)}</div>
+                <div className="winner-sub">
+                  {finalist!.home_score === finalist!.away_score
+                    ? `Won the final ${finalist!.home_score}–${finalist!.away_score} on a tie-break`
+                    : `Won the final ${Math.max(finalist!.home_score, finalist!.away_score)}–${Math.min(finalist!.home_score, finalist!.away_score)}`}
+                </div>
               </div>
             ) : (
               <div className="trophy-cell tbd">

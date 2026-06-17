@@ -12,9 +12,10 @@ interface Props {
   match: MatchWithTeams
   isAdmin: boolean
   hasLiveMatch: boolean
+  kickoffBlocked?: boolean
 }
 
-export function UpNextRow({ match, isAdmin, hasLiveMatch }: Props) {
+export function UpNextRow({ match, isAdmin, hasLiveMatch, kickoffBlocked = false }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
 
@@ -41,15 +42,26 @@ export function UpNextRow({ match, isAdmin, hasLiveMatch }: Props) {
         </p>
         {time && <p className="text-xs text-muted-foreground mt-0.5">{time}</p>}
       </div>
-      <Button
-        size="sm"
-        disabled={pending || hasLiveMatch}
-        onClick={kickoff}
-        title={hasLiveMatch ? 'Finish the current match first' : undefined}
-      >
-        {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-        Kickoff
-      </Button>
+      <div className="flex flex-col items-end gap-1">
+        <Button
+          size="sm"
+          disabled={pending || hasLiveMatch || kickoffBlocked}
+          onClick={kickoff}
+          title={
+            hasLiveMatch
+              ? 'Finish the current match first'
+              : kickoffBlocked
+                ? 'Schedule all matches in this phase first'
+                : undefined
+          }
+        >
+          {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+          Kickoff
+        </Button>
+        {kickoffBlocked && !hasLiveMatch && (
+          <p className="text-[11px] text-muted-foreground">Schedule all {match.phase} matches first</p>
+        )}
+      </div>
     </div>
   )
 }

@@ -9,8 +9,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, UserPlus, Trash2 } from 'lucide-react'
-import { assignScorekeeperAction, createAndAssignScorekeeperAction, removeScorekeeperAction } from './actions'
+import { Loader2, UserPlus, Trash2, Link } from 'lucide-react'
+import { assignScorekeeperAction, createAndAssignScorekeeperAction, removeScorekeeperAction, generateScorekeeperMagicLinkAction } from './actions'
 import { DEFAULT_PASSWORD } from '@/lib/auth-constants'
 
 interface Match {
@@ -21,6 +21,7 @@ interface Match {
 
 interface Assignment {
   id: string
+  userId: string
   email: string
   scope: 'tournament' | 'match'
   matchLabel: string | null
@@ -40,6 +41,7 @@ export function ScorekeepersPanel({ tournamentId, matches, assignments }: Props)
   const [scope, setScope] = useState<'tournament' | 'match'>('tournament')
   const [matchId, setMatchId] = useState('')
   const [pending, startTransition] = useTransition()
+  const [copyingLinkId, setCopyingLinkId] = useState<string | null>(null)
 
   function resetForm() {
     setEmail('')
@@ -95,6 +97,18 @@ export function ScorekeepersPanel({ tournamentId, matches, assignments }: Props)
         router.refresh()
       }
     })
+  }
+
+  async function handleCopyMagicLink(a: Assignment) {
+    setCopyingLinkId(a.id)
+    const r = await generateScorekeeperMagicLinkAction(a.userId, tournamentId)
+    setCopyingLinkId(null)
+    if ('error' in r) {
+      toast.error(r.error)
+    } else {
+      await navigator.clipboard.writeText(r.link)
+      toast.success('Magic link copied — valid for 1 hour.')
+    }
   }
 
   async function handleRemove(id: string) {
@@ -265,6 +279,20 @@ export function ScorekeepersPanel({ tournamentId, matches, assignments }: Props)
                   ) : (
                     <Badge variant="outline">{a.matchLabel ?? 'Match'}</Badge>
                   )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-slate-500 hover:bg-slate-50"
+                    onClick={() => handleCopyMagicLink(a)}
+                    disabled={copyingLinkId === a.id}
+                    title="Copy magic link"
+                  >
+                    {copyingLinkId === a.id ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Link className="h-3 w-3" />
+                    )}
+                  </Button>
                   <Button
                     variant="ghost"
                     size="sm"

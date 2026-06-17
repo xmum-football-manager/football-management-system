@@ -18,7 +18,7 @@ import {
 import { MatchStateStepper } from '@/components/admin/MatchStateStepper'
 import { transitionMatchAction } from './actions'
 import { formatClock } from '@/lib/format'
-import { Loader2, RotateCcw, Play, Pause, CircleStop, FastForward } from 'lucide-react'
+import { Loader2, RotateCcw, Play, Pause, CircleStop, FastForward, Link } from 'lucide-react'
 import type { MatchStatus, MatchWithTeams, TournamentStatus } from '@/lib/supabase/types'
 
 interface Props {
@@ -26,6 +26,9 @@ interface Props {
   tournamentStatus: TournamentStatus
   isAdmin: boolean
   onMatchClick?: (m: MatchWithTeams) => void
+  kickoffBlocked?: boolean
+  revertBlocked?: boolean
+  revertBlockedReason?: string
 }
 
 interface LifecycleAction {
@@ -85,7 +88,15 @@ function lifecycleActionsFor(status: MatchStatus): LifecycleAction[] {
   return []
 }
 
-export function MatchRow({ match, tournamentStatus, isAdmin, onMatchClick }: Props) {
+export function MatchRow({
+  match,
+  tournamentStatus,
+  isAdmin,
+  onMatchClick,
+  kickoffBlocked = false,
+  revertBlocked = false,
+  revertBlockedReason = 'The knockout stage has already started. Revert the knockout matches first.',
+}: Props) {
   const router = useRouter()
   const [busy, setBusy] = useState<string | null>(null)
   const [prompt, setPrompt] = useState<LifecycleAction | null>(null)
@@ -109,15 +120,15 @@ export function MatchRow({ match, tournamentStatus, isAdmin, onMatchClick }: Pro
     router.refresh()
   }
 
-  async function revertToLive() {
-    setBusy('live')
-    const r = await transitionMatchAction(match.id, 'live', isAdmin)
+  async function revertMatch() {
+    setBusy('scheduled')
+    const r = await transitionMatchAction(match.id, 'scheduled', isAdmin)
     setBusy(null)
     if ('error' in r) {
       toast.error(r.error)
       return
     }
-    toast.success('Reverted to live.')
+    toast.success('Reverted. Kick off again to restart the match.')
     router.refresh()
   }
 
@@ -149,6 +160,17 @@ export function MatchRow({ match, tournamentStatus, isAdmin, onMatchClick }: Pro
         )}
       </div>
 
+      <span
+        className="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide"
+        style={{
+          background: match.phase === 'knockout' ? 'var(--admin-lime-wash)' : 'var(--admin-surface-2)',
+          color: match.phase === 'knockout' ? 'var(--admin-lime)' : 'var(--muted-foreground)',
+          border: '1px solid var(--admin-rule)',
+        }}
+      >
+        {match.phase === 'knockout' ? 'Knockout' : 'Group'}
+      </span>
+
       <div className="flex min-w-[220px] flex-1 items-center gap-3">
         <div className="flex-1 truncate text-right font-semibold">{match.home_team.name}</div>
         <div
@@ -178,6 +200,23 @@ export function MatchRow({ match, tournamentStatus, isAdmin, onMatchClick }: Pro
         className="flex flex-wrap items-center justify-end gap-2"
         onClick={(e) => e.stopPropagation()}
       >
+        {!finished && match.scorekeeper_token && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="admin-tab h-7 w-7 p-0"
+            title="Copy scorekeeper link"
+            onClick={() => {
+              navigator.clipboard.writeText(
+                `${window.location.origin}/score/m/${match.scorekeeper_token}`
+              )
+              toast.success('Scorekeeper link copied.')
+            }}
+          >
+            <Link className="h-3 w-3" />
+          </Button>
+        )}
+
         {lifecycleActions.map((action) => (
           <Button
             key={action.next + action.label}
@@ -191,7 +230,8 @@ export function MatchRow({ match, tournamentStatus, isAdmin, onMatchClick }: Pro
                   ? { color: '#DC2626', borderColor: 'rgba(220,38,38,0.4)' }
                   : undefined
             }
-            disabled={busy !== null}
+            disabled={busy !== null || (action.next === 'live' && kickoffBlocked)}
+            title={action.next === 'live' && kickoffBlocked ? 'Schedule all matches in this phase first' : undefined}
             onClick={() => setPrompt(action)}
           >
             {busy === action.next ? <Loader2 className="h-3 w-3 animate-spin" /> : action.icon}
@@ -199,7 +239,26 @@ export function MatchRow({ match, tournamentStatus, isAdmin, onMatchClick }: Pro
           </Button>
         ))}
 
-        {isAdmin && finished && !tournamentLocked && (
+        {scheduled && kickoffBlocked && (
+          <p className="text-[11px] text-muted-foreground">
+            Schedule all {match.phase} matches first
+          </p>
+        )}
+
+        {isAdmin && finished && !tournamentLocked && revertBlocked && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="admin-tab tracking-wider text-[11px] opacity-50 cursor-not-allowed"
+            style={{ color: '#DC2626', borderColor: 'rgba(220,38,38,0.4)' }}
+            onClick={() => toast.error(revertBlockedReason)}
+          >
+            <RotateCcw className="h-3 w-3" />
+            Revert
+          </Button>
+        )}
+
+        {isAdmin && finished && !tournamentLocked && !revertBlocked && (
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button
@@ -209,7 +268,7 @@ export function MatchRow({ match, tournamentStatus, isAdmin, onMatchClick }: Pro
                 style={{ color: '#DC2626', borderColor: 'rgba(220,38,38,0.4)' }}
                 disabled={busy !== null}
               >
-                {busy === 'live' ? (
+                {busy === 'scheduled' ? (
                   <Loader2 className="h-3 w-3 animate-spin" />
                 ) : (
                   <RotateCcw className="h-3 w-3" />
@@ -219,20 +278,20 @@ export function MatchRow({ match, tournamentStatus, isAdmin, onMatchClick }: Pro
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Revert match to live?</AlertDialogTitle>
+                <AlertDialogTitle>Revert match?</AlertDialogTitle>
                 <AlertDialogDescription>
                   <span className="block mb-2 text-foreground font-medium">
                     {match.home_team.name} {match.home_score} : {match.away_score}{' '}
                     {match.away_team.name}
                   </span>
-                  Unlocks the result and lets scorekeepers update the score again. Standings will
-                  recalculate.
+                  Unlocks the result and sends the match back to scheduled. Kick off again to
+                  restart play. Standings will recalculate.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction
-                  onClick={revertToLive}
+                  onClick={revertMatch}
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 >
                   Revert

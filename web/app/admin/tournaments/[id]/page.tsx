@@ -7,6 +7,7 @@ import { requireUser } from '@/lib/auth'
 import { isAdmin } from '@/lib/db/roles'
 import { canAddFixture } from '@/lib/lock-rules'
 import { shouldShowKnockoutCTA } from '@/lib/overview-utils'
+import { phaseSchedulingStatus } from '@/lib/phase-schedule-guard'
 import { MatchViews } from '@/components/admin/MatchViews'
 import { MatchDayCard } from './MatchDayCard'
 import { UpNextRow } from './UpNextRow'
@@ -50,6 +51,11 @@ export default async function OverviewPage({ params }: Props) {
     matches.find((m) => m.status === 'scheduled' && m.phase === 'knockout') ??
     null
 
+  const phaseScheduled = phaseSchedulingStatus(matches)
+  const upNextKickoffBlocked = upNext
+    ? !(phaseScheduled[upNext.phase as 'group' | 'knockout'] ?? true)
+    : false
+
   return (
     <div className="space-y-7">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -76,7 +82,7 @@ export default async function OverviewPage({ params }: Props) {
       {upNext && canManageFixtures && (
         <div>
           <p className="admin-eyebrow mb-2">{hasLiveMatch ? 'Up next' : 'Next up'}</p>
-          <UpNextRow match={upNext} isAdmin={admin} hasLiveMatch={hasLiveMatch} />
+          <UpNextRow match={upNext} isAdmin={admin} hasLiveMatch={hasLiveMatch} kickoffBlocked={upNextKickoffBlocked} />
         </div>
       )}
 

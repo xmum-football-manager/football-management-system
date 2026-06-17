@@ -42,6 +42,7 @@ export const mockMatchLive: MatchWithTeams = {
   match_finished_at: null,
   halftime_started_at: null,
   second_half_started_at: null,
+  scorekeeper_token: 'aaaaaaaa-0000-0000-0000-000000000000',
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-05-12T14:00:00Z',
   home_team: mockTeamHome,

@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Loader2, Pause, CircleStop, FastForward } from 'lucide-react'
+import { Loader2, Pause, CircleStop, FastForward, Link, ExternalLink } from 'lucide-react'
 import { transitionMatchAction, adminRecordGoalAction, adminDeleteGoalAction, adminAddCardAction, setKnockoutWinnerAction } from './actions'
 import { createClient } from '@/lib/supabase/client'
 import { formatGoalClock } from '@/lib/format'
@@ -471,6 +471,37 @@ export function MatchDayCard({ match, isAdmin, halftimeEnabled, homePlayers, awa
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+      )}
+
+      {/* Scorekeeper link */}
+      {match.scorekeeper_token && (
+        <div className="mt-4 flex items-center gap-2">
+          <span className="text-[11px] text-muted-foreground">Scorekeeper link</span>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-6 px-2 text-[11px]"
+            title="Copy scorekeeper link"
+            onClick={() => {
+              navigator.clipboard.writeText(
+                `${window.location.origin}/score/m/${match.scorekeeper_token}`
+              )
+              toast.success('Scorekeeper link copied.')
+            }}
+          >
+            <Link className="h-3 w-3" />
+            Copy
+          </Button>
+          <a
+            href={`/score/m/${match.scorekeeper_token}`}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+          >
+            <ExternalLink className="h-3 w-3" />
+            Open
+          </a>
+        </div>
       )}
 
       {/* Card picker dialog */}

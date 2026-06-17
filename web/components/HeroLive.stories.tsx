@@ -40,6 +40,7 @@ export const Live: Story = {
       match_finished_at: null,
       halftime_started_at: null,
       second_half_started_at: null,
+  scorekeeper_token: 'aaaaaaaa-0000-0000-0000-000000000000',
     } satisfies MatchWithTeams,
   },
 }
@@ -55,6 +56,7 @@ export const Halftime: Story = {
       match_finished_at: null,
       halftime_started_at: new Date(Date.now() - 5 * 60000).toISOString(),
       second_half_started_at: null,
+  scorekeeper_token: 'aaaaaaaa-0000-0000-0000-000000000000',
     } satisfies MatchWithTeams,
   },
 }
@@ -70,6 +72,7 @@ export const SecondHalf: Story = {
       match_finished_at: null,
       halftime_started_at: new Date(Date.now() - 20 * 60000).toISOString(),
       second_half_started_at: new Date(Date.now() - 5 * 60000).toISOString(),
+      scorekeeper_token: 'aaaaaaaa-0000-0000-0000-000000000000',
     } satisfies MatchWithTeams,
   },
 }
@@ -85,6 +88,7 @@ export const JustStarted: Story = {
       match_finished_at: null,
       halftime_started_at: null,
       second_half_started_at: null,
+  scorekeeper_token: 'aaaaaaaa-0000-0000-0000-000000000000',
     } satisfies MatchWithTeams,
   },
 }
