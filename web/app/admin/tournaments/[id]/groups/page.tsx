@@ -7,15 +7,10 @@ import { checkTournamentReadiness } from '@/lib/tournament-readiness'
 import { canManageTeams, canAddFixture } from '@/lib/lock-rules'
 import { notFound } from 'next/navigation'
 import { GroupsStepper } from './GroupsStepper'
+import { isGroupPhaseMatch } from '@/lib/match-lifecycle'
 
 interface Props {
   params: Promise<{ id: string }>
-}
-
-function isGroupMatch(m: { home_team: { group_label: string | null }; away_team: { group_label: string | null } }) {
-  const h = m.home_team.group_label
-  const a = m.away_team.group_label
-  return !!h && !!a && h === a
 }
 
 export default async function GroupsPage({ params }: Props) {
@@ -32,7 +27,7 @@ export default async function GroupsPage({ params }: Props) {
     isAdmin(user.id),
   ])
 
-  const groupMatches = matches.filter(isGroupMatch)
+  const groupMatches = matches.filter(isGroupPhaseMatch)
 
   const playerCounts: Record<string, number> = {}
   for (const t of teams) {

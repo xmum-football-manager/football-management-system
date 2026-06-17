@@ -110,15 +110,15 @@ export function MatchRow({ match, tournamentStatus, isAdmin, onMatchClick, kicko
     router.refresh()
   }
 
-  async function revertToLive() {
-    setBusy('live')
-    const r = await transitionMatchAction(match.id, 'live', isAdmin)
+  async function revertMatch() {
+    setBusy('scheduled')
+    const r = await transitionMatchAction(match.id, 'scheduled', isAdmin)
     setBusy(null)
     if ('error' in r) {
       toast.error(r.error)
       return
     }
-    toast.success('Reverted to live.')
+    toast.success('Reverted. Kick off again to restart the match.')
     router.refresh()
   }
 
@@ -234,7 +234,7 @@ export function MatchRow({ match, tournamentStatus, isAdmin, onMatchClick, kicko
                 style={{ color: '#DC2626', borderColor: 'rgba(220,38,38,0.4)' }}
                 disabled={busy !== null}
               >
-                {busy === 'live' ? (
+                {busy === 'scheduled' ? (
                   <Loader2 className="h-3 w-3 animate-spin" />
                 ) : (
                   <RotateCcw className="h-3 w-3" />
@@ -244,20 +244,20 @@ export function MatchRow({ match, tournamentStatus, isAdmin, onMatchClick, kicko
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Revert match to live?</AlertDialogTitle>
+                <AlertDialogTitle>Revert match?</AlertDialogTitle>
                 <AlertDialogDescription>
                   <span className="block mb-2 text-foreground font-medium">
                     {match.home_team.name} {match.home_score} : {match.away_score}{' '}
                     {match.away_team.name}
                   </span>
-                  Unlocks the result and lets scorekeepers update the score again. Standings will
-                  recalculate.
+                  Unlocks the result and sends the match back to scheduled. Kick off again to
+                  restart play. Standings will recalculate.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction
-                  onClick={revertToLive}
+                  onClick={revertMatch}
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 >
                   Revert

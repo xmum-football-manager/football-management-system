@@ -8,15 +8,10 @@ import { checkTournamentReadiness } from '@/lib/tournament-readiness'
 import { FixturesPanel } from '../fixtures/FixturesPanel'
 import { GenerateGroupFixturesButton } from './GenerateGroupFixturesButton'
 import { FixtureSchedulerPanel } from './FixtureSchedulerPanel'
+import { isGroupPhaseMatch } from '@/lib/match-lifecycle'
 
 interface Props {
   params: Promise<{ id: string }>
-}
-
-function isGroupStageMatch(m: { home_team: { group_label: string | null }; away_team: { group_label: string | null } }): boolean {
-  const h = m.home_team.group_label
-  const a = m.away_team.group_label
-  return !!h && !!a && h === a
 }
 
 export default async function RDFixturesPage({ params }: Props) {
@@ -33,7 +28,7 @@ export default async function RDFixturesPage({ params }: Props) {
 
   // For round_robin_knockout, only show group matches
   const displayMatches = tournament.format === 'round_robin_knockout'
-    ? matches.filter(isGroupStageMatch)
+    ? matches.filter(isGroupPhaseMatch)
     : matches
 
   const canEdit = canAddFixture(tournament.status)

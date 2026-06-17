@@ -5,15 +5,10 @@ import { canAddFixture } from '@/lib/lock-rules'
 import { requireUser } from '@/lib/auth'
 import { isAdmin } from '@/lib/db/roles'
 import { FixturesPanel } from '../fixtures/FixturesPanel'
+import { isKnockoutPhaseMatch } from '@/lib/match-lifecycle'
 
 interface Props {
   params: Promise<{ id: string }>
-}
-
-function isGroupStageMatch(m: { home_team: { group_label: string | null }; away_team: { group_label: string | null } }): boolean {
-  const h = m.home_team.group_label
-  const a = m.away_team.group_label
-  return !!h && !!a && h === a
 }
 
 export default async function KOFixturesPage({ params }: Props) {
@@ -29,7 +24,7 @@ export default async function KOFixturesPage({ params }: Props) {
 
   // For round_robin_knockout, only show knockout matches
   const displayMatches = tournament.format === 'round_robin_knockout'
-    ? matches.filter((m) => !isGroupStageMatch(m))
+    ? matches.filter(isKnockoutPhaseMatch)
     : matches
 
   const canEdit = canAddFixture(tournament.status)

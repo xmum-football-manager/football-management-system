@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isValidTransition, getAvailableTransitions, canScorekeeper, shouldClearKnockoutWinner, knockoutWinnerTeamId } from '@/lib/match-lifecycle'
+import { isValidTransition, getAvailableTransitions, canScorekeeper, shouldClearKnockoutWinner, knockoutWinnerTeamId, isGroupPhaseMatch, isKnockoutPhaseMatch } from '@/lib/match-lifecycle'
 
 describe('isValidTransition — organizer', () => {
   it('allows scheduled → live', () => {
@@ -23,8 +23,11 @@ describe('isValidTransition — organizer cannot revert', () => {
 })
 
 describe('isValidTransition — admin revert', () => {
-  it('allows finished → live for admin', () => {
-    expect(isValidTransition('finished', 'live', 'admin')).toBe(true)
+  it('allows finished → scheduled for admin', () => {
+    expect(isValidTransition('finished', 'scheduled', 'admin')).toBe(true)
+  })
+  it('rejects finished → scheduled for organizer', () => {
+    expect(isValidTransition('finished', 'scheduled', 'organizer')).toBe(false)
   })
   it('allows scheduled → live for admin', () => {
     expect(isValidTransition('scheduled', 'live', 'admin')).toBe(true)
@@ -69,10 +72,10 @@ describe('getAvailableTransitions', () => {
   it('organizer on finished gets no transitions', () => {
     expect(getAvailableTransitions('finished', 'organizer')).toHaveLength(0)
   })
-  it('admin on finished gets Revert to Live', () => {
+  it('admin on finished gets Revert to Scheduled', () => {
     const t = getAvailableTransitions('finished', 'admin')
     expect(t).toHaveLength(1)
-    expect(t[0]).toEqual({ action: 'Revert to Live', nextStatus: 'live' })
+    expect(t[0]).toEqual({ action: 'Revert to Scheduled', nextStatus: 'scheduled' })
   })
 })
 
@@ -98,6 +101,29 @@ describe('shouldClearKnockoutWinner', () => {
   })
   it('knockout scheduled→live returns false', () => {
     expect(shouldClearKnockoutWinner({ phase: 'knockout', from: 'scheduled', to: 'live' })).toBe(false)
+  })
+})
+
+describe('phase classification — reads the phase column, not group labels', () => {
+  it('classifies a group match as group phase', () => {
+    expect(isGroupPhaseMatch({ phase: 'group' })).toBe(true)
+    expect(isKnockoutPhaseMatch({ phase: 'group' })).toBe(false)
+  })
+  it('classifies a knockout match as knockout phase', () => {
+    expect(isKnockoutPhaseMatch({ phase: 'knockout' })).toBe(true)
+    expect(isGroupPhaseMatch({ phase: 'knockout' })).toBe(false)
+  })
+  // Regression: a same-group knockout match (e.g. a final between two teams
+  // from group B) must NOT be misread as a group match. The old group_label
+  // heuristic broke here and locked the KO tab / hid the final.
+  it('treats a same-group knockout final as knockout, not group', () => {
+    const sameGroupFinal = { phase: 'knockout' }
+    expect(isGroupPhaseMatch(sameGroupFinal)).toBe(false)
+    expect(isKnockoutPhaseMatch(sameGroupFinal)).toBe(true)
+  })
+  it('does not classify a null phase as either stage', () => {
+    expect(isGroupPhaseMatch({ phase: null })).toBe(false)
+    expect(isKnockoutPhaseMatch({ phase: null })).toBe(false)
   })
 })
 

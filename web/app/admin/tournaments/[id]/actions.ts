@@ -64,6 +64,25 @@ export async function transitionMatchAction(
         return { error: 'Another match is already live. Finish it first.' }
       }
     }
+    // Guard: cannot revert a knockout match whose winner has already advanced
+    // into a downstream match that has kicked off. Reverting would clear the
+    // winner and strand a team in a match that is live/finished.
+    if (next === 'scheduled' && match.status === 'finished' && match.phase === 'knockout') {
+      const supabase = await createClient()
+      const { count, error: downstreamError } = await supabase
+        .from('matches')
+        .select('id', { count: 'exact', head: true })
+        .eq('tournament_id', match.tournament_id)
+        .or(`home_source_match_id.eq.${matchId},away_source_match_id.eq.${matchId}`)
+        .in('status', ['live', 'halftime', 'finished'])
+      if (downstreamError) return { error: 'Could not verify the next-round match. Try again.' }
+      if (count !== null && count > 0) {
+        return {
+          error:
+            'The next-round match this winner feeds has already kicked off. Revert that match first.',
+        }
+      }
+    }
     // Knockout finish: auto-set winner for decisive result; block draw without winner
     if (next === 'finished' && match.phase === 'knockout' && !match.winner_team_id) {
       if (match.home_score > match.away_score) {
@@ -88,7 +107,7 @@ export async function transitionMatchAction(
       if (wr.error) return { error: wr.error }
     }
 
-    if (admin && asAdmin && match.status === 'finished' && next === 'live') {
+    if (admin && asAdmin && match.status === 'finished' && next === 'scheduled') {
       await logMatchRevert(user.id, matchId, match.tournament_id, 'finished')
     }
     revalidatePath(`/admin/tournaments/${match.tournament_id}`)

@@ -92,6 +92,11 @@ export default async function AdminHome() {
                       <span className="admin-tab text-[11px] text-foreground/70 sm:hidden">
                         {formatLabel(t.format)}
                       </span>
+                      {t.status === 'active' && t.format === 'round_robin_knockout' && (
+                        <span className="admin-tab text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--admin-surface-2)', border: '1px solid var(--admin-rule)', color: 'var(--muted-foreground)' }}>
+                          {t.knockout_qualifiers ? 'Knockout stage' : 'Group stage'}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="admin-tab hidden text-right text-[11px] text-foreground/80 sm:block">
