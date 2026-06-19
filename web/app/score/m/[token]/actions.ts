@@ -125,6 +125,28 @@ export async function tokenAddCard(
   }
 }
 
+export async function tokenSetKnockoutWinner(
+  token: string,
+  winnerTeamId: string,
+): Promise<{ ok: true } | { error: string }> {
+  try {
+    const match = await getMatchByToken(token)
+    if (!match) return { error: 'Match not found.' }
+    if (match.phase !== 'knockout') return { error: 'Only knockout matches need a manual winner.' }
+    if (winnerTeamId !== match.home_team_id && winnerTeamId !== match.away_team_id) {
+      return { error: 'Winner must be one of the two teams.' }
+    }
+    const svc = createServiceClient()
+    const { error } = await svc.from('matches').update({ winner_team_id: winnerTeamId }).eq('id', match.id)
+    if (error) return { error: error.message }
+    revalidatePath(`/score/m/${token}`)
+    revalidatePath(`/t/${match.tournament_id}`)
+    return { ok: true }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed.' }
+  }
+}
+
 export async function tokenTransitionMatch(
   token: string,
   next: MatchStatus,
