@@ -130,6 +130,12 @@ body {
 }
 .surface-admin * { box-sizing: border-box; }
 
+/* Bare `border` utilities default to the rule color instead of currentColor (near-black).
+   Explicit border-* utilities and inline borderColor still win (they live in the utilities layer). */
+@layer base {
+  .surface-admin * { border-color: var(--admin-rule); }
+}
+
 .surface-admin.dark {
   --background: #060C1C;
   --foreground: #E8EFF8;
