@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import { getMatchByToken } from './actions'
 import { createServiceClient } from '@/lib/supabase/server'
-import { TokenScoreCard } from './TokenScoreCard'
+import { TokenScorePanel } from './TokenScorePanel'
 
 export default async function PublicScorePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
@@ -17,8 +17,8 @@ export default async function PublicScorePage({ params }: { params: Promise<{ to
   ])
 
   return (
-    <div className="min-h-screen bg-background p-4">
-      <TokenScoreCard
+    <div className="min-h-screen bg-slate-50 p-4">
+      <TokenScorePanel
         match={match}
         token={token}
         homePlayers={homePlayers ?? []}

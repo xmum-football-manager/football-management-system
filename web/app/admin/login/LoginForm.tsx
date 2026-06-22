@@ -57,7 +57,9 @@ export function LoginForm({ redirectTo, surface }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-1.5">
+      {/* suppressHydrationWarning: password managers (LastPass etc.) inject nodes
+          into input wrappers before hydration, causing a benign mismatch. */}
+      <div className="space-y-1.5" suppressHydrationWarning>
         <Label htmlFor="email">Email</Label>
         <Input
           id="email"
@@ -69,7 +71,7 @@ export function LoginForm({ redirectTo, surface }: Props) {
           onChange={(e) => setEmail(e.target.value)}
         />
       </div>
-      <div className="space-y-1.5">
+      <div className="space-y-1.5" suppressHydrationWarning>
         <Label htmlFor="password">Password</Label>
         <Input
           id="password"

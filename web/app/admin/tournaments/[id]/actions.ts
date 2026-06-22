@@ -9,7 +9,7 @@ import { insertCard, deleteCard } from '@/lib/db/cards'
 import { logMatchRevert } from '@/lib/db/audit'
 import { isValidTransition, shouldClearKnockoutWinner } from '@/lib/match-lifecycle'
 import { groupStageComplete } from '@/lib/group-stage-gate'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import type { MatchStatus } from '@/lib/supabase/types'
 
 async function ensureOrganizerOfMatch(matchId: string) {
@@ -174,6 +174,24 @@ export async function setKnockoutWinnerAction(
     if (result.error) return { error: result.error }
     revalidatePath(`/admin/tournaments/${match.tournament_id}`)
     return { ok: true }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed.' }
+  }
+}
+
+// Rotate a match's public scorekeeper link, invalidating the previous one.
+export async function regenerateScorekeeperTokenAction(
+  matchId: string,
+): Promise<{ token: string } | { error: string }> {
+  try {
+    const { match } = await ensureOrganizerOfMatch(matchId)
+    const token = crypto.randomUUID()
+    const svc = createServiceClient()
+    const { error } = await svc.from('matches').update({ scorekeeper_token: token }).eq('id', matchId)
+    if (error) return { error: error.message }
+    revalidatePath(`/admin/tournaments/${match.tournament_id}`)
+    revalidatePath(`/admin/tournaments/${match.tournament_id}/fixtures`)
+    return { token }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed.' }
   }

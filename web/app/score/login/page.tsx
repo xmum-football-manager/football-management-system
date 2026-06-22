@@ -1,4 +1,4 @@
-import { Trophy } from 'lucide-react'
+import { ClipboardList } from 'lucide-react'
 import { LoginForm } from '../../admin/login/LoginForm'
 
 export const metadata = { title: 'Score · Sign in' }
@@ -10,27 +10,19 @@ interface Props {
 export default async function ScoreLoginPage({ searchParams }: Props) {
   const { redirectTo } = await searchParams
   return (
-    <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-4 py-12">
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12">
       <div className="w-full max-w-sm">
-        <div className="flex flex-col items-center mb-6">
+        <div className="mb-8 flex flex-col items-center text-center">
           <span
-            className="grid h-11 w-11 place-items-center rounded-lg"
-            style={{
-              background: 'var(--admin-lime)',
-              color: 'var(--primary-foreground)',
-              boxShadow: '0 10px 24px -12px color-mix(in srgb, var(--admin-lime) 70%, transparent)',
-            }}
+            className="grid h-16 w-16 place-items-center rounded-2xl text-white shadow-lg"
+            style={{ background: '#16A34A' }}
           >
-            <Trophy className="h-5 w-5" />
+            <ClipboardList className="h-8 w-8" />
           </span>
-          <h1 className="admin-display mt-3 text-[20px] leading-none">Pitch · Score</h1>
-          <p className="admin-eyebrow mt-2">Scorekeeper Console</p>
+          <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-900">Scorekeeper</h1>
+          <p className="mt-1 text-base font-medium text-slate-500">Sign in to keep score</p>
         </div>
-        <div
-          className="rounded-lg bg-card text-card-foreground p-6 shadow-sm"
-          style={{ border: '1px solid var(--admin-rule)' }}
-        >
-          <h2 className="text-lg font-semibold mb-4">Sign in</h2>
+        <div className="rounded-3xl border-2 border-slate-200 bg-white p-6 shadow-sm [&_button]:h-12 [&_button]:text-base [&_button]:font-bold [&_input]:h-12 [&_input]:text-base [&_label]:text-base">
           <LoginForm redirectTo={redirectTo ?? '/score'} surface="score" />
         </div>
       </div>
