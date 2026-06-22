@@ -16,9 +16,9 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { MatchStateStepper } from '@/components/admin/MatchStateStepper'
-import { transitionMatchAction } from './actions'
+import { transitionMatchAction, regenerateScorekeeperTokenAction } from './actions'
 import { formatClock } from '@/lib/format'
-import { Loader2, RotateCcw, Play, Pause, CircleStop, FastForward, Link } from 'lucide-react'
+import { Loader2, RotateCcw, Play, Pause, CircleStop, FastForward, Link, RefreshCcw } from 'lucide-react'
 import type { MatchStatus, MatchWithTeams, TournamentStatus } from '@/lib/supabase/types'
 
 interface Props {
@@ -100,6 +100,8 @@ export function MatchRow({
   const router = useRouter()
   const [busy, setBusy] = useState<string | null>(null)
   const [prompt, setPrompt] = useState<LifecycleAction | null>(null)
+  const [token, setToken] = useState(match.scorekeeper_token)
+  const [refreshLinkOpen, setRefreshLinkOpen] = useState(false)
 
   const finished = match.status === 'finished'
   const scheduled = match.status === 'scheduled'
@@ -118,6 +120,19 @@ export function MatchRow({
     }
     toast.success(action.label + (action.next === 'finished' ? '.' : ' started.'))
     router.refresh()
+  }
+
+  async function handleRegenerateToken() {
+    setBusy('token')
+    const r = await regenerateScorekeeperTokenAction(match.id)
+    setBusy(null)
+    setRefreshLinkOpen(false)
+    if ('error' in r) {
+      toast.error(r.error)
+      return
+    }
+    setToken(r.token)
+    toast.success('Link refreshed — the old link no longer works.')
   }
 
   async function revertMatch() {
@@ -200,21 +215,31 @@ export function MatchRow({
         className="flex flex-wrap items-center justify-end gap-2"
         onClick={(e) => e.stopPropagation()}
       >
-        {!finished && match.scorekeeper_token && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="admin-tab h-7 w-7 p-0"
-            title="Copy scorekeeper link"
-            onClick={() => {
-              navigator.clipboard.writeText(
-                `${window.location.origin}/score/m/${match.scorekeeper_token}`
-              )
-              toast.success('Scorekeeper link copied.')
-            }}
-          >
-            <Link className="h-3 w-3" />
-          </Button>
+        {!finished && token && (
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              className="admin-tab h-7 w-7 p-0"
+              title="Copy scorekeeper link"
+              onClick={() => {
+                navigator.clipboard.writeText(`${window.location.origin}/score/m/${token}`)
+                toast.success('Scorekeeper link copied.')
+              }}
+            >
+              <Link className="h-3 w-3" />
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="admin-tab h-7 w-7 p-0"
+              title="Refresh scorekeeper link"
+              disabled={busy !== null}
+              onClick={() => setRefreshLinkOpen(true)}
+            >
+              <RefreshCcw className="h-3 w-3" />
+            </Button>
+          </>
         )}
 
         {lifecycleActions.map((action) => (
@@ -328,6 +353,27 @@ export function MatchRow({
               >
                 {busy !== null && <Loader2 className="h-4 w-4 animate-spin" />}
                 Confirm
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
+      {refreshLinkOpen && (
+        <AlertDialog open onOpenChange={(open) => !open && setRefreshLinkOpen(false)}>
+          <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Refresh the scorekeeper link?</AlertDialogTitle>
+              <AlertDialogDescription>
+                A new link is generated and the current one stops working immediately. Anyone holding the
+                old link will lose access and must be sent the new one.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={busy !== null}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleRegenerateToken} disabled={busy !== null}>
+                {busy === 'token' && <Loader2 className="h-4 w-4 animate-spin" />}
+                Refresh link
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

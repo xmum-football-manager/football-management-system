@@ -130,7 +130,7 @@ function KnockoutCTA({ tournamentId }: { tournamentId: string }) {
         className="shrink-0 rounded-lg px-4 py-2 text-[12px] font-semibold admin-tab tracking-wider transition-colors"
         style={{
           background: 'var(--admin-lime)',
-          color: '#000',
+          color: '#fff',
         }}
       >
         Set up Knockout

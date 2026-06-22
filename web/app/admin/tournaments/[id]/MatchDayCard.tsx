@@ -20,8 +20,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Loader2, Pause, CircleStop, FastForward, Link, ExternalLink } from 'lucide-react'
-import { transitionMatchAction, adminRecordGoalAction, adminDeleteGoalAction, adminAddCardAction, setKnockoutWinnerAction } from './actions'
+import { Loader2, Pause, CircleStop, FastForward, Link, ExternalLink, RefreshCcw } from 'lucide-react'
+import { transitionMatchAction, adminRecordGoalAction, adminDeleteGoalAction, adminAddCardAction, setKnockoutWinnerAction, regenerateScorekeeperTokenAction } from './actions'
 import { createClient } from '@/lib/supabase/client'
 import { formatGoalClock } from '@/lib/format'
 import type { MatchWithTeams, MatchStatus, Player, Goal } from '@/lib/supabase/types'
@@ -102,6 +102,22 @@ export function MatchDayCard({ match, isAdmin, halftimeEnabled, homePlayers, awa
 
   // Knockout draw: show a team picker before allowing finish
   const [knockoutDrawPicker, setKnockoutDrawPicker] = useState(false)
+
+  // Public scorekeeper link rotation
+  const [token, setToken] = useState(match.scorekeeper_token)
+  const [refreshLinkOpen, setRefreshLinkOpen] = useState(false)
+
+  function handleRegenerateToken() {
+    startTransition(async () => {
+      const r = await regenerateScorekeeperTokenAction(match.id)
+      setRefreshLinkOpen(false)
+      if ('error' in r) toast.error(r.error)
+      else {
+        setToken(r.token)
+        toast.success('Link refreshed — the old link no longer works.')
+      }
+    })
+  }
 
   const actions = lifecycleActions(match.status, halftimeEnabled)
   const isHalftime = match.status === 'halftime'
@@ -474,7 +490,7 @@ export function MatchDayCard({ match, isAdmin, halftimeEnabled, homePlayers, awa
       )}
 
       {/* Scorekeeper link */}
-      {match.scorekeeper_token && (
+      {token && (
         <div className="mt-4 flex items-center gap-2">
           <span className="text-[11px] text-muted-foreground">Scorekeeper link</span>
           <Button
@@ -483,17 +499,26 @@ export function MatchDayCard({ match, isAdmin, halftimeEnabled, homePlayers, awa
             className="h-6 px-2 text-[11px]"
             title="Copy scorekeeper link"
             onClick={() => {
-              navigator.clipboard.writeText(
-                `${window.location.origin}/score/m/${match.scorekeeper_token}`
-              )
+              navigator.clipboard.writeText(`${window.location.origin}/score/m/${token}`)
               toast.success('Scorekeeper link copied.')
             }}
           >
             <Link className="h-3 w-3" />
             Copy
           </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-6 px-2 text-[11px]"
+            title="Refresh link"
+            disabled={busy}
+            onClick={() => setRefreshLinkOpen(true)}
+          >
+            <RefreshCcw className="h-3 w-3" />
+            Refresh
+          </Button>
           <a
-            href={`/score/m/${match.scorekeeper_token}`}
+            href={`/score/m/${token}`}
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
@@ -502,6 +527,28 @@ export function MatchDayCard({ match, isAdmin, halftimeEnabled, homePlayers, awa
             Open
           </a>
         </div>
+      )}
+
+      {/* Refresh-link confirmation */}
+      {refreshLinkOpen && (
+        <AlertDialog open onOpenChange={(open) => !open && setRefreshLinkOpen(false)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Refresh the scorekeeper link?</AlertDialogTitle>
+              <AlertDialogDescription>
+                A new link is generated and the current one stops working immediately. Anyone holding the
+                old link will lose access and must be sent the new one.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleRegenerateToken} disabled={busy}>
+                {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+                Refresh link
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
 
       {/* Card picker dialog */}
