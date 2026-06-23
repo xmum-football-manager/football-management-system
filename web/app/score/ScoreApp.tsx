@@ -10,6 +10,7 @@ import {
   recordGoalAction,
   deleteGoalAction,
   addCardAction,
+  removeCardAction,
 } from './actions'
 import { ScorePanel, type ScoreActions } from './ScorePanel'
 import type { MatchWithTeams } from '@/lib/supabase/types'
@@ -29,6 +30,7 @@ function authedActions(matchId: string): ScoreActions {
       const r = await addCardAction(matchId, playerId, cardType)
       return 'error' in r ? r : { autoRed: false }
     },
+    removeCard: (cardId) => removeCardAction(matchId, cardId),
     transition: (next) => scorekeeperTransitionMatch(matchId, next),
     setKnockoutWinner: (teamId) => scorekeeperSetKnockoutWinnerAction(matchId, teamId),
   }

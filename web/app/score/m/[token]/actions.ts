@@ -125,6 +125,25 @@ export async function tokenAddCard(
   }
 }
 
+export async function tokenRemoveCard(
+  token: string,
+  cardId: string,
+): Promise<{ ok: true } | { error: string }> {
+  try {
+    const match = await getMatchByToken(token)
+    if (!match) return { error: 'Match not found.' }
+    if (match.status !== 'live') return { error: 'Match is not live.' }
+    const svc = createServiceClient()
+    const { error } = await svc.from('cards').delete().eq('id', cardId).eq('match_id', match.id)
+    if (error) return { error: error.message }
+    revalidatePath(`/score/m/${token}`)
+    revalidatePath(`/t/${match.tournament_id}`)
+    return { ok: true }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed.' }
+  }
+}
+
 export async function tokenSetKnockoutWinner(
   token: string,
   winnerTeamId: string,
