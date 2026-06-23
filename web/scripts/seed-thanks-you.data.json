@@ -1,0 +1,586 @@
+{
+  "config": {
+    "name": "thanks you",
+    "description": null,
+    "location": null,
+    "start_date": "2026-06-24",
+    "end_date": "2026-06-24",
+    "format": "round_robin_knockout",
+    "points_win": 3,
+    "points_draw": 1,
+    "points_loss": 0,
+    "status": "active",
+    "first_match_scheduled_at": "2026-06-24T09:00:00+00:00",
+    "halftime_enabled": true,
+    "minutes_per_half": 45,
+    "halftime_minutes": 15,
+    "extra_time_minutes": null,
+    "penalty_shootout_enabled": false,
+    "require_goal_player": false,
+    "num_groups": 2,
+    "teams_per_group": 4,
+    "advance_per_group": 2,
+    "knockout_start_round": "semi",
+    "seeding_method": null,
+    "min_players_per_team": 11,
+    "knockout_qualifiers": null
+  },
+  "groups": {
+    "A": [
+      "Team Beta",
+      "Team Delta",
+      "Team Epsilon",
+      "Team Eta"
+    ],
+    "B": [
+      "Team Alpha",
+      "Team Gamma",
+      "Team Theta",
+      "Team Zeta"
+    ]
+  },
+  "rosters": {
+    "Team Beta": [
+      {
+        "name": "Carlos Mendez",
+        "jersey_number": 1
+      },
+      {
+        "name": "Kevin Nguyen",
+        "jersey_number": 2
+      },
+      {
+        "name": "Samuel Diaz",
+        "jersey_number": 3
+      },
+      {
+        "name": "Isaiah Turner",
+        "jersey_number": 4
+      },
+      {
+        "name": "Benjamin Hall",
+        "jersey_number": 5
+      },
+      {
+        "name": "Nathan Clark",
+        "jersey_number": 6
+      },
+      {
+        "name": "Owen Lewis",
+        "jersey_number": 7
+      },
+      {
+        "name": "Liam Walker",
+        "jersey_number": 8
+      },
+      {
+        "name": "Mason Young",
+        "jersey_number": 9
+      },
+      {
+        "name": "Caleb Allen",
+        "jersey_number": 10
+      },
+      {
+        "name": "Logan King",
+        "jersey_number": 11
+      }
+    ],
+    "Team Delta": [
+      {
+        "name": "Jake Patterson",
+        "jersey_number": 1
+      },
+      {
+        "name": "Chris Evans",
+        "jersey_number": 2
+      },
+      {
+        "name": "Alex Johnson",
+        "jersey_number": 3
+      },
+      {
+        "name": "Brian Mitchell",
+        "jersey_number": 4
+      },
+      {
+        "name": "Patrick O'Brien",
+        "jersey_number": 5
+      },
+      {
+        "name": "Sean Murphy",
+        "jersey_number": 6
+      },
+      {
+        "name": "Derek Foster",
+        "jersey_number": 7
+      },
+      {
+        "name": "Kyle Anderson",
+        "jersey_number": 8
+      },
+      {
+        "name": "Travis Nelson",
+        "jersey_number": 9
+      },
+      {
+        "name": "Grant Cooper",
+        "jersey_number": 10
+      },
+      {
+        "name": "Reid Baker",
+        "jersey_number": 11
+      }
+    ],
+    "Team Epsilon": [
+      {
+        "name": "Mateus Silva",
+        "jersey_number": 1
+      },
+      {
+        "name": "Felipe Alves",
+        "jersey_number": 2
+      },
+      {
+        "name": "Gabriel Costa",
+        "jersey_number": 3
+      },
+      {
+        "name": "Rafael Lima",
+        "jersey_number": 4
+      },
+      {
+        "name": "Bruno Santos",
+        "jersey_number": 5
+      },
+      {
+        "name": "Eduardo Pereira",
+        "jersey_number": 6
+      },
+      {
+        "name": "Thiago Souza",
+        "jersey_number": 7
+      },
+      {
+        "name": "Vinicius Gomes",
+        "jersey_number": 8
+      },
+      {
+        "name": "Rodrigo Barbosa",
+        "jersey_number": 9
+      },
+      {
+        "name": "Leandro Carvalho",
+        "jersey_number": 10
+      },
+      {
+        "name": "Marcelo Nunes",
+        "jersey_number": 11
+      }
+    ],
+    "Team Eta": [
+      {
+        "name": "Victor Mensah",
+        "jersey_number": 1
+      },
+      {
+        "name": "Prince Agyei",
+        "jersey_number": 2
+      },
+      {
+        "name": "Emmanuel Boateng",
+        "jersey_number": 3
+      },
+      {
+        "name": "Kofi Amponsah",
+        "jersey_number": 4
+      },
+      {
+        "name": "Seun Adeyemi",
+        "jersey_number": 5
+      },
+      {
+        "name": "Chidi Okeke",
+        "jersey_number": 6
+      },
+      {
+        "name": "Emeka Nwosu",
+        "jersey_number": 7
+      },
+      {
+        "name": "Tunde Balogun",
+        "jersey_number": 8
+      },
+      {
+        "name": "Femi Adesanya",
+        "jersey_number": 9
+      },
+      {
+        "name": "Babatunde Lawal",
+        "jersey_number": 10
+      },
+      {
+        "name": "Dele Afolabi",
+        "jersey_number": 11
+      }
+    ],
+    "Team Alpha": [
+      {
+        "name": "James Carter",
+        "jersey_number": 1
+      },
+      {
+        "name": "Marcus Lee",
+        "jersey_number": 2
+      },
+      {
+        "name": "David Osei",
+        "jersey_number": 3
+      },
+      {
+        "name": "Ryan Thompson",
+        "jersey_number": 4
+      },
+      {
+        "name": "Noah Williams",
+        "jersey_number": 5
+      },
+      {
+        "name": "Ethan Brooks",
+        "jersey_number": 6
+      },
+      {
+        "name": "Lucas Rivera",
+        "jersey_number": 7
+      },
+      {
+        "name": "Daniel Kim",
+        "jersey_number": 8
+      },
+      {
+        "name": "Aiden Scott",
+        "jersey_number": 9
+      },
+      {
+        "name": "Tyler Morgan",
+        "jersey_number": 10
+      },
+      {
+        "name": "Jordan Hayes",
+        "jersey_number": 11
+      }
+    ],
+    "Team Gamma": [
+      {
+        "name": "Ahmed Hassan",
+        "jersey_number": 1
+      },
+      {
+        "name": "Pierre Dubois",
+        "jersey_number": 2
+      },
+      {
+        "name": "Yusuf Okafor",
+        "jersey_number": 3
+      },
+      {
+        "name": "Marco Rossi",
+        "jersey_number": 4
+      },
+      {
+        "name": "Hiroshi Tanaka",
+        "jersey_number": 5
+      },
+      {
+        "name": "Kwame Asante",
+        "jersey_number": 6
+      },
+      {
+        "name": "Diego Herrera",
+        "jersey_number": 7
+      },
+      {
+        "name": "Tariq Malik",
+        "jersey_number": 8
+      },
+      {
+        "name": "Emil Petrov",
+        "jersey_number": 9
+      },
+      {
+        "name": "Luca Ferrari",
+        "jersey_number": 10
+      },
+      {
+        "name": "Ravi Sharma",
+        "jersey_number": 11
+      }
+    ],
+    "Team Theta": [
+      {
+        "name": "Ivan Petrov",
+        "jersey_number": 1
+      },
+      {
+        "name": "Aleksei Volkov",
+        "jersey_number": 2
+      },
+      {
+        "name": "Dmitri Sokolov",
+        "jersey_number": 3
+      },
+      {
+        "name": "Nikolai Kozlov",
+        "jersey_number": 4
+      },
+      {
+        "name": "Sergei Morozov",
+        "jersey_number": 5
+      },
+      {
+        "name": "Andrei Novikov",
+        "jersey_number": 6
+      },
+      {
+        "name": "Pavel Lebedev",
+        "jersey_number": 7
+      },
+      {
+        "name": "Maxim Fedorov",
+        "jersey_number": 8
+      },
+      {
+        "name": "Roman Popov",
+        "jersey_number": 9
+      },
+      {
+        "name": "Yuri Smirnov",
+        "jersey_number": 10
+      },
+      {
+        "name": "Oleg Zhukov",
+        "jersey_number": 11
+      }
+    ],
+    "Team Zeta": [
+      {
+        "name": "Mohammed Al-Farsi",
+        "jersey_number": 1
+      },
+      {
+        "name": "Omar Khalid",
+        "jersey_number": 2
+      },
+      {
+        "name": "Hassan Ibrahim",
+        "jersey_number": 3
+      },
+      {
+        "name": "Yasser Nasser",
+        "jersey_number": 4
+      },
+      {
+        "name": "Faisal Rahman",
+        "jersey_number": 5
+      },
+      {
+        "name": "Karim Aziz",
+        "jersey_number": 6
+      },
+      {
+        "name": "Bilal Hossain",
+        "jersey_number": 7
+      },
+      {
+        "name": "Samir Qureshi",
+        "jersey_number": 8
+      },
+      {
+        "name": "Nabil Benali",
+        "jersey_number": 9
+      },
+      {
+        "name": "Rachid Bouazza",
+        "jersey_number": 10
+      },
+      {
+        "name": "Tarik Chaoui",
+        "jersey_number": 11
+      }
+    ]
+  },
+  "matches": [
+    {
+      "home": "Team Beta",
+      "away": "Team Delta",
+      "phase": "group",
+      "knockout_round": null,
+      "status": "finished",
+      "home_score": 1,
+      "away_score": 0,
+      "winner": null
+    },
+    {
+      "home": "Team Delta",
+      "away": "Team Epsilon",
+      "phase": "group",
+      "knockout_round": null,
+      "status": "finished",
+      "home_score": 0,
+      "away_score": 0,
+      "winner": null
+    },
+    {
+      "home": "Team Gamma",
+      "away": "Team Theta",
+      "phase": "group",
+      "knockout_round": null,
+      "status": "finished",
+      "home_score": 0,
+      "away_score": 0,
+      "winner": null
+    },
+    {
+      "home": "Team Epsilon",
+      "away": "Team Eta",
+      "phase": "group",
+      "knockout_round": null,
+      "status": "finished",
+      "home_score": 0,
+      "away_score": 0,
+      "winner": null
+    },
+    {
+      "home": "Team Theta",
+      "away": "Team Alpha",
+      "phase": "group",
+      "knockout_round": null,
+      "status": "finished",
+      "home_score": 0,
+      "away_score": 0,
+      "winner": null
+    },
+    {
+      "home": "Team Alpha",
+      "away": "Team Gamma",
+      "phase": "group",
+      "knockout_round": null,
+      "status": "finished",
+      "home_score": 0,
+      "away_score": 0,
+      "winner": null
+    },
+    {
+      "home": "Team Alpha",
+      "away": "Team Zeta",
+      "phase": "group",
+      "knockout_round": null,
+      "status": "finished",
+      "home_score": 0,
+      "away_score": 0,
+      "winner": null
+    },
+    {
+      "home": "Team Delta",
+      "away": "Team Eta",
+      "phase": "group",
+      "knockout_round": null,
+      "status": "finished",
+      "home_score": 0,
+      "away_score": 1,
+      "winner": null
+    },
+    {
+      "home": "Team Beta",
+      "away": "Team Eta",
+      "phase": "group",
+      "knockout_round": null,
+      "status": "finished",
+      "home_score": 0,
+      "away_score": 0,
+      "winner": null
+    },
+    {
+      "home": "Team Gamma",
+      "away": "Team Zeta",
+      "phase": "group",
+      "knockout_round": null,
+      "status": "finished",
+      "home_score": 0,
+      "away_score": 0,
+      "winner": null
+    },
+    {
+      "home": "Team Epsilon",
+      "away": "Team Beta",
+      "phase": "group",
+      "knockout_round": null,
+      "status": "finished",
+      "home_score": 0,
+      "away_score": 2,
+      "winner": null
+    },
+    {
+      "home": "Team Theta",
+      "away": "Team Zeta",
+      "phase": "group",
+      "knockout_round": null,
+      "status": "finished",
+      "home_score": 0,
+      "away_score": 0,
+      "winner": null
+    }
+  ],
+  "goals": [
+    {
+      "match": "Team Epsilon vs Team Beta",
+      "team": "Team Beta",
+      "player": "Benjamin Hall",
+      "elapsed_seconds": 68
+    },
+    {
+      "match": "Team Epsilon vs Team Beta",
+      "team": "Team Beta",
+      "player": "Isaiah Turner",
+      "elapsed_seconds": 88
+    },
+    {
+      "match": "Team Beta vs Team Delta",
+      "team": "Team Beta",
+      "player": "Samuel Diaz",
+      "elapsed_seconds": 17
+    },
+    {
+      "match": "Team Delta vs Team Eta",
+      "team": "Team Eta",
+      "player": "Kofi Amponsah",
+      "elapsed_seconds": 14
+    }
+  ],
+  "cards": [
+    {
+      "match": "Team Epsilon vs Team Beta",
+      "team": "Team Beta",
+      "player": "Benjamin Hall",
+      "card_type": "red"
+    },
+    {
+      "match": "Team Beta vs Team Delta",
+      "team": "Team Delta",
+      "player": "Patrick O'Brien",
+      "card_type": "yellow"
+    },
+    {
+      "match": "Team Beta vs Team Delta",
+      "team": "Team Delta",
+      "player": "Patrick O'Brien",
+      "card_type": "yellow"
+    },
+    {
+      "match": "Team Beta vs Team Delta",
+      "team": "Team Delta",
+      "player": "Patrick O'Brien",
+      "card_type": "red"
+    }
+  ]
+}
