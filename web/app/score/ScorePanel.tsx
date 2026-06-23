@@ -16,6 +16,7 @@ export interface ScoreActions {
   recordGoal(teamId: string, playerId: string): Promise<{ home_score: number; away_score: number } | { error: string }>
   deleteGoal(goalId: string): Promise<{ home_score: number; away_score: number } | { error: string }>
   addCard(playerId: string, cardType: 'yellow' | 'red'): Promise<{ autoRed?: boolean } | { error: string }>
+  removeCard(cardId: string): Promise<{ ok: true } | { error: string }>
   transition(next: MatchStatus): Promise<{ ok: true } | { error: string }>
   setKnockoutWinner(teamId: string): Promise<{ ok: true } | { error: string }>
 }
@@ -254,6 +255,8 @@ type Picker =
   | { type: 'remove'; side: Side }
   | { type: 'card-team' }
   | { type: 'card-player'; side: Side }
+  | { type: 'card-remove-team' }
+  | { type: 'card-remove'; side: Side }
   | { type: 'confirm'; action: LifecycleAction }
   | { type: 'knockout' }
   | null
@@ -269,6 +272,7 @@ export function ScorePanel({
   const [goals, setGoals] = useState<Goal[]>(initialGoals)
   const [cards, setCards] = useState<Card[]>(initialCards)
   const [removeGoals, setRemoveGoals] = useState<Goal[]>([])
+  const [removeCards, setRemoveCards] = useState<Card[]>([])
 
   const [picker, setPicker] = useState<Picker>(null)
   const [busy, setBusy] = useState(false)
@@ -388,6 +392,24 @@ export function ScorePanel({
     void refreshEvents()
   }
 
+  async function openRemoveCards(side: Side) {
+    if (!isLive) return
+    const supabase = createClient()
+    const { data } = await supabase.from('cards').select('*')
+      .eq('match_id', match.id).eq('team_id', teamIdFor(side)).order('created_at', { ascending: false })
+    setRemoveCards((data ?? []) as Card[])
+    setPicker({ type: 'card-remove', side })
+  }
+
+  async function removeCard(cardId: string) {
+    setPicker(null); setBusy(true)
+    const r = await actions.removeCard(cardId)
+    setBusy(false)
+    if ('error' in r) return toast.error(r.error)
+    toast.success('Card removed.')
+    void refreshEvents()
+  }
+
   function requestTransition(action: LifecycleAction) {
     setPicker({ type: 'confirm', action })
   }
@@ -484,14 +506,24 @@ export function ScorePanel({
         </div>
 
         {isLive && (
-          <button
-            type="button"
-            onClick={() => setPicker({ type: 'card-team' })}
-            disabled={busy}
-            className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl border-2 border-slate-300 text-base font-bold text-slate-800 active:scale-[0.99] disabled:opacity-40"
-          >
-            <CreditCard className="h-5 w-5" /> Add Card
-          </button>
+          <div className="mt-4 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setPicker({ type: 'card-team' })}
+              disabled={busy}
+              className="flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl border-2 border-slate-300 text-base font-bold text-slate-800 active:scale-[0.99] disabled:opacity-40"
+            >
+              <CreditCard className="h-5 w-5" /> Add Card
+            </button>
+            <button
+              type="button"
+              onClick={() => setPicker({ type: 'card-remove-team' })}
+              disabled={busy || cards.length === 0}
+              className="flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl border-2 border-slate-300 text-base font-bold text-slate-800 active:scale-[0.99] disabled:opacity-30"
+            >
+              <Minus className="h-5 w-5" strokeWidth={3} /> Remove Card
+            </button>
+          </div>
         )}
       </div>
 
@@ -590,6 +622,42 @@ export function ScorePanel({
             disabled={busy}
             onPick={(pid, type) => addCard(picker.side, pid, type)}
           />
+          <SheetCancel onClick={() => setPicker(null)} disabled={busy} />
+        </Sheet>
+      )}
+
+      {picker?.type === 'card-remove-team' && (
+        <Sheet title="Remove card" subtitle="Which team?" onClose={() => setPicker(null)}>
+          <div className="flex flex-col gap-2">
+            <SheetRow disabled={busy} onClick={() => openRemoveCards('home')}>{match.home_team.name}</SheetRow>
+            <SheetRow disabled={busy} onClick={() => openRemoveCards('away')}>{match.away_team.name}</SheetRow>
+          </div>
+          <SheetCancel onClick={() => setPicker(null)} disabled={busy} />
+        </Sheet>
+      )}
+
+      {picker?.type === 'card-remove' && (
+        <Sheet
+          title={`Remove card — ${teamFor(picker.side).name}`}
+          subtitle={removeCards.length === 0 ? 'No cards recorded for this team.' : 'Tap the card to remove.'}
+          onClose={() => setPicker(null)}
+        >
+          {removeCards.length > 0 && (
+            <div className="flex-1 space-y-2 overflow-y-auto">
+              {removeCards.map((c) => {
+                const name = rosterFor(picker.side).find((p) => p.id === c.player_id)?.name ?? 'Unknown'
+                return (
+                  <SheetRow key={c.id} danger disabled={busy} onClick={() => removeCard(c.id)}>
+                    <span className="truncate">{name}</span>
+                    <span className="flex shrink-0 items-center gap-2 font-bold uppercase tracking-wide text-slate-500">
+                      <i className={`inline-block h-4 w-3 rounded-sm ${c.card_type === 'yellow' ? 'bg-amber-400' : 'bg-red-600'}`} />
+                      {c.card_type}
+                    </span>
+                  </SheetRow>
+                )
+              })}
+            </div>
+          )}
           <SheetCancel onClick={() => setPicker(null)} disabled={busy} />
         </Sheet>
       )}

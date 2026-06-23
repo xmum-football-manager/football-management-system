@@ -5,6 +5,7 @@ import {
   tokenRecordGoal,
   tokenDeleteGoal,
   tokenAddCard,
+  tokenRemoveCard,
   tokenTransitionMatch,
   tokenSetKnockoutWinner,
 } from './actions'
@@ -26,6 +27,7 @@ function tokenActions(token: string): ScoreActions {
     recordGoal: (teamId, playerId) => tokenRecordGoal(token, teamId, playerId),
     deleteGoal: (goalId) => tokenDeleteGoal(token, goalId),
     addCard: (playerId, cardType) => tokenAddCard(token, playerId, cardType),
+    removeCard: (cardId) => tokenRemoveCard(token, cardId),
     transition: (next) => tokenTransitionMatch(token, next),
     setKnockoutWinner: (teamId) => tokenSetKnockoutWinner(token, teamId),
   }

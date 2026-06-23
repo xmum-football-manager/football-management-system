@@ -91,13 +91,16 @@ export async function addCardAction(
 }
 
 export async function removeCardAction(
+  matchId: string,
   cardId: string,
 ): Promise<{ ok: true } | { error: string }> {
   try {
-    await requireScorekeeperUser()
+    const { match } = await ensureScorekeeperForMatch(matchId)
+    if (match.status !== 'live') return { error: 'Match is not live.' }
     const result = await deleteCard(cardId)
     if (result.error) return { error: result.error }
     revalidatePath('/score')
+    revalidatePath(`/t/${match.tournament_id}`)
     return { ok: true }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed.' }
