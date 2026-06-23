@@ -135,6 +135,20 @@ describe('detectBoundaryTies', () => {
     expect(ties[0].contestedTeamIds.sort()).toEqual(['b', 'c'])
   })
 
+  it('flags two teams level on points but differing on GD (no auto tiebreak)', () => {
+    // Group A, top 2 advance. Alpha is clear; Beta and Gamma share points at the
+    // cutoff but differ on GD — the group stage must NOT decide this by GD.
+    const standings = [
+      standing('a', 'A', 6, 5),
+      standing('b', 'A', 3, 2),
+      standing('c', 'A', 3, -2),
+    ]
+    const ties = detectBoundaryTies(standings, 2)
+    expect(ties).toHaveLength(1)
+    expect(ties[0].slots).toBe(1)
+    expect(ties[0].contestedTeamIds.sort()).toEqual(['b', 'c'])
+  })
+
   it('returns no tie when the cutoff is unambiguous', () => {
     const standings = [
       standing('a', 'A', 6, 3),
@@ -305,19 +319,16 @@ describe('validateQualifierSelection', () => {
     expect('error' in result).toBe(true)
   })
 
-  it('returns error when a guaranteed qualifier is dropped', () => {
-    // Drop guaranteed 'a' and put 'c' (contested) in, giving a=dropped, b+c selected
+  it('allows dropping the top team for a lower one (free choice)', () => {
+    // Drop top 'a' and advance b+c instead — admin may override the default.
     const selected = ['b', 'c', 'e', 'f']
-    const result = validateQualifierSelection(standings, selected, 2, 2)
-    expect('error' in result).toBe(true)
-    expect((result as { error: string }).error).toMatch(/Alpha/)
+    expect(validateQualifierSelection(standings, selected, 2, 2)).toEqual({ ok: true })
   })
 
-  it('returns error when a clearly-eliminated team is selected', () => {
-    // Select 'g' instead of 'f' in group B (g is clearly eliminated)
+  it('allows selecting a last-place team (free choice)', () => {
+    // Advance bottom 'g' instead of 'f' in group B — count is still correct.
     const selected = ['a', 'b', 'e', 'g']
-    const result = validateQualifierSelection(standings, selected, 2, 2)
-    expect('error' in result).toBe(true)
+    expect(validateQualifierSelection(standings, selected, 2, 2)).toEqual({ ok: true })
   })
 
   it('validates ok when all groups have correct selections', () => {

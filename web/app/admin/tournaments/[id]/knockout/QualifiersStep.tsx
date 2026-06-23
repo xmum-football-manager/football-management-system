@@ -56,7 +56,7 @@ export function QualifiersStep({
     contestedByGroup.set(tie.groupLabel, new Set(tie.contestedTeamIds))
   }
 
-  function toggleContested(teamId: string, groupLabel: string) {
+  function toggleTeam(teamId: string, groupLabel: string) {
     const groupTeams = standings.filter((s) => s.groupLabel === groupLabel)
     const currentGroupSelected = groupTeams.filter((s) => selectedIds.has(s.teamId))
     const isCurrentlySelected = selectedIds.has(teamId)
@@ -89,13 +89,19 @@ export function QualifiersStep({
   }
 
   const alreadySaved = (savedQualifiers?.length ?? 0) > 0
+  // Whether the admin may re-open an already-saved selection ("Edit qualifiers" button).
   const canEdit = canEditQualifiers(isAdmin, alreadySaved, bracketExists)
+  // Whether the rows are currently editable: during the first-time pick (nothing
+  // saved yet) OR while re-editing a saved selection. Always blocked once the
+  // bracket has been seeded.
+  const canSelect = isAdmin && !bracketExists && (!alreadySaved || editing)
 
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Top {advancePerGroup} from each group advance to knockout.{' '}
-        <span className="font-medium text-foreground">{totalSlots} teams total.</span>
+        Top {advancePerGroup} from each group advance by default.{' '}
+        <span className="font-medium text-foreground">{totalSlots} teams total.</span>{' '}
+        {canSelect && 'You can pick any team — useful when teams are level on points.'}
       </p>
 
       {labels.map((label) => {
@@ -120,7 +126,7 @@ export function QualifiersStep({
               {group.map((s) => {
                 const isContested = groupContested?.has(s.teamId) ?? false
                 const isSelected = selectedIds.has(s.teamId)
-                const canToggle = isContested && canEdit
+                const canToggle = canSelect
                 return (
                   <div
                     key={s.teamId}
@@ -131,11 +137,11 @@ export function QualifiersStep({
                         : 'transparent',
                       borderColor: isSelected
                         ? 'color-mix(in srgb, var(--admin-lime) 40%, transparent)'
-                        : isContested && canEdit
+                        : isContested && canSelect
                           ? 'color-mix(in srgb, var(--admin-amber, #f59e0b) 50%, transparent)'
                           : 'var(--border)',
                     }}
-                    onClick={canToggle ? () => toggleContested(s.teamId, label) : undefined}
+                    onClick={canToggle ? () => toggleTeam(s.teamId, label) : undefined}
                     role={canToggle ? 'checkbox' : undefined}
                     aria-checked={canToggle ? isSelected : undefined}
                   >
@@ -143,7 +149,7 @@ export function QualifiersStep({
                     <span className="flex items-center gap-3 text-xs text-muted-foreground">
                       <span>{s.points} pts</span>
                       <span>GD {s.gd >= 0 ? '+' : ''}{s.gd}</span>
-                      {isContested && canEdit
+                      {canSelect
                         ? (
                           <input
                             type="checkbox"

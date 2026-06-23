@@ -18,7 +18,7 @@ import { teamsShortOfMinPlayers, shortTeamsErrorMessage } from '@/lib/min-player
 import { groupAssignmentIssues } from '@/lib/groups-complete'
 import { getTournament, updateKnockoutQualifiers } from '@/lib/db/tournaments'
 import { generateRoundRobin } from '@/lib/round-robin'
-import { groupStageComplete, expectedBracketSize, validatePairingEdit } from '@/lib/qualifiers'
+import { groupStageComplete, expectedBracketSize, validatePairingEdit, computeGroupStandings, validateQualifierSelection } from '@/lib/qualifiers'
 import { canRegenerateFixtures } from '@/lib/lock-rules'
 import { createServiceClient } from '@/lib/supabase/server'
 
@@ -540,9 +540,24 @@ export async function saveQualifiersAction(
 ): Promise<{ ok: true } | { error: string }> {
   try {
     await ensureOrganizer(tournamentId)
-    const matches = await listMatches(tournamentId)
+    const [tournament, matches, teams] = await Promise.all([
+      getTournament(tournamentId),
+      listMatches(tournamentId),
+      listTeams(tournamentId),
+    ])
     if (!groupStageComplete(matches)) {
       return { error: 'Finish all group matches before confirming qualifiers.' }
+    }
+    const numGroups = tournament?.num_groups ?? 0
+    const advancePerGroup = tournament?.advance_per_group ?? 0
+    if (numGroups > 0 && advancePerGroup > 0) {
+      const groupMatches = matches.filter(
+        (m): m is typeof m & { home_team_id: string; away_team_id: string } =>
+          m.phase === 'group' && m.home_team_id !== null && m.away_team_id !== null,
+      )
+      const standings = computeGroupStandings(teams, groupMatches, numGroups, advancePerGroup)
+      const validation = validateQualifierSelection(standings, teamIds, advancePerGroup, numGroups)
+      if ('error' in validation) return validation
     }
     const result = await updateKnockoutQualifiers(tournamentId, teamIds)
     if (result.error) return { error: result.error }
