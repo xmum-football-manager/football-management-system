@@ -113,7 +113,7 @@ export function detectBoundaryTies(
 
   for (const label of labels) {
     const group = standings.filter((s) => s.groupLabel === label)
-    const { guaranteed, contested, slots } = _groupBoundary(group, advancePerGroup)
+    const { contested, slots } = _groupBoundary(group, advancePerGroup)
     if (contested.length > slots) {
       ties.push({ groupLabel: label, slots, contestedTeamIds: contested.map((s) => s.teamId) })
     }
