@@ -91,20 +91,18 @@ function _groupBoundary(
   const cutoff = sorted[advancePerGroup - 1]
   if (!cutoff) return { guaranteed: [], contested: [], slots: 0 }
 
-  const guaranteed = sorted.filter(
-    (s) => s.points > cutoff.points || (s.points === cutoff.points && s.gd > cutoff.gd),
-  )
-  const contested = sorted.filter(
-    (s) => s.points === cutoff.points && s.gd === cutoff.gd,
-  )
+  // The group stage applies no automatic tiebreaker: teams level on POINTS at
+  // the cutoff are contested and the organizer decides who advances.
+  const guaranteed = sorted.filter((s) => s.points > cutoff.points)
+  const contested = sorted.filter((s) => s.points === cutoff.points)
   const slots = advancePerGroup - guaranteed.length
   return { guaranteed, contested, slots }
 }
 
 /**
  * Finds groups where the qualification cutoff falls inside a set of teams that
- * are level on points AND goal difference — the case otherwise decided silently
- * by alphabetical order. The organizer must pick which contested teams advance.
+ * are level on POINTS — the case otherwise decided silently by goal difference
+ * then alphabetical order. The organizer must pick which contested teams advance.
  */
 export function detectBoundaryTies(
   standings: TeamStanding[],
@@ -125,10 +123,9 @@ export function detectBoundaryTies(
 }
 
 /**
- * Validates an admin's qualifier selection against per-group rules:
- *  a. Each group must have EXACTLY advancePerGroup selected teams.
- *  b. Every "guaranteed" team (strictly above cutoff) must be selected.
- *  c. No team strictly below the contested tie-level may be selected.
+ * Validates an admin's qualifier selection. The organizer may choose any team
+ * in a group as a qualifier (the standings only provide the default top-N) — the
+ * single rule is that each group must have EXACTLY advancePerGroup selected teams.
  */
 export function validateQualifierSelection(
   standings: TeamStanding[],
@@ -145,22 +142,6 @@ export function validateQualifierSelection(
 
     if (groupSelected.length !== advancePerGroup) {
       return { error: `Group ${label} must have exactly ${advancePerGroup} qualifier(s) selected (currently ${groupSelected.length}).` }
-    }
-
-    const { guaranteed, contested } = _groupBoundary(group, advancePerGroup)
-    const guaranteedIds = new Set(guaranteed.map((s) => s.teamId))
-    const contestedIds = new Set(contested.map((s) => s.teamId))
-
-    for (const s of guaranteed) {
-      if (!selected.has(s.teamId)) {
-        return { error: `${s.teamName} (Group ${label}) is a guaranteed qualifier and must be selected.` }
-      }
-    }
-
-    for (const s of groupSelected) {
-      if (!guaranteedIds.has(s.teamId) && !contestedIds.has(s.teamId)) {
-        return { error: `${s.teamName} (Group ${label}) is eliminated and cannot be selected.` }
-      }
     }
   }
 
