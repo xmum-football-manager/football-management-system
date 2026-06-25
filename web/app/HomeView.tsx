@@ -18,6 +18,7 @@ import {
   tournamentChampion,
   type HomeStatus,
 } from '@/lib/home-utils'
+import { MY_TZ } from '@/lib/tz'
 import type { Tournament, Team, MatchWithTeams, Standing } from '@/lib/supabase/types'
 
 const ORG = 'XMUM Football Club'
@@ -411,7 +412,7 @@ function TournamentCard({ c, idx, now }: { c: CardData; idx: number; now: number
           <div className="upcoming-strip">
             <span className="when">Next match</span>
             <span className="date" suppressHydrationWarning>
-              {new Date(c.nextMatch.match_time).toLocaleString('en-MY', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true })}
+              {new Date(c.nextMatch.match_time).toLocaleString('en-MY', { timeZone: MY_TZ, day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true })}
             </span>
           </div>
         )}

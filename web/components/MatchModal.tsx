@@ -5,6 +5,7 @@ import { teamColor, teamCode } from '@/lib/team-style'
 import { mediaUrl } from '@/lib/storage'
 import { useMatchScorers, type Scorer } from '@/lib/use-match-scorers'
 import { matchStageLabel } from './MatchCard'
+import { MY_TZ } from '@/lib/tz'
 import type { MatchWithTeams, Team } from '@/lib/supabase/types'
 
 interface MatchModalProps {
@@ -14,13 +15,13 @@ interface MatchModalProps {
 
 function fmtDateTime(iso: string) {
   return new Date(iso).toLocaleString('en-MY', {
-    weekday: 'short', day: 'numeric', month: 'short',
+    timeZone: MY_TZ, weekday: 'short', day: 'numeric', month: 'short',
     hour: '2-digit', minute: '2-digit', hour12: true,
   })
 }
 
 function fmtTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit', hour12: true })
+  return new Date(iso).toLocaleTimeString('en-MY', { timeZone: MY_TZ, hour: '2-digit', minute: '2-digit', hour12: true })
 }
 
 function liveMinute(startedAt: string) {

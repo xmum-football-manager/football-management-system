@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Play, Loader2 } from 'lucide-react'
 import { transitionMatchAction } from './actions'
+import { MY_TZ } from '@/lib/tz'
 import type { MatchWithTeams } from '@/lib/supabase/types'
 
 interface Props {
@@ -31,7 +32,7 @@ export function UpNextRow({ match, isAdmin, hasLiveMatch, kickoffBlocked = false
   }
 
   const time = match.match_time
-    ? new Date(match.match_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })
+    ? new Date(match.match_time).toLocaleTimeString('en-GB', { timeZone: MY_TZ, hour: '2-digit', minute: '2-digit', hour12: false })
     : null
 
   return (

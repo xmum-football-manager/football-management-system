@@ -21,6 +21,7 @@ import { generateRoundRobin } from '@/lib/round-robin'
 import { groupStageComplete, expectedBracketSize, validatePairingEdit, computeGroupStandings, validateQualifierSelection } from '@/lib/qualifiers'
 import { canRegenerateFixtures } from '@/lib/lock-rules'
 import { createServiceClient } from '@/lib/supabase/server'
+import { malaysiaDate, malaysiaInputToISO } from '@/lib/tz'
 
 async function ensureOrganizer(tournamentId: string) {
   const user = await requireUser()
@@ -64,7 +65,7 @@ export async function addMatchAction(input: {
       const short = teamsShortOfMinPlayers(relevant, tournament.min_players_per_team)
       if (short.length > 0) return { error: shortTeamsErrorMessage(short, tournament.min_players_per_team) }
     }
-    const matchDay = new Date(input.match_time).toISOString().split('T')[0]
+    const matchDay = malaysiaDate(input.match_time)
     if (matchDay < tournament.start_date || matchDay > tournament.end_date) {
       return {
         error: `Match must be scheduled within the tournament period (${tournament.start_date} – ${tournament.end_date}).`,
@@ -106,7 +107,7 @@ export async function bulkAddMatchesAction(
     let created = 0
     for (const f of fixtures) {
       if (f.home_team_id === f.away_team_id) continue
-      const matchDay = new Date(f.match_time).toISOString().split('T')[0]
+      const matchDay = malaysiaDate(f.match_time)
       if (matchDay < tournament.start_date || matchDay > tournament.end_date) {
         return {
           error: `Match must be scheduled within the tournament period (${tournament.start_date} – ${tournament.end_date}).`,
@@ -138,7 +139,7 @@ export async function rescheduleMatchAction(
     }
     const tournament = await getTournament(tournamentId)
     if (!tournament) return { error: 'Tournament not found.' }
-    const matchDay = new Date(newTime).toISOString().split('T')[0]
+    const matchDay = malaysiaDate(newTime)
     if (matchDay < tournament.start_date || matchDay > tournament.end_date) {
       return {
         error: `Match must be scheduled within the tournament period (${tournament.start_date} – ${tournament.end_date}).`,
@@ -281,7 +282,7 @@ export async function seedKnockoutBracketAction(
         tournament_id: tournamentId,
         home_team_id: qualifiers[i],
         away_team_id: qualifiers[i + 1],
-        match_time: tournament.start_date + 'T12:00:00Z',
+        match_time: tournament.start_date + 'T12:00:00+08:00',
         phase: 'knockout',
         knockout_round: knockoutRound,
       })
@@ -324,14 +325,16 @@ export async function seedDirectKnockoutAction(
       const short = teamsShortOfMinPlayers(teamsWithCounts, tournament.min_players_per_team)
       if (short.length > 0) return { error: shortTeamsErrorMessage(short, tournament.min_players_per_team) }
     }
-    const kickoffDay = new Date(opts.kickoff).toISOString().split('T')[0]
+    // opts.kickoff is a Malaysia wall-clock datetime-local value.
+    const startISO = malaysiaInputToISO(opts.kickoff)
+    const start = new Date(startISO)
+    if (Number.isNaN(start.getTime())) return { error: 'Invalid kickoff date.' }
+    const kickoffDay = malaysiaDate(startISO)
     if (kickoffDay < tournament.start_date || kickoffDay > tournament.end_date) {
       return {
         error: `Kickoff must be within the tournament period (${tournament.start_date} – ${tournament.end_date}).`,
       }
     }
-    const start = new Date(opts.kickoff)
-    if (Number.isNaN(start.getTime())) return { error: 'Invalid kickoff date.' }
     const ordered = [...teams].sort((a, b) => a.name.localeCompare(b.name))
     const inserts: { home_team_id: string; away_team_id: string; match_time: string }[] = []
     for (let i = 0; i < ordered.length; i += 2) {
@@ -648,7 +651,7 @@ export async function scheduleMatchAction(
     }
     if (matchTime !== null) {
       if (!tournament) return { error: 'Tournament not found.' }
-      const matchDay = new Date(matchTime).toISOString().split('T')[0]
+      const matchDay = malaysiaDate(matchTime)
       if (matchDay < tournament.start_date || matchDay > tournament.end_date) {
         return {
           error: `Match must be within the tournament period (${tournament.start_date} – ${tournament.end_date}).`,

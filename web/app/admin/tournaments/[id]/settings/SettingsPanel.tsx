@@ -30,6 +30,7 @@ import {
 } from './actions'
 import { ImageUpload } from '@/components/admin/ImageUpload'
 import { removeImage } from '@/lib/storage-client'
+import { MY_TZ } from '@/lib/tz'
 import type { Tournament } from '@/lib/supabase/types'
 
 interface Props {
@@ -296,6 +297,7 @@ function knockoutStageLabel(round: string | null): string {
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', {
+    timeZone: MY_TZ,
     weekday: 'short',
     month: 'short',
     day: 'numeric',

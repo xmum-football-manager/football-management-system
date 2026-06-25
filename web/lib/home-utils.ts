@@ -1,4 +1,5 @@
 // Pure helpers for the public home page — status mapping, accents, ticker, stats.
+import { MY_TZ, malaysiaDate } from '@/lib/tz'
 import type { Tournament, Team, MatchWithTeams, Standing } from '@/lib/supabase/types'
 
 /** Display status on the home page (DB has no "live"/"upcoming" — derived from matches). */
@@ -95,7 +96,7 @@ export function buildTicker(
     .slice(0, 3)
     .map((m) => ({
       tag: tag(m),
-      text: `${m.home_team.name} vs ${m.away_team.name} · ${new Date(m.match_time!).toLocaleString('en-MY', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true })}`,
+      text: `${m.home_team.name} vs ${m.away_team.name} · ${new Date(m.match_time!).toLocaleString('en-MY', { timeZone: MY_TZ, day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true })}`,
     }))
 
   const results = matches
@@ -129,8 +130,8 @@ export function homeStats(
   now: Date = new Date(),
 ): HomeStats {
   const activeIds = new Set(tournaments.filter((t) => t.status !== 'finished').map((t) => t.id))
-  const sameDay = (d: Date) =>
-    d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate()
+  const today = malaysiaDate(now.toISOString())
+  const sameDay = (d: Date) => malaysiaDate(d.toISOString()) === today
   const weekAgo = now.getTime() - 7 * 86_400_000
   return {
     tournaments: activeIds.size,
@@ -170,9 +171,9 @@ export function statusRail(status: string) {
 }
 
 export function formatDateRange(start: string, end: string | null) {
-  const s = new Date(start).toLocaleDateString('en-MY', { day: 'numeric', month: 'short' })
+  const s = new Date(start).toLocaleDateString('en-MY', { timeZone: MY_TZ, day: 'numeric', month: 'short' })
   if (!end) return s
-  const e = new Date(end).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })
+  const e = new Date(end).toLocaleDateString('en-MY', { timeZone: MY_TZ, day: 'numeric', month: 'short', year: 'numeric' })
   return `${s} – ${e}`
 }
 
