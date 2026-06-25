@@ -243,7 +243,9 @@ describe('homeStats', () => {
   })
 
   it('counts matches scheduled today', () => {
-    const todayIso = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 18).toISOString()
+    // now = 2026-06-07T12:00:00Z = 20:00 MYT (June 7).
+    // Use 08:00 UTC = 16:00 MYT — same Malaysia calendar day.
+    const todayIso = '2026-06-07T08:00:00Z'
     const stats = homeStats(
       [tournament()],
       [match({ match_time: todayIso }), match({ id: 'm-2', match_time: '2026-06-20T10:00:00Z' })],
