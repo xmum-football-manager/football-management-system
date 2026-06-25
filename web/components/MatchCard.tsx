@@ -1,5 +1,6 @@
 import { teamColor, teamCode } from '@/lib/team-style'
 import { mediaUrl } from '@/lib/storage'
+import { MY_TZ, tournamentDay } from '@/lib/tz'
 import type { MatchWithTeams, Team } from '@/lib/supabase/types'
 
 interface MatchCardProps {
@@ -19,17 +20,11 @@ const ROUND_LABELS: Record<string, string> = {
 }
 
 function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit', hour12: true })
+  return new Date(iso).toLocaleTimeString('en-MY', { timeZone: MY_TZ, hour: '2-digit', minute: '2-digit', hour12: true })
 }
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-MY', { weekday: 'short', month: 'short', day: 'numeric' })
-}
-
-/** 1-based tournament day for a match, computed from the tournament start date (calendar days apart). */
-function tournamentDay(matchIso: string, startIso: string): number {
-  const toMidnight = (iso: string) => { const d = new Date(iso); return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) }
-  return Math.max(0, Math.round((toMidnight(matchIso) - toMidnight(startIso)) / 86400000)) + 1
+  return new Date(iso).toLocaleDateString('en-MY', { timeZone: MY_TZ, weekday: 'short', month: 'short', day: 'numeric' })
 }
 
 export function matchStageLabel(match: MatchWithTeams): string {

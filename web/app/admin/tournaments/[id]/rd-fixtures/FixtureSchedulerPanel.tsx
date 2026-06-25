@@ -15,6 +15,7 @@ import {
 import { Calendar, Clock, X } from 'lucide-react'
 import type { MatchWithTeams } from '@/lib/supabase/types'
 import { computeEndTime, getTournamentDays } from '@/lib/fixture-scheduling'
+import { MY_TZ, malaysiaDate, malaysiaDateTimeToISO } from '@/lib/tz'
 import { scheduleMatchAction } from '../fixtures/actions'
 
 interface Props {
@@ -35,6 +36,7 @@ function matchLabel(m: MatchWithTeams): string {
 
 function formatTime(isoString: string): string {
   return new Date(isoString).toLocaleTimeString('en-GB', {
+    timeZone: MY_TZ,
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
@@ -42,7 +44,7 @@ function formatTime(isoString: string): string {
 }
 
 function isoDateOf(isoString: string): string {
-  return new Date(isoString).toISOString().split('T')[0]
+  return malaysiaDate(isoString)
 }
 
 export function FixtureSchedulerPanel({
@@ -97,7 +99,8 @@ export function FixtureSchedulerPanel({
 
   function submitSchedule(matchId: string) {
     if (!formDay || !formTime) return
-    const matchTime = `${formDay}T${formTime}:00`
+    // formDay/formTime are Malaysia wall-clock; store the equivalent UTC instant.
+    const matchTime = malaysiaDateTimeToISO(formDay, formTime)
     const prev = matches
     setMatches((ms) =>
       ms.map((m) => (m.id === matchId ? { ...m, match_time: matchTime } : m)),

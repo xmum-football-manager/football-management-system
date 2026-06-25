@@ -403,10 +403,13 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
   const scheduledMatches = matches.filter((m) => m.match_time !== null)
 
   const liveMatches     = scheduledMatches.filter(m => m.status === 'live' || m.status === 'halftime')
-  const upcomingMatches = scheduledMatches.filter(m => m.status === 'scheduled')
+  const upcomingMatches = scheduledMatches
+    .filter(m => m.status === 'scheduled')
+    .sort((a, b) => new Date(a.match_time!).getTime() - new Date(b.match_time!).getTime())
   const finishedMatches = scheduledMatches.filter(m => m.status === 'finished')
 
-  const filteredFixtures = fixtureFilter === 'all' ? scheduledMatches : scheduledMatches.filter(m => m.status === fixtureFilter)
+  const sortedScheduled = [...scheduledMatches].sort((a, b) => new Date(a.match_time!).getTime() - new Date(b.match_time!).getTime())
+  const filteredFixtures = fixtureFilter === 'all' ? sortedScheduled : sortedScheduled.filter(m => m.status === fixtureFilter)
 
   // Hero shows the live match; otherwise the next kickoff; otherwise the last result
   const heroMatch = liveMatches[0] ?? upcomingMatches[0] ?? finishedMatches[finishedMatches.length - 1] ?? null

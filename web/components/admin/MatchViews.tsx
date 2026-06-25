@@ -34,6 +34,7 @@ import { setTeamGroupAction } from '@/app/admin/tournaments/[id]/teams/actions'
 import { usePersistedView } from '@/lib/hooks/use-persisted-view'
 import { phaseSchedulingStatus } from '@/lib/phase-schedule-guard'
 import { formatClock } from '@/lib/format'
+import { MY_TZ, malaysiaDate, malaysiaInputToISO, isoToMalaysiaInput, tournamentDayFromDate } from '@/lib/tz'
 import type {
   MatchWithTeams,
   TournamentFormat,
@@ -115,6 +116,7 @@ export function MatchViews({
             isAdmin={isAdmin}
             onMatchClick={canManageFixtures ? handleMatchClick : undefined}
             phaseScheduled={phaseScheduled}
+            tournamentStart={tournamentStart}
           />
         )}
         {reschedulingMatch && (
@@ -171,6 +173,7 @@ export function MatchViews({
           advancePerGroup={advancePerGroup ?? null}
           onMatchClick={handleMatchClick}
           tournamentId={tournamentId}
+          tournamentStart={tournamentStart}
         />
       ) : matches.length === 0 ? (
         <Card>
@@ -188,6 +191,7 @@ export function MatchViews({
           isAdmin={isAdmin}
           onMatchClick={canManageFixtures ? handleMatchClick : undefined}
           phaseScheduled={phaseScheduled}
+          tournamentStart={tournamentStart}
         />
       )}
 
@@ -274,12 +278,14 @@ function ListView({
   isAdmin,
   onMatchClick,
   phaseScheduled,
+  tournamentStart,
 }: {
   matches: MatchWithTeams[]
   tournamentStatus: TournamentStatus
   isAdmin: boolean
   onMatchClick?: (m: MatchWithTeams) => void
   phaseScheduled: { group: boolean; knockout: boolean }
+  tournamentStart: string
 }) {
   const koStarted = matches.some((m) => m.phase === 'knockout' && m.status !== 'scheduled')
   const groupStageMatches = useMemo(() => matches.filter(isGroupStageMatch), [matches])
@@ -316,10 +322,10 @@ function ListView({
     const unscheduled = stageMatches.filter((m) => !m.match_time).sort(comparePhaseThenTime)
     return (
       <div className="space-y-4">
-        {days.map((day, i) => (
+        {days.map((day) => (
           <div key={day.key} className="space-y-1.5">
             <div className="flex items-baseline gap-2 px-0.5">
-              <span className="text-xs font-semibold text-foreground">Day {i + 1}</span>
+              <span className="text-xs font-semibold text-foreground">Day {tournamentDayFromDate(day.key, tournamentStart)}</span>
               <span className="text-[11px] text-muted-foreground">{day.label}</span>
             </div>
             {renderList(day.matches)}
@@ -366,6 +372,7 @@ function StructureView({
   numGroups,
   advancePerGroup,
   onMatchClick,
+  tournamentStart,
 }: {
   format: TournamentFormat
   teams: TeamRef[]
@@ -375,11 +382,12 @@ function StructureView({
   numGroups: number | null
   advancePerGroup: number | null
   onMatchClick: (m: MatchWithTeams) => void
+  tournamentStart: string
 }) {
   const ko = useMemo(() => knockoutMatches(matches), [matches])
 
   if (format === 'round_robin') {
-    return <LeagueFlowView teams={teams} matches={matches} onMatchClick={onMatchClick} />
+    return <LeagueFlowView teams={teams} matches={matches} onMatchClick={onMatchClick} tournamentStart={tournamentStart} />
   }
 
   if (format === 'knockout') {
@@ -480,10 +488,12 @@ function LeagueFlowView({
   teams,
   matches,
   onMatchClick,
+  tournamentStart,
 }: {
   teams: TeamRef[]
   matches: MatchWithTeams[]
   onMatchClick: (m: MatchWithTeams) => void
+  tournamentStart: string
 }) {
   const standings = useMemo(() => computeLeagueStandings(teams, matches), [teams, matches])
   const matchdays = useMemo(() => groupByDay(matches), [matches])
@@ -516,10 +526,10 @@ function LeagueFlowView({
             standings={standings}
           />
         </div>
-        {matchdays.map((md, i) => (
+        {matchdays.map((md) => (
           <MatchdayColumn
             key={md.key}
-            index={i + 1}
+            index={tournamentDayFromDate(md.key, tournamentStart)}
             label={md.label}
             matches={md.matches}
             onMatchClick={onMatchClick}
@@ -1185,7 +1195,8 @@ export function RescheduleDialog({
       const r = await rescheduleMatchAction(
         match.id,
         tournamentId,
-        new Date(time).toISOString(),
+        // `time` is a Malaysia wall-clock datetime-local value.
+        malaysiaInputToISO(time),
       )
       if ('error' in r) {
         toast.error(r.error)
@@ -1222,7 +1233,7 @@ export function RescheduleDialog({
             disabled={pending}
           />
           <p className="text-[11px] text-muted-foreground">
-            Currently scheduled for {new Date(match.match_time ?? '').toLocaleString()}. Must be within {tournamentStart} – {tournamentEnd}.
+            Currently scheduled for {new Date(match.match_time ?? '').toLocaleString('en-MY', { timeZone: MY_TZ })}. Must be within {tournamentStart} – {tournamentEnd}.
           </p>
         </div>
         <DialogFooter>
@@ -1243,8 +1254,7 @@ function groupByDay(matches: MatchWithTeams[]) {
   const map = new Map<string, MatchWithTeams[]>()
   for (const m of matches) {
     if (!m.match_time) continue
-    const d = new Date(m.match_time)
-    const key = d.toISOString().slice(0, 10)
+    const key = malaysiaDate(m.match_time)
     const arr = map.get(key) ?? []
     arr.push(m)
     map.set(key, arr)
@@ -1253,7 +1263,9 @@ function groupByDay(matches: MatchWithTeams[]) {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([key, ms]) => ({
       key,
-      label: new Date(key).toLocaleDateString('en-US', {
+      // `key` is a YYYY-MM-DD Malaysia date; render it literally (UTC parse).
+      label: new Date(`${key}T00:00:00Z`).toLocaleDateString('en-US', {
+        timeZone: 'UTC',
         weekday: 'long',
         month: 'short',
         day: 'numeric',
@@ -1263,8 +1275,6 @@ function groupByDay(matches: MatchWithTeams[]) {
 }
 
 function toLocalDatetime(iso: string): string {
-  const d = new Date(iso)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  return isoToMalaysiaInput(iso)
 }
 

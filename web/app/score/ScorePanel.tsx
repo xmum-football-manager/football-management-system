@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { Loader2, Plus, Minus, Play, Pause, CircleStop, FastForward, CreditCard } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { formatGoalClock } from '@/lib/format'
+import { MY_TZ } from '@/lib/tz'
 import { mediaUrl } from '@/lib/storage'
 import { teamColor, teamCode } from '@/lib/team-style'
 import type { MatchWithTeams, MatchStatus, Player, Goal, Card, Team } from '@/lib/supabase/types'
@@ -70,7 +71,7 @@ function formatElapsed(seconds: number): string {
 function formatStartDay(iso: string | null): string {
   if (!iso) return 'Time TBD'
   return new Date(iso).toLocaleString('en-US', {
-    weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+    timeZone: MY_TZ, weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
   })
 }
 

@@ -1,3 +1,5 @@
+import { MY_TZ } from '@/lib/tz'
+
 export function formatRange(start: string, end: string): string {
   const s = new Date(start)
   const e = new Date(end)
@@ -20,6 +22,7 @@ export function formatRange(start: string, end: string): string {
 export function formatMatchTime(iso: string): string {
   const d = new Date(iso)
   return d.toLocaleString('en-US', {
+    timeZone: MY_TZ,
     hour: 'numeric',
     minute: '2-digit',
     month: 'short',
@@ -30,7 +33,7 @@ export function formatMatchTime(iso: string): string {
 export function formatClock(iso: string): string {
   if (!iso) return 'TBD'
   const d = new Date(iso)
-  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+  return d.toLocaleTimeString('en-US', { timeZone: MY_TZ, hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
 // Match-clock label for a goal, e.g. 9'50". Null when the match clock is unknown

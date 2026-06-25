@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Loader2, X } from 'lucide-react'
 import { createManualKnockoutAction } from '../fixtures/actions'
 import { teamInitials } from '@/lib/format'
+import { malaysiaInputToISO } from '@/lib/tz'
 
 interface Team {
   id: string
@@ -151,10 +152,10 @@ export function BracketSetupView({ tournamentId, qualifiedTeams, tournamentStart
         pairings.map((p) => ({
           home_team_id: p.home,
           away_team_id: p.away,
-          match_time: p.matchTime ? new Date(p.matchTime).toISOString() : null,
+          match_time: p.matchTime ? malaysiaInputToISO(p.matchTime) : null,
         })),
         laterRoundTimes.map((round) =>
-          round.map((t) => (t ? new Date(t).toISOString() : null))
+          round.map((t) => (t ? malaysiaInputToISO(t) : null))
         ),
       )
       if ('error' in r) toast.error(r.error)

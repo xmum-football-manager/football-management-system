@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { teamColor, teamCode } from '@/lib/team-style'
 import { mediaUrl } from '@/lib/storage'
 import { useMatchScorers } from '@/lib/use-match-scorers'
+import { MY_TZ } from '@/lib/tz'
 import type { MatchWithTeams, Team } from '@/lib/supabase/types'
 
 interface HeroLiveProps {
@@ -122,9 +123,9 @@ function TeamSide({ team, side, form }: { team: Team; side: 'home' | 'away'; for
       </div>
       <div className="team-side-meta">
         <div className="team-name">{team.name}</div>
-        <div className="team-tag">
-          {teamCode(team.name)}{team.group_label ? ` · GROUP ${team.group_label}` : ''}
-        </div>
+        {team.group_label && (
+          <div className="team-tag">GROUP {team.group_label}</div>
+        )}
         <FormStrip form={form} align={side === 'home' ? 'right' : 'left'} />
       </div>
     </div>
@@ -167,7 +168,7 @@ export function HeroLive({ match, allMatches = [], metaText, minutesPerHalf = 45
   const isUpcoming = match.status === 'scheduled'
 
   const kickoff = match.match_time
-    ? new Date(match.match_time).toLocaleString('en-MY', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })
+    ? new Date(match.match_time).toLocaleString('en-MY', { timeZone: MY_TZ, weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })
     : null
 
   return (
@@ -212,7 +213,7 @@ export function HeroLive({ match, allMatches = [], metaText, minutesPerHalf = 45
               <div className="match-clock">
                 <BallIcon />
                 {isUpcoming
-                  ? <><span className="period">KO</span><span>{kickoff ?? 'TBD'}</span></>
+                  ? <><span className="period">Kick off</span><span>{kickoff ?? 'TBD'}</span></>
                   : <span className="period">FT</span>}
               </div>
             )}
