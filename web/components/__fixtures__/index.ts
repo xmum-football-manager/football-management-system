@@ -37,6 +37,8 @@ export const mockMatchLive: MatchWithTeams = {
   knockout_round: null,
   home_source_match_id: null,
   away_source_match_id: null,
+  home_loser_source_match_id: null,
+  away_loser_source_match_id: null,
   winner_team_id: null,
   match_started_at: new Date(Date.now() - 37 * 60000).toISOString(),
   match_finished_at: null,

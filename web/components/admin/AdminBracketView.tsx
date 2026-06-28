@@ -158,10 +158,16 @@ export function AdminBracketView({
   const groupsColumnRef = useRef<HTMLDivElement | null>(null)
   const [measuredGroupsHeight, setMeasuredGroupsHeight] = useState(0)
 
-  const hasValidMatches = matches.length > 0 && isValidPartialBracketCount(matches.length)
-  const matchRounds = hasValidMatches ? bucketRounds(matches) : []
+  // The third-place playoff is fed by semifinal losers, so it lives outside the
+  // count-based bracket tree. Pull it out before bucketing or it breaks the
+  // power-of-two round detection.
+  const thirdPlace = matches.find((m) => m.knockout_round === 'third') ?? null
+  const bracketMatches = thirdPlace ? matches.filter((m) => m.id !== thirdPlace.id) : matches
+
+  const hasValidMatches = bracketMatches.length > 0 && isValidPartialBracketCount(bracketMatches.length)
+  const matchRounds = hasValidMatches ? bucketRounds(bracketMatches) : []
   const remainingPlaceholderRounds = hasValidMatches
-    ? buildRemainingPlaceholderRounds(matches.length, matchRounds[matchRounds.length - 1]?.length ?? 1)
+    ? buildRemainingPlaceholderRounds(bracketMatches.length, matchRounds[matchRounds.length - 1]?.length ?? 1)
     : []
   const allPlaceholderRounds =
     !hasValidMatches && bracketTeamCount && bracketTeamCount >= 2
@@ -187,13 +193,17 @@ export function AdminBracketView({
       ? matchRounds[matchRounds.length - 1]?.[0]
       : undefined
   const championWinnerId = finalMatch ? knockoutWinnerTeamId(finalMatch) : null
-  const champion = !championWinnerId
+  const champion = teamNameOf(finalMatch, championWinnerId)
+  // Runner-up is the final's loser — the side that is not the champion.
+  const runnerUpId = !championWinnerId || !finalMatch
     ? null
-    : championWinnerId === finalMatch?.home_team_id
-      ? finalMatch?.home_team?.name ?? null
-      : championWinnerId === finalMatch?.away_team_id
-        ? finalMatch?.away_team?.name ?? null
-        : null
+    : championWinnerId === finalMatch.home_team_id
+      ? finalMatch.away_team_id
+      : finalMatch.home_team_id
+  const runnerUp = teamNameOf(finalMatch, runnerUpId)
+  // Third place is the winner of the playoff between the semifinal losers.
+  const thirdWinnerId = thirdPlace ? knockoutWinnerTeamId(thirdPlace) : null
+  const thirdPlaceName = teamNameOf(thirdPlace, thirdWinnerId)
 
   const minWidth =
     (sidebar ? GROUP_COLUMN_WIDTH + 24 : 0) +
@@ -203,7 +213,7 @@ export function AdminBracketView({
 
   // Warn only for truly unrecognised match counts (not valid partial brackets)
   const showStrayMatchesWarning =
-    matches.length > 0 && !hasValidMatches && (bracketTeamCount ?? 0) >= 2
+    bracketMatches.length > 0 && !hasValidMatches && (bracketTeamCount ?? 0) >= 2
 
   useLayoutEffect(() => {
     const container = containerRef.current
@@ -239,7 +249,7 @@ export function AdminBracketView({
     <div className="space-y-2">
       {showStrayMatchesWarning && (
         <p className="text-[11px] text-amber-700">
-          ⚠ {matches.length} cross-group fixture{matches.length === 1 ? '' : 's'} don&apos;t fit
+          ⚠ {bracketMatches.length} cross-group fixture{bracketMatches.length === 1 ? '' : 's'} don&apos;t fit
           this tournament&apos;s bracket shape and aren&apos;t shown here. Use the List view to
           delete them, or seed the bracket from group standings.
         </p>
@@ -267,17 +277,34 @@ export function AdminBracketView({
 
             {hasValidMatches
               ? <>
-                  {matchRounds.map((round, i) => (
-                    <BracketColumn
-                      key={`real-${i}`}
-                      label={roundLabel(round.length)}
-                      matches={round}
-                      placeholders={null}
-                      columnHeight={effectiveColumnHeight}
-                      isFinal={remainingPlaceholderRounds.length === 0 && i === matchRounds.length - 1}
-                      onMatchClick={onMatchClick}
-                    />
-                  ))}
+                  {matchRounds.map((round, i) => {
+                    const isFinalColumn = remainingPlaceholderRounds.length === 0 && i === matchRounds.length - 1
+                    return (
+                      <BracketColumn
+                        key={`real-${i}`}
+                        label={roundLabel(round.length)}
+                        matches={round}
+                        placeholders={null}
+                        columnHeight={effectiveColumnHeight}
+                        isFinal={isFinalColumn}
+                        onMatchClick={onMatchClick}
+                        belowFinal={isFinalColumn && thirdPlace ? (
+                          <div>
+                            <div
+                              className="admin-tab text-center"
+                              style={{ fontSize: 11, letterSpacing: '0.12em', color: 'var(--muted-foreground)', marginBottom: 8 }}
+                            >
+                              Third Place
+                            </div>
+                            {/* A touch smaller — it decides 3rd/4th, not the title. */}
+                            <div style={{ transform: 'scale(0.88)', transformOrigin: 'top center' }}>
+                              <BracketMatch match={thirdPlace} isFinal={false} onMatchClick={onMatchClick} />
+                            </div>
+                          </div>
+                        ) : undefined}
+                      />
+                    )
+                  })}
                   {remainingPlaceholderRounds.map((round, i) => (
                     <BracketColumn
                       key={`placeholder-${i}`}
@@ -303,8 +330,11 @@ export function AdminBracketView({
                 ))}
 
             {totalRounds > 0 && (
-              <ChampionColumn
+              <RankingColumn
                 champion={champion}
+                runnerUp={runnerUp}
+                thirdPlace={thirdPlaceName}
+                showThird={!!thirdPlace}
                 columnHeight={effectiveColumnHeight}
                 hasFinal={!!finalMatch || remainingPlaceholderRounds.length > 0 || allPlaceholderRounds.length > 0}
               />
@@ -482,6 +512,7 @@ function BracketColumn({
   columnHeight,
   isFinal,
   onMatchClick,
+  belowFinal,
 }: {
   label: string
   matches: MatchWithTeams[] | null
@@ -489,6 +520,7 @@ function BracketColumn({
   columnHeight: number
   isFinal: boolean
   onMatchClick?: (m: MatchWithTeams) => void
+  belowFinal?: ReactNode
 }) {
   return (
     <div className="flex flex-col" style={{ width: 220, flexShrink: 0 }}>
@@ -504,30 +536,49 @@ function BracketColumn({
       >
         {label}
       </div>
-      <div className="flex flex-col justify-around" style={{ height: columnHeight }}>
-        {matches
-          ? matches.map((m) => (
-              <BracketMatch
-                key={m.id}
-                match={m}
-                isFinal={isFinal}
-                onMatchClick={onMatchClick}
-              />
-            ))
-          : placeholders?.map((p, i) => (
-              <BracketPlaceholder key={i} slot={p} isFinal={isFinal} />
-            ))}
-      </div>
+      {belowFinal ? (
+        // Center the Final on the column midpoint (between the two semifinals) via a
+        // top spacer, then place the third-place playoff in-flow directly beneath it
+        // so the scroll box grows to include it (no cropping).
+        <div className="flex flex-col" style={{ minHeight: columnHeight }}>
+          <div style={{ height: Math.max(0, (columnHeight - CARD_HEIGHT) / 2) }} />
+          {matches?.map((m) => (
+            <BracketMatch key={m.id} match={m} isFinal={isFinal} onMatchClick={onMatchClick} />
+          ))}
+          <div style={{ marginTop: 24, marginBottom: 24 }}>{belowFinal}</div>
+        </div>
+      ) : (
+        <div className="flex flex-col justify-around" style={{ minHeight: columnHeight }}>
+          {matches
+            ? matches.map((m) => (
+                <BracketMatch
+                  key={m.id}
+                  match={m}
+                  isFinal={isFinal}
+                  onMatchClick={onMatchClick}
+                />
+              ))
+            : placeholders?.map((p, i) => (
+                <BracketPlaceholder key={i} slot={p} isFinal={isFinal} />
+              ))}
+        </div>
+      )}
     </div>
   )
 }
 
-function ChampionColumn({
+function RankingColumn({
   champion,
+  runnerUp,
+  thirdPlace,
+  showThird,
   columnHeight,
   hasFinal,
 }: {
   champion: string | null
+  runnerUp: string | null
+  thirdPlace: string | null
+  showThird: boolean
   columnHeight: number
   hasFinal: boolean
 }) {
@@ -543,49 +594,70 @@ function ChampionColumn({
           height: 16,
         }}
       >
-        Champion
+        Ranking
       </div>
-      <div className="flex flex-col justify-center" style={{ height: columnHeight }}>
+      <div className="flex flex-col justify-center gap-2.5" style={{ minHeight: columnHeight }}>
+        <RankRow label="Champion" team={champion} pending={hasFinal ? 'TBD' : '—'} highlight />
+        <RankRow label="Second Place" team={runnerUp} pending={hasFinal ? 'TBD' : '—'} />
+        {showThird && (
+          <RankRow label="Third Place" team={thirdPlace} pending="TBD" />
+        )}
+      </div>
+    </div>
+  )
+}
+
+function RankRow({
+  label,
+  team,
+  pending,
+  highlight,
+}: {
+  label: string
+  team: string | null
+  pending: string
+  highlight?: boolean
+}) {
+  return (
+    <div
+      className="flex items-center gap-3 rounded-lg px-3 py-2.5"
+      style={{
+        border: highlight && team ? '1.5px solid var(--admin-lime)' : '1px solid var(--admin-rule)',
+        borderStyle: team ? 'solid' : 'dashed',
+        background: highlight && team ? 'var(--admin-lime-wash)' : 'transparent',
+      }}
+    >
+      <div className="min-w-0 flex-1">
         <div
-          className="flex flex-col items-center rounded-lg p-5 text-center"
+          className="admin-tab"
+          style={{ fontSize: 9, letterSpacing: '0.12em', color: 'var(--muted-foreground)', marginBottom: 2 }}
+        >
+          {label}
+        </div>
+        <div
+          className="admin-display truncate"
           style={{
-            border: champion
-              ? '1.5px solid var(--admin-lime)'
-              : '1.5px dashed var(--admin-rule)',
-            background: champion ? 'var(--admin-lime-wash)' : 'transparent',
-            minHeight: CARD_HEIGHT + 40,
+            fontSize: 14,
+            color: team
+              ? highlight
+                ? 'var(--admin-lime)'
+                : 'var(--foreground)'
+              : 'var(--muted-foreground)',
+            fontStyle: team ? 'normal' : 'italic',
           }}
         >
-          <svg
-            width="32"
-            height="32"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke={champion ? 'var(--admin-lime)' : 'var(--muted-foreground)'}
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
-            <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
-            <path d="M4 22h16" />
-            <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
-            <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
-            <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
-          </svg>
-          <div
-            className="admin-display mt-2 truncate w-full"
-            style={{
-              fontSize: 14,
-              color: champion ? 'var(--admin-lime)' : 'var(--muted-foreground)',
-            }}
-          >
-            {champion ?? (hasFinal ? 'TBD' : '—')}
-          </div>
+          {team ?? pending}
         </div>
       </div>
     </div>
   )
+}
+
+function teamNameOf(match: MatchWithTeams | null | undefined, teamId: string | null): string | null {
+  if (!match || !teamId) return null
+  if (teamId === match.home_team_id) return match.home_team?.name ?? null
+  if (teamId === match.away_team_id) return match.away_team?.name ?? null
+  return null
 }
 
 function BracketMatch({

@@ -21,14 +21,14 @@ interface Props {
   onCreated: () => void
 }
 
-const TIME_OPTIONS: string[] = Array.from({ length: 34 }, (_, i) => {
+export const TIME_OPTIONS: string[] = Array.from({ length: 34 }, (_, i) => {
   const totalMins = 360 + i * 30 // 06:00 to 22:30
   const h = Math.floor(totalMins / 60)
   const m = totalMins % 60
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 })
 
-function buildDayOptions(start: string, end: string): { label: string; date: string }[] {
+export function buildDayOptions(start: string, end: string): { label: string; date: string }[] {
   const options: { label: string; date: string }[] = []
   // Work purely with date strings (YYYY-MM-DD) to avoid timezone shifts
   const startParts = start.split('-').map(Number)
@@ -116,6 +116,23 @@ export function BracketSetupView({ tournamentId, qualifiedTeams, tournamentStart
     () => laterRoundSlots.map((round) => round.map(() => ''))
   )
 
+  // A third-place playoff (semifinal losers) is only meaningful when the bracket
+  // actually has semifinals — i.e. at least two first-round matches converging.
+  const hasSemifinals = matchCount >= 2
+  const [includeThird, setIncludeThird] = useState(false)
+  const [thirdPlaceTime, setThirdPlaceTime] = useState('')
+  const [thirdDate, setThirdDate] = useState('')
+  const [thirdTime, setThirdTime] = useState('')
+
+  function handleThirdDate(date: string) {
+    setThirdDate(date)
+    setThirdPlaceTime(date && thirdTime ? `${date}T${thirdTime}` : '')
+  }
+  function handleThirdTime(time: string) {
+    setThirdTime(time)
+    setThirdPlaceTime(thirdDate && time ? `${thirdDate}T${time}` : '')
+  }
+
   const assigned = assignedIds(pairings)
   const dayOptions = buildDayOptions(tournamentStart, tournamentEnd)
 
@@ -129,6 +146,24 @@ export function BracketSetupView({ tournamentId, qualifiedTeams, tournamentStart
 
   const allLaterTimesFilled = laterRoundSlots.length === 0 ||
     laterRoundTimes.every((round) => round.every((t) => !!t))
+
+  // Times of the two semifinals — round 1 itself when the bracket starts at the
+  // semifinals (matchCount === 2), otherwise the later round of two matches.
+  const semifinalTimes: string[] = matchCount === 2
+    ? pairings.map((p) => p.matchTime)
+    : (() => {
+        const idx = laterRoundSlots.findIndex((r) => r.length === 2)
+        return idx >= 0 ? laterRoundTimes[idx] : []
+      })()
+
+  const thirdPlaceError = (() => {
+    if (!includeThird || !thirdPlaceTime) return null
+    const sfMax = semifinalTimes.reduce((a, b) => (a > b ? a : b), '')
+    if (sfMax && thirdPlaceTime <= sfMax) {
+      return 'The third-place match must be scheduled after the semifinals.'
+    }
+    return null
+  })()
 
   // Each round must be scheduled after the round that feeds it. Datetime-local
   // strings (YYYY-MM-DDTHH:mm) compare chronologically as plain strings.
@@ -157,6 +192,7 @@ export function BracketSetupView({ tournamentId, qualifiedTeams, tournamentStart
         laterRoundTimes.map((round) =>
           round.map((t) => (t ? malaysiaInputToISO(t) : null))
         ),
+        includeThird && thirdPlaceTime ? malaysiaInputToISO(thirdPlaceTime) : null,
       )
       if ('error' in r) toast.error(r.error)
       else {
@@ -324,11 +360,65 @@ export function BracketSetupView({ tournamentId, qualifiedTeams, tournamentStart
         </div>
       </div>
 
+      {hasSemifinals && (
+        <div
+          className="rounded-xl border bg-card p-4"
+          style={{ borderColor: 'var(--admin-rule)' }}
+        >
+          <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--foreground)' }}>
+            <input
+              type="checkbox"
+              checked={includeThird}
+              onChange={(e) => setIncludeThird(e.target.checked)}
+            />
+            Include third-place playoff (losers of the two semifinals)
+          </label>
+          {includeThird && (
+            <div className="mt-3 flex items-center gap-2">
+              <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
+                Scheduled for
+              </span>
+              <select
+                value={thirdDate}
+                onChange={(e) => handleThirdDate(e.target.value)}
+                className="rounded text-xs px-2 py-1"
+                style={{ border: '1px solid var(--admin-rule)', background: 'var(--admin-surface-2)', color: 'var(--foreground)', outline: 'none' }}
+              >
+                <option value="">Day…</option>
+                {dayOptions.map((opt) => (
+                  <option key={opt.date} value={opt.date}>{opt.label}</option>
+                ))}
+              </select>
+              <select
+                value={thirdTime}
+                onChange={(e) => handleThirdTime(e.target.value)}
+                className="w-24 rounded text-xs px-2 py-1"
+                style={{ border: '1px solid var(--admin-rule)', background: 'var(--admin-surface-2)', color: 'var(--foreground)', outline: 'none' }}
+              >
+                <option value="">Time…</option>
+                {TIME_OPTIONS.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="flex flex-col items-end gap-2">
         {chronologyError && <p className="text-xs text-red-600">{chronologyError}</p>}
+        {thirdPlaceError && <p className="text-xs text-red-600">{thirdPlaceError}</p>}
         <Button
           onClick={submit}
-          disabled={!allFilled(pairings) || !allLaterTimesFilled || !!chronologyError || isPending || matchCount === 0}
+          disabled={
+            !allFilled(pairings) ||
+            !allLaterTimesFilled ||
+            !!chronologyError ||
+            (includeThird && !thirdPlaceTime) ||
+            !!thirdPlaceError ||
+            isPending ||
+            matchCount === 0
+          }
         >
           {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Create Bracket

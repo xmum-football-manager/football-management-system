@@ -71,6 +71,8 @@ export interface Match {
   knockout_round: string | null
   home_source_match_id: string | null
   away_source_match_id: string | null
+  home_loser_source_match_id: string | null
+  away_loser_source_match_id: string | null
   winner_team_id: string | null
   match_started_at: string | null
   match_finished_at: string | null

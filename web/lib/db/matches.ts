@@ -42,6 +42,8 @@ export interface CreateMatchInput {
   knockout_round?: string
   home_source_match_id?: string | null
   away_source_match_id?: string | null
+  home_loser_source_match_id?: string | null
+  away_loser_source_match_id?: string | null
 }
 
 export async function createMatchAdmin(input: CreateMatchInput): Promise<{ id: string } | { error: string }> {
@@ -57,6 +59,8 @@ export async function createMatchAdmin(input: CreateMatchInput): Promise<{ id: s
       ...(input.knockout_round != null && { knockout_round: input.knockout_round }),
       ...(input.home_source_match_id != null && { home_source_match_id: input.home_source_match_id }),
       ...(input.away_source_match_id != null && { away_source_match_id: input.away_source_match_id }),
+      ...(input.home_loser_source_match_id != null && { home_loser_source_match_id: input.home_loser_source_match_id }),
+      ...(input.away_loser_source_match_id != null && { away_loser_source_match_id: input.away_loser_source_match_id }),
     })
     .select('id')
     .single()
@@ -77,6 +81,8 @@ export async function createMatch(input: CreateMatchInput): Promise<{ id: string
       ...(input.knockout_round != null && { knockout_round: input.knockout_round }),
       ...(input.home_source_match_id != null && { home_source_match_id: input.home_source_match_id }),
       ...(input.away_source_match_id != null && { away_source_match_id: input.away_source_match_id }),
+      ...(input.home_loser_source_match_id != null && { home_loser_source_match_id: input.home_loser_source_match_id }),
+      ...(input.away_loser_source_match_id != null && { away_loser_source_match_id: input.away_loser_source_match_id }),
     })
     .select('id')
     .single()

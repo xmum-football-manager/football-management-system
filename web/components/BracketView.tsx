@@ -160,21 +160,71 @@ function bucketByRound(
   }))
 }
 
+/** Resolve the Team object for a given team id within one match. */
+function teamOf(match: MatchWithTeams | null | undefined, teamId: string | null): Team | null {
+  if (!match || !teamId) return null
+  if (teamId === match.home_team_id) return match.home_team ?? null
+  if (teamId === match.away_team_id) return match.away_team ?? null
+  return null
+}
+
+function RankCard({ place, team, pending }: { place: 1 | 2 | 3; team: Team | null; pending: string }) {
+  const meta = {
+    1: { label: 'Champion', cls: 'gold' },
+    2: { label: 'Second Place', cls: 'silver' },
+    3: { label: 'Third Place', cls: 'bronze' },
+  }[place]
+  const logo = team ? mediaUrl(team.logo_path) : null
+  return (
+    <div className={`rank-card ${meta.cls} ${team ? '' : 'tbd'}`}>
+      <div className="rank-body">
+        <div className="rank-place">{meta.label}</div>
+        {team ? (
+          <div className="rank-team">
+            <span
+              className="crest"
+              style={
+                logo
+                  ? { backgroundImage: `url(${logo})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+                  : { background: teamColor(team.id) }
+              }
+            >
+              {logo ? null : teamCode(team.name)}
+            </span>
+            <span className="rank-team-name">{team.name}</span>
+          </div>
+        ) : (
+          <div className="rank-pending">{pending}</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export function BracketView({ matches, onMatchClick }: BracketViewProps) {
-  const columns = bucketByRound(matches)
+  // The third-place playoff is fed by the semifinal losers, not winners, so it
+  // sits outside the main winner-advancing tree. Pull it out before bucketing.
+  const thirdPlace = matches.find((m) => m.knockout_round === 'third') ?? null
+  const bracketMatches = thirdPlace ? matches.filter((m) => m.id !== thirdPlace.id) : matches
+
+  const columns = bucketByRound(bracketMatches)
+  const lastRound = columns[columns.length - 1]?.round
   const f = columns[columns.length - 1]?.matches ?? []
   const firstRoundSize = columns[0] ? ROUND_SLOTS[columns[0].round] : 1
 
   const finalist = f[0]
   const championWinnerId = finalist ? knockoutWinnerTeamId(finalist) : null
-  const champion: Team | null = !championWinnerId
+  const champion = teamOf(finalist, championWinnerId)
+  // Runner-up is the final's loser — the side that is not the champion.
+  const runnerUpId = !championWinnerId || !finalist
     ? null
-    : championWinnerId === finalist?.home_team_id
-      ? finalist?.home_team ?? null
-      : championWinnerId === finalist?.away_team_id
-        ? finalist?.away_team ?? null
-        : null
-  const championLogo = champion ? mediaUrl(champion.logo_path) : null
+    : championWinnerId === finalist.home_team_id
+      ? finalist.away_team_id
+      : finalist.home_team_id
+  const runnerUp = teamOf(finalist, runnerUpId)
+  // Third place is the winner of the playoff between the semifinal losers.
+  const thirdWinnerId = thirdPlace ? knockoutWinnerTeamId(thirdPlace) : null
+  const thirdPlaceWinner = teamOf(thirdPlace, thirdWinnerId)
 
   if (matches.length === 0) {
     return (
@@ -196,57 +246,55 @@ export function BracketView({ matches, onMatchClick }: BracketViewProps) {
   return (
     <div className="bracket-shell">
       <div className="bracket" style={{ minWidth }}>
-        {columns.map((col) => (
-          <BracketRound
-            key={col.round}
-            label={ROUND_LABEL[col.round]}
-            matches={col.matches}
-            slotCount={ROUND_SLOTS[col.round]}
-            columnHeight={columnHeight}
-            onMatchClick={onMatchClick}
-          />
-        ))}
-
-        {/* Champion cell */}
-        <div className="bracket-round">
-          <div className="bracket-round-label">Champion</div>
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: columnHeight }}>
-            {champion ? (
-              <div className="trophy-cell won">
-                <svg viewBox="0 0 24 24" fill="none" stroke="var(--brand-lime)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
-                  <path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>
-                  <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
-                  <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
-                </svg>
-                <span
-                  className="crest"
-                  style={
-                    championLogo
-                      ? { backgroundImage: `url(${championLogo})`, backgroundSize: 'cover', backgroundPosition: 'center' }
-                      : { background: teamColor(champion.id) }
-                  }
-                >
-                  {championLogo ? null : teamCode(champion.name)}
-                </span>
-                <div className="winner-name">{champion.name}</div>
-                <div className="winner-sub">
-                  {finalist!.home_score === finalist!.away_score
-                    ? `Won the final ${finalist!.home_score}–${finalist!.away_score} on a tie-break`
-                    : `Won the final ${Math.max(finalist!.home_score, finalist!.away_score)}–${Math.min(finalist!.home_score, finalist!.away_score)}`}
+        {columns.map((col) => {
+          // Stack the third-place playoff beneath the Final, in the same column.
+          if (col.round === lastRound && thirdPlace) {
+            return (
+              <div className="bracket-round" key={col.round}>
+                <div className="bracket-round-label">{ROUND_LABEL[col.round]}</div>
+                {/* Center the Final on the column midpoint (between the two semifinals)
+                    via a top spacer, then place the third-place playoff in-flow directly
+                    beneath it so the scroll box grows to include it (no cropping). */}
+                <div style={{ display: 'flex', flexDirection: 'column', minHeight: columnHeight }}>
+                  <div style={{ height: Math.max(0, (columnHeight - CARD_HEIGHT) / 2) }} />
+                  <BracketMatch
+                    match={col.matches[0] ?? null}
+                    onClick={col.matches[0] && onMatchClick ? () => onMatchClick(col.matches[0]) : undefined}
+                  />
+                  <div style={{ marginTop: 24, marginBottom: 24 }}>
+                    <div className="bracket-round-label" style={{ marginBottom: 8 }}>Third Place</div>
+                    {/* Render the playoff a touch smaller — it decides 3rd/4th, not the title. */}
+                    <div style={{ transform: 'scale(0.88)', transformOrigin: 'top center' }}>
+                      <BracketMatch
+                        match={thirdPlace}
+                        onClick={onMatchClick ? () => onMatchClick(thirdPlace) : undefined}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
-            ) : (
-              <div className="trophy-cell tbd">
-                <svg viewBox="0 0 24 24" fill="none" stroke="var(--brand-lime)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
-                  <path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>
-                  <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
-                  <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
-                </svg>
-                <div className="label">Champion</div>
-                <div className="winner-pending">Awaiting the final&hellip;</div>
-              </div>
+            )
+          }
+          return (
+            <BracketRound
+              key={col.round}
+              label={ROUND_LABEL[col.round]}
+              matches={col.matches}
+              slotCount={ROUND_SLOTS[col.round]}
+              columnHeight={columnHeight}
+              onMatchClick={onMatchClick}
+            />
+          )
+        })}
+
+        {/* Ranking column */}
+        <div className="bracket-round">
+          <div className="bracket-round-label">Ranking</div>
+          <div className="bracket-ranking" style={{ minHeight: columnHeight, justifyContent: 'center' }}>
+            <RankCard place={1} team={champion} pending="Awaiting the final…" />
+            <RankCard place={2} team={runnerUp} pending="Awaiting the final…" />
+            {thirdPlace && (
+              <RankCard place={3} team={thirdPlaceWinner} pending="Awaiting the playoff…" />
             )}
           </div>
         </div>

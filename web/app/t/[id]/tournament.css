@@ -660,6 +660,13 @@
 }
 @media (min-width: 1000px) { .standings-shell.multi { grid-template-columns: 1fr 1fr; } }
 
+/* Top scorers — horizontally scrollable on narrow screens */
+.scorers-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.scorers-table { min-width: 460px; }
+
 .standings-card {
   background: var(--ink-800);
   border: 1px solid var(--ink-700);
@@ -935,6 +942,65 @@
   text-transform: uppercase;
 }
 
+/* ----- Ranking column (Champion / Second / Third) ----- */
+.bracket-ranking {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.rank-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--ink-700);
+  border-radius: var(--radius-md);
+  background: var(--ink-900);
+}
+.rank-card.gold {
+  border-color: var(--brand-lime);
+  background:
+    radial-gradient(circle at center, rgba(30,120,240,0.16), transparent 65%),
+    var(--ink-900);
+}
+.rank-card.tbd { border-style: dashed; }
+.rank-medal { font-size: 24px; line-height: 1; flex-shrink: 0; }
+.rank-body { min-width: 0; flex: 1; }
+.rank-place {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-400);
+  margin-bottom: 4px;
+}
+.rank-team { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.rank-team .crest {
+  width: 20px; height: 20px;
+  border-radius: 999px;
+  background: var(--ink-600);
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 9px;
+  color: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.rank-team-name {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--ink-50);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.rank-card.gold .rank-team-name { color: var(--brand-lime); }
+.rank-pending {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--ink-500);
+}
+
 /* ========== TEAMS ROSTER ========== */
 .teams-grid {
   display: grid;
@@ -1195,6 +1261,13 @@
 /* Standings — single column, tighter table */
 @media (max-width: 720px) {
   .standings-shell { gap: 16px; }
+
+  /* Top scorers — a touch smaller so more fits before scrolling */
+  .scorers-table { min-width: 380px; }
+  .scorers-table th,
+  .scorers-table td { padding: 9px 12px !important; }
+  .scorers-table td:nth-child(2) { font-size: 13px !important; }
+  .scorers-table td:nth-child(4) { font-size: 13px !important; }
   .standings-card .head { padding: 16px 16px; }
   .standings-card .group-tag { font-size: 20px; }
   .standings-card .legend { font-size: 10px; }
