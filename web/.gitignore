@@ -54,3 +54,6 @@ visual-story-report.html
 
 # Tool-generated
 docs/superpowers/
+
+# Local DB backup dumps (do not commit data)
+backups/

@@ -25,14 +25,15 @@ async function fetchAll(table: string) {
 
 async function run() {
   console.log('Fetching all data…')
-  const [tournaments, teams, players, matches, goals, cards, scorekeepers] = await Promise.all([
+  const [tournaments, teams, players, matches, goals, cards, userRoles, auditLog] = await Promise.all([
     fetchAll('tournaments'),
     fetchAll('teams'),
     fetchAll('players'),
     fetchAll('matches'),
     fetchAll('goals'),
     fetchAll('cards'),
-    fetchAll('tournament_scorekeepers').catch(() => []), // optional table
+    fetchAll('user_roles').catch(() => []), // organizer/scorekeeper assignments
+    fetchAll('admin_audit_log').catch(() => []), // optional table
   ])
 
   const backup = {
@@ -44,9 +45,10 @@ async function run() {
       matches: matches.length,
       goals: goals.length,
       cards: cards.length,
-      scorekeepers: scorekeepers.length,
+      user_roles: userRoles.length,
+      admin_audit_log: auditLog.length,
     },
-    data: { tournaments, teams, players, matches, goals, cards, scorekeepers },
+    data: { tournaments, teams, players, matches, goals, cards, user_roles: userRoles, admin_audit_log: auditLog },
   }
 
   const outDir = resolve(__dirname, '../backups')
@@ -62,6 +64,8 @@ async function run() {
   console.log(`   Matches     : ${matches.length}`)
   console.log(`   Goals       : ${goals.length}`)
   console.log(`   Cards       : ${cards.length}`)
+  console.log(`   User roles  : ${userRoles.length}`)
+  console.log(`   Audit log   : ${auditLog.length}`)
 }
 
 run().catch((e) => { console.error(e); process.exit(1) })

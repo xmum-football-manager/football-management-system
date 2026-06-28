@@ -41,7 +41,7 @@ const FINISHED_START = '2026-06-15T09:00:00Z'
 async function wipeAll() {
   console.log('Wiping all tournament data…')
   // Delete in FK order — admin_audit_log references matches+tournaments, must go first
-  const tables = ['admin_audit_log', 'goals', 'cards', 'matches', 'players', 'tournament_scorekeepers', 'teams', 'tournaments']
+  const tables = ['admin_audit_log', 'goals', 'cards', 'matches', 'players', 'teams', 'tournaments']
   for (const t of tables) {
     const { error } = await sb.from(t).delete().neq('id', '00000000-0000-0000-0000-000000000000')
     if (error && !error.message.includes('does not exist')) {

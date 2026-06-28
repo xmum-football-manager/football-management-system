@@ -72,7 +72,6 @@ async function wipeExisting() {
     await sb.from('admin_audit_log').delete().eq('tournament_id', tid)
     await sb.from('matches').delete().eq('tournament_id', tid)
     if (teamIds.length) await sb.from('players').delete().in('team_id', teamIds)
-    await sb.from('tournament_scorekeepers').delete().eq('tournament_id', tid)
     await sb.from('teams').delete().eq('tournament_id', tid)
     await sb.from('tournaments').delete().eq('id', tid)
   }

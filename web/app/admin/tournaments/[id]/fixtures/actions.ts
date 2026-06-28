@@ -20,6 +20,7 @@ import { getTournament, updateKnockoutQualifiers } from '@/lib/db/tournaments'
 import { generateRoundRobin } from '@/lib/round-robin'
 import { groupStageComplete, expectedBracketSize, validatePairingEdit, computeGroupStandings, validateQualifierSelection } from '@/lib/qualifiers'
 import { canRegenerateFixtures } from '@/lib/lock-rules'
+import { knockoutWinnerTeamId } from '@/lib/match-lifecycle'
 import { createServiceClient } from '@/lib/supabase/server'
 import { malaysiaDate, malaysiaInputToISO } from '@/lib/tz'
 
@@ -382,6 +383,7 @@ export async function createManualKnockoutAction(
   tournamentId: string,
   pairings: Array<{ home_team_id: string; away_team_id: string; match_time: string | null }>,
   laterRoundTimes: Array<Array<string | null>>,  // laterRoundTimes[r][i] = ISO time for later round r, match i
+  thirdPlaceTime: string | null = null,  // ISO time for an optional third-place playoff (semifinal losers)
 ): Promise<{ created: number } | { error: string }> {
   try {
     await ensureOrganizer(tournamentId)
@@ -431,8 +433,10 @@ export async function createManualKnockoutAction(
       created++
     }
 
-    // Insert later rounds
+    // Insert later rounds. Track the two matches that feed the final (the
+    // semifinals) so an optional third-place playoff can be wired to their losers.
     let prevIds = round0Ids
+    let semifinalIds: string[] | null = round0Ids.length === 2 ? round0Ids : null
     for (let ri = 0; ri < laterRoundTimes.length; ri++) {
       const times = laterRoundTimes[ri]
       round = nextKoRound(round)
@@ -455,7 +459,27 @@ export async function createManualKnockoutAction(
         newIds.push(r.id)
         created++
       }
+      // The round that feeds the final (the single-match round) has exactly two
+      // source matches — those are the semifinals.
+      if (times.length === 1 && prevIds.length === 2) semifinalIds = prevIds
       prevIds = newIds
+    }
+
+    // Optional third-place playoff: a knockout match fed by the LOSERS of the
+    // two semifinals. Only meaningful when the bracket actually has semifinals.
+    if (thirdPlaceTime && semifinalIds && semifinalIds.length === 2) {
+      const r = await createMatch({
+        tournament_id: tournamentId,
+        home_team_id: null,
+        away_team_id: null,
+        match_time: thirdPlaceTime,
+        phase: 'knockout',
+        knockout_round: 'third',
+        home_loser_source_match_id: semifinalIds[0],
+        away_loser_source_match_id: semifinalIds[1],
+      })
+      if ('error' in r) return { error: r.error }
+      created++
     }
 
     revalidatePath(`/admin/tournaments/${tournamentId}/fixtures`)
@@ -485,6 +509,67 @@ export async function resetKnockoutAction(
     revalidatePath(`/admin/tournaments/${tournamentId}`)
     revalidatePath(`/t/${tournamentId}`)
     return { deleted: data ?? 0 }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed.' }
+  }
+}
+
+/**
+ * Add a third-place playoff to an EXISTING bracket. The playoff is a knockout
+ * match fed by the LOSERS of the two semifinals (the matches that feed the
+ * final). If a semifinal has already finished, its loser is filled in
+ * immediately (the advance trigger only fires on future semifinal updates).
+ */
+export async function addThirdPlaceMatchAction(
+  tournamentId: string,
+  matchTime: string | null,
+): Promise<{ ok: true } | { error: string }> {
+  try {
+    await ensureOrganizer(tournamentId)
+    const tournament = await getTournament(tournamentId)
+    if (!tournament) return { error: 'Tournament not found.' }
+
+    const matches = await listMatches(tournamentId)
+    const knockout = matches.filter((m) => m.phase === 'knockout')
+    if (knockout.length === 0) return { error: 'No knockout bracket exists yet.' }
+    if (knockout.some((m) => m.knockout_round === 'third')) {
+      return { error: 'A third-place match already exists.' }
+    }
+
+    const final = knockout.find((m) => m.knockout_round === 'final')
+    if (!final) return { error: 'No final match found — cannot identify the semifinals.' }
+    const sf1Id = final.home_source_match_id
+    const sf2Id = final.away_source_match_id
+    if (!sf1Id || !sf2Id) {
+      return { error: 'The final has no recorded semifinals to draw losers from.' }
+    }
+
+    // Pre-fill losers for any semifinal that has already finished.
+    const loserOf = (sfId: string): string | null => {
+      const sf = knockout.find((m) => m.id === sfId)
+      if (!sf || sf.status !== 'finished') return null
+      const winnerId = knockoutWinnerTeamId(sf)
+      if (!winnerId || !sf.home_team_id || !sf.away_team_id) return null
+      return winnerId === sf.home_team_id ? sf.away_team_id : sf.home_team_id
+    }
+
+    const r = await createMatch({
+      tournament_id: tournamentId,
+      home_team_id: loserOf(sf1Id),
+      away_team_id: loserOf(sf2Id),
+      match_time: matchTime,
+      phase: 'knockout',
+      knockout_round: 'third',
+      home_loser_source_match_id: sf1Id,
+      away_loser_source_match_id: sf2Id,
+    })
+    if ('error' in r) return { error: r.error }
+
+    revalidatePath(`/admin/tournaments/${tournamentId}/fixtures`)
+    revalidatePath(`/admin/tournaments/${tournamentId}/knockout`)
+    revalidatePath(`/admin/tournaments/${tournamentId}`)
+    revalidatePath(`/t/${tournamentId}`)
+    return { ok: true }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed.' }
   }

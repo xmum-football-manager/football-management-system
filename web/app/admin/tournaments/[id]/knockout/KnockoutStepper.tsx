@@ -2,13 +2,15 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, Lock, RotateCcw, Loader2 } from 'lucide-react'
+import { Check, Lock, RotateCcw, Loader2, Medal } from 'lucide-react'
 import { toast } from 'sonner'
 import { QualifiersStep } from './QualifiersStep'
-import { BracketSetupView } from './BracketSetupView'
+import { BracketSetupView, buildDayOptions, TIME_OPTIONS } from './BracketSetupView'
 import { AdminBracketView } from '@/components/admin/AdminBracketView'
 import { RescheduleDialog } from '@/components/admin/MatchViews'
-import { resetKnockoutAction, updateFirstRoundPairingAction } from '../fixtures/actions'
+import { resetKnockoutAction, updateFirstRoundPairingAction, addThirdPlaceMatchAction } from '../fixtures/actions'
+import { Button } from '@/components/ui/button'
+import { malaysiaInputToISO } from '@/lib/tz'
 import { canResetBracket } from '@/lib/lock-rules'
 import type { MatchWithTeams } from '@/lib/supabase/types'
 import type { TeamStanding } from '@/lib/qualifiers'
@@ -47,9 +49,16 @@ export function KnockoutStepper({
   const [isResetting, startReset] = useTransition()
   const [reschedule, setReschedule] = useState<MatchWithTeams | null>(null)
   const [editPairing, setEditPairing] = useState<MatchWithTeams | null>(null)
+  const [addingThird, setAddingThird] = useState(false)
   const qualifiersDone = (savedQualifiers?.length ?? 0) > 0
   const bracketExists = knockoutMatches.length > 0
   const canReset = canResetBracket(knockoutMatches)
+  // A third-place playoff can be added to an existing bracket that has a final
+  // (so the semifinals are identifiable) and doesn't already have one.
+  const canAddThird =
+    canEdit &&
+    knockoutMatches.some((m) => m.knockout_round === 'final') &&
+    !knockoutMatches.some((m) => m.knockout_round === 'third')
 
   const initialStep: Step = qualifiersDone ? 'bracket' : 'qualifiers'
   const [activeStep, setActiveStep] = useState<Step>(initialStep)
@@ -103,6 +112,16 @@ export function KnockoutStepper({
           </div>
           {canEdit && (
             <div className="flex items-center gap-2">
+              {canAddThird && (
+                <button
+                  onClick={() => setAddingThird(true)}
+                  className="flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium transition-colors hover:bg-accent"
+                  style={{ color: 'var(--muted-foreground)' }}
+                >
+                  <Medal className="h-3 w-3" />
+                  Add third-place match
+                </button>
+              )}
               <button
                 onClick={handleReset}
                 disabled={isResetting || !canReset}
@@ -120,7 +139,12 @@ export function KnockoutStepper({
           matches={knockoutMatches}
           bracketTeamCount={qualifiedTeams.length}
           onMatchClick={canEdit ? (m) => {
-            const isFirstRound = m.home_source_match_id === null && m.away_source_match_id === null
+            // The third-place playoff has its teams fed by semifinal losers, not
+            // a manual first-round pairing — only reschedule it.
+            const isFirstRound =
+              m.knockout_round !== 'third' &&
+              m.home_source_match_id === null &&
+              m.away_source_match_id === null
             if (isFirstRound) setEditPairing(m)
             else setReschedule(m)
           } : undefined}
@@ -142,6 +166,15 @@ export function KnockoutStepper({
             tournamentId={tournamentId}
             onClose={() => setEditPairing(null)}
             onSaved={() => { setEditPairing(null); router.refresh() }}
+          />
+        )}
+        {addingThird && (
+          <AddThirdPlaceDialog
+            tournamentId={tournamentId}
+            tournamentStart={tournamentStart}
+            tournamentEnd={tournamentEnd}
+            onClose={() => setAddingThird(false)}
+            onAdded={() => { setAddingThird(false); router.refresh() }}
           />
         )}
       </div>
@@ -316,6 +349,109 @@ function EditPairingDialog({ match, qualifiedTeams, tournamentId, onClose, onSav
             {isPending && <Loader2 className="inline mr-1 h-3 w-3 animate-spin" />}
             Save
           </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AddThirdPlaceDialog({
+  tournamentId,
+  tournamentStart,
+  tournamentEnd,
+  onClose,
+  onAdded,
+}: {
+  tournamentId: string
+  tournamentStart: string
+  tournamentEnd: string
+  onClose: () => void
+  onAdded: () => void
+}) {
+  const [date, setDate] = useState('')
+  const [time, setTime] = useState('')
+  const [isPending, startTransition] = useTransition()
+
+  const dayOptions = buildDayOptions(tournamentStart, tournamentEnd)
+  const matchTime = date && time ? `${date}T${time}` : ''
+
+  const inputStyle = {
+    border: '1px solid var(--admin-rule)',
+    background: 'var(--admin-surface-2)',
+    color: 'var(--foreground)',
+    outline: 'none',
+  }
+
+  function handleAdd() {
+    startTransition(async () => {
+      const r = await addThirdPlaceMatchAction(
+        tournamentId,
+        matchTime ? malaysiaInputToISO(matchTime) : null,
+      )
+      if ('error' in r) toast.error(r.error)
+      else { toast.success('Third-place match added.'); onAdded() }
+    })
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.5)' }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div
+        className="rounded-xl p-6 space-y-4"
+        style={{ background: 'var(--card)', border: '1px solid var(--admin-rule)', minWidth: 320 }}
+      >
+        <div className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
+          Add Third-Place Match
+        </div>
+        <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
+          A playoff between the two semifinal losers. They fill in automatically as
+          the semifinals finish.
+        </p>
+        <div>
+          <label className="text-xs mb-1 block" style={{ color: 'var(--muted-foreground)' }}>
+            Kickoff time
+          </label>
+          <div className="flex gap-2">
+            <select
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="flex-1 rounded text-xs px-2 py-1.5"
+              style={inputStyle}
+            >
+              <option value="">Day…</option>
+              {dayOptions.map((opt) => (
+                <option key={opt.date} value={opt.date}>{opt.label}</option>
+              ))}
+            </select>
+            <select
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+              className="w-24 rounded text-xs px-2 py-1.5"
+              style={inputStyle}
+            >
+              <option value="">Time…</option>
+              {TIME_OPTIONS.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded px-3 py-1.5 text-xs"
+            style={{ color: 'var(--muted-foreground)', border: '1px solid var(--admin-rule)' }}
+          >
+            Cancel
+          </button>
+          <Button onClick={handleAdd} disabled={!matchTime || isPending}>
+            {isPending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+            Add match
+          </Button>
         </div>
       </div>
     </div>

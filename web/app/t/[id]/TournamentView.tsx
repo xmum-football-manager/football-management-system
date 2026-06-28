@@ -648,7 +648,8 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
             />
             <Reveal>
               <div className="standings-shell">
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <div className="scorers-scroll">
+                <table className="scorers-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
                       <th style={{ padding: '12px 16px', textAlign: 'left', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink-400)', borderBottom: '1px solid var(--ink-700)' }}>#</th>
@@ -668,6 +669,7 @@ export function TournamentView({ tournament, initialMatches, initialStandings, i
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             </Reveal>
           </div>

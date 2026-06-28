@@ -14,7 +14,7 @@ import type { MatchWithTeams, MatchStatus, Player, Goal, Card, Team } from '@/li
 // public per-match link. Both pass the same action contract — the panel never
 // knows whether it's talking to the token endpoints or the authed ones.
 export interface ScoreActions {
-  recordGoal(teamId: string, playerId: string): Promise<{ home_score: number; away_score: number } | { error: string }>
+  recordGoal(teamId: string, playerId: string | null): Promise<{ home_score: number; away_score: number } | { error: string }>
   deleteGoal(goalId: string): Promise<{ home_score: number; away_score: number } | { error: string }>
   addCard(playerId: string, cardType: 'yellow' | 'red'): Promise<{ autoRed?: boolean } | { error: string }>
   removeCard(cardId: string): Promise<{ ok: true } | { error: string }>
@@ -170,7 +170,7 @@ function SheetRow({ onClick, disabled, children, danger }: {
 function GoalTracker({ team, players, goals }: { team: Team; players: Player[]; goals: Goal[] }) {
   const teamGoals = goals.filter((g) => g.team_id === team.id)
   const nameOf = (id: string | null) =>
-    !id ? 'No scorer' : players.find((p) => p.id === id)?.name ?? 'Unknown'
+    !id ? 'Own Goal' : players.find((p) => p.id === id)?.name ?? 'Unknown'
   return (
     <div>
       <p className="mb-2 truncate text-base font-bold text-slate-900">{team.name}</p>
@@ -353,7 +353,7 @@ export function ScorePanel({
     setTimeout(() => setPop(null), 300)
   }
 
-  async function recordGoal(side: Side, playerId: string) {
+  async function recordGoal(side: Side, playerId: string | null) {
     setPicker(null); setBusy(true)
     const r = await actions.recordGoal(teamIdFor(side), playerId)
     setBusy(false)
@@ -702,11 +702,17 @@ export function ScorePanel({
 
 // Player list for a goal pick.
 function PlayerList({ players, onPick, disabled }: {
-  players: Player[]; onPick: (playerId: string) => void; disabled?: boolean
+  players: Player[]; onPick: (playerId: string | null) => void; disabled?: boolean
 }) {
   if (players.length === 0) return <p className="text-base text-slate-500">No players found for this team.</p>
   return (
     <div className="flex-1 space-y-2 overflow-y-auto">
+      <SheetRow disabled={disabled} onClick={() => onPick(null)}>
+        <span className="flex items-center gap-3">
+          <span className="w-7 shrink-0 text-right font-bold tabular-nums text-slate-400">OG</span>
+          <span className="truncate text-slate-500">Own Goal</span>
+        </span>
+      </SheetRow>
       {players.map((p) => (
         <SheetRow key={p.id} disabled={disabled} onClick={() => onPick(p.id)}>
           <span className="flex items-center gap-3">
