@@ -8,9 +8,11 @@ import { isAdmin } from '@/lib/db/roles'
 import { canAddFixture } from '@/lib/lock-rules'
 import { shouldShowKnockoutCTA } from '@/lib/overview-utils'
 import { phaseSchedulingStatus } from '@/lib/phase-schedule-guard'
+import { listPlayerCardCountsByTournament } from '@/lib/db/cards'
 import { MatchViews } from '@/components/admin/MatchViews'
 import { MatchDayCard } from './MatchDayCard'
 import { UpNextRow } from './UpNextRow'
+import { PlayerCardsTable } from './PlayerCardsTable'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -23,7 +25,11 @@ export default async function OverviewPage({ params }: Props) {
   if (!tournament) return null
   const admin = await isAdmin(user.id)
 
-  const [matches, teams] = await Promise.all([listMatches(id), listTeams(id)])
+  const [matches, teams, playerCards] = await Promise.all([
+    listMatches(id),
+    listTeams(id),
+    listPlayerCardCountsByTournament(id).catch(() => []),
+  ])
 
   const played = matches.filter((m) => m.status === 'finished').length
   const liveMatch = matches.find((m) => m.status === 'live' || m.status === 'halftime') ?? null
@@ -108,6 +114,8 @@ export default async function OverviewPage({ params }: Props) {
           tournamentEnd={tournament.end_date}
         />
       </div>
+
+      <PlayerCardsTable rows={playerCards} />
     </div>
   )
 }

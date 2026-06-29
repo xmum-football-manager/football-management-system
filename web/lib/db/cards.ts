@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import type { Card, TeamCardCount } from '@/lib/supabase/types'
+import type { Card, TeamCardCount, PlayerCardCount } from '@/lib/supabase/types'
 
 export type { Card }
 
@@ -59,4 +59,52 @@ export async function listTeamCardCountsByTournament(tournamentId: string): Prom
     .eq('teams.tournament_id', tournamentId)
   if (error) throw error
   return (data ?? []) as TeamCardCount[]
+}
+
+/**
+ * Per-player yellow/red totals across every match in a tournament. Aggregated
+ * in app code from the raw cards table (joined to players + teams) so no extra
+ * DB view is required. Players with no cards are omitted.
+ */
+export async function listPlayerCardCountsByTournament(
+  tournamentId: string,
+): Promise<PlayerCardCount[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('cards')
+    .select('player_id, card_type, players!inner(name), teams!inner(id, name, tournament_id)')
+    .eq('teams.tournament_id', tournamentId)
+  if (error) throw error
+
+  type Row = {
+    player_id: string
+    card_type: 'yellow' | 'red'
+    players: { name: string } | null
+    teams: { id: string; name: string } | null
+  }
+
+  const byPlayer = new Map<string, PlayerCardCount>()
+  for (const r of (data ?? []) as unknown as Row[]) {
+    let entry = byPlayer.get(r.player_id)
+    if (!entry) {
+      entry = {
+        player_id: r.player_id,
+        player_name: r.players?.name ?? 'Unknown',
+        team_id: r.teams?.id ?? '',
+        team_name: r.teams?.name ?? '',
+        yellow: 0,
+        red: 0,
+      }
+      byPlayer.set(r.player_id, entry)
+    }
+    if (r.card_type === 'yellow') entry.yellow += 1
+    else if (r.card_type === 'red') entry.red += 1
+  }
+
+  return [...byPlayer.values()].sort(
+    (a, b) =>
+      b.red - a.red ||
+      b.yellow - a.yellow ||
+      a.player_name.localeCompare(b.player_name),
+  )
 }

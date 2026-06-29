@@ -116,6 +116,15 @@ export interface TeamCardCount {
   red: number
 }
 
+export interface PlayerCardCount {
+  player_id: string
+  player_name: string
+  team_id: string
+  team_name: string
+  yellow: number
+  red: number
+}
+
 export interface UserRole {
   id: string
   user_id: string
